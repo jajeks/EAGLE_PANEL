@@ -883,7 +883,8 @@ async def parse_vless_header(chunk: bytes):
     addon_len = chunk[pos]
     pos += 1 + addon_len
     command = chunk[pos]
-    pos += 1    port = int.from_bytes(chunk[pos:pos+2], "big")
+    pos += 1
+    port = int.from_bytes(chunk[pos:pos+2], "big")
     pos += 2
     addr_type = chunk[pos]
     pos += 1
@@ -1075,21 +1076,203 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await remove_device_connection(uuid, client_ip)
         logger.info(f"🔌 WS closed [{conn_id}] total={len(connections)}")
 
-# ─── Subscriptions (با تشخیص کلاینت/مرورگر) ─────────────────────────────
+# ─── ===== تابع صفحه ساب (داخل خود main.py) ===== ──────────────────────
+
+def get_sub_page_html(uuid: str, link: dict) -> str:
+    """صفحه HTML زیبا برای نمایش اطلاعات کانفیگ"""
+    used = link.get('used_bytes', 0)
+    limit = link.get('limit_bytes', 0)
+    active = link.get('active', True)
+    expired = link.get('expired', False)
+    label = link.get('label', 'کاربر')
+    fingerprint = link.get('fingerprint', 'chrome')
+    max_devices = link.get('max_devices', 0)
+    protocol = link.get('protocol', 'vless-ws')
+    port = link.get('port', 443)
+    active_connections = link.get('active_connections', 0)
+    active_connections_list = link.get('active_connections_list', [])
+    last_connected = link.get('last_connected_at')
+    last_connected_text = "—"
+    if last_connected:
+        try:
+            dt = datetime.fromisoformat(last_connected)
+            last_connected_text = dt.strftime("%Y-%m-%d %H:%M")
+        except:
+            last_connected_text = last_connected[:16]
+    
+    percent = 0
+    if limit > 0:
+        percent = min(100, (used / limit) * 100)
+    
+    expires_at = link.get('expires_at')
+    if expires_at:
+        try:
+            exp_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
+            days_left = (exp_date - datetime.now().astimezone()).days
+            if days_left < 0:
+                days_left = 0
+        except:
+            days_left = 'نامشخص'
+    else:
+        days_left = 'نامحدود'
+    
+    is_allowed = active and not expired
+    sub_url = link.get('sub_url', '')
+    
+    def fmt_bytes_local(b):
+        if not b or b == 0:
+            return '0 B'
+        if b < 1024:
+            return f'{b} B'
+        if b < 1024**2:
+            return f'{b/1024:.1f} KB'
+        if b < 1024**3:
+            return f'{b/1024**2:.2f} MB'
+        if b < 1024**4:
+            return f'{b/1024**3:.2f} GB'
+        return f'{b/1024**4:.2f} TB'
+    
+    used_fmt = fmt_bytes_local(used)
+    limit_fmt = 'نامحدود' if limit == 0 else fmt_bytes_local(limit)
+    
+    host = get_host()
+    remark = f"عقاب-{label}"
+    new_vless_link = generate_vless_link(uuid, host, remark=remark, protocol=protocol, fingerprint=fingerprint, port=port)
+    
+    conns_html = ""
+    if active_connections > 0:
+        conns_html = f"""
+        <div style="background:rgba(100,80,255,0.02);border:1px solid rgba(100,80,255,0.04);border-radius:10px;padding:8px 10px;margin:8px 0">
+            <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px;font-size:9px;color:#8888BB">
+                <span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:#34D399;animation:pulse 1.5s infinite"></span>
+                <span style="font-weight:700;color:#34D399;font-size:9px">{active_connections} دستگاه متصل</span>
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:3px">"""
+        for conn in active_connections_list[:10]:
+            ip = conn.get('ip', 'نامشخص')
+            conns_html += f"""<span style="font-family:monospace;font-size:8px;background:rgba(100,80,255,0.04);border:1px solid rgba(100,80,255,0.04);padding:1px 6px;border-radius:3px;color:#8888BB">🔵 {ip}</span>"""
+        if len(active_connections_list) > 10:
+            conns_html += f"""<span style="font-family:monospace;font-size:8px;background:rgba(100,80,255,0.02);padding:1px 6px;border-radius:3px;color:#555577">+{len(active_connections_list)-10}</span>"""
+        conns_html += "</div></div>"
+    else:
+        conns_html = f"""<div style="background:rgba(100,80,255,0.02);border:1px solid rgba(100,80,255,0.04);border-radius:10px;padding:6px 10px;margin:8px 0;text-align:center"><span style="font-size:9px;color:#555577">🔴 بدون اتصال فعال</span></div>"""
+    
+    return f"""<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>🪐 {label}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*{{margin:0;padding:0;box-sizing:border-box}}@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.25}}}}
+body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;color:#F0EEFF;background:linear-gradient(135deg,#0a0a1a,#1a0a2a,#0a0a2a);}}
+.stars-sub{{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}}
+.star-sub{{position:absolute;border-radius:50%;background:#fff;animation:twinkleSub 4s ease-in-out infinite}}
+@keyframes twinkleSub{{0%,100%{{opacity:0.1}}50%{{opacity:0.4}}}}
+.glow-sub{{position:fixed;border-radius:50%;filter:blur(150px);z-index:0;pointer-events:none}}
+.glow-sub1{{width:350px;height:350px;background:rgba(100,80,255,0.04);top:-120px;right:-60px;animation:glowFloat2 7s ease-in-out infinite}}
+.glow-sub2{{width:250px;height:250px;background:rgba(167,139,250,0.03);bottom:-60px;left:-40px;animation-delay:2s;animation:glowFloat2 9s ease-in-out infinite reverse}}
+@keyframes glowFloat2{{0%,100%{{transform:translate(0,0) scale(1)}}50%{{transform:translate(20px,-20px) scale(1.05)}}}}
+.card{{position:relative;z-index:10;background:rgba(10,10,30,0.8);backdrop-filter:blur(30px);border:1px solid rgba(100,80,255,0.06);border-radius:20px;padding:24px 22px 20px;max-width:420px;width:100%;box-shadow:0 0 60px rgba(0,0,0,0.4),0 0 80px rgba(100,80,255,0.02);animation:cardIn 0.6s ease;}}
+@keyframes cardIn{{from{{opacity:0;transform:translateY(20px) scale(0.97)}}to{{opacity:1;transform:translateY(0) scale(1)}}}}
+.brand{{display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid rgba(100,80,255,0.04);}}
+.brand-icon{{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7C6BFF,#5B4BD9,#A78BFA);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;box-shadow:0 0 30px rgba(100,80,255,0.1);}}
+.brand-text .name{{font-size:13px;font-weight:800;background:linear-gradient(135deg,#A78BFA,#7C6BFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}
+.brand-text .sub{{font-size:7px;color:#555577;margin-top:0px}}
+.user-header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:2px}}
+.user-name{{font-size:17px;font-weight:800;color:#F0EEFF;display:flex;align-items:center;gap:4px}}
+.user-name .fire{{font-size:15px}}
+.status{{display:inline-flex;align-items:center;gap:3px;padding:2px 10px;border-radius:12px;font-size:9px;font-weight:700;}}
+.status.active{{background:rgba(100,80,255,0.12);color:#A78BFA;border:1px solid rgba(100,80,255,0.08);}}
+.status.inactive{{background:rgba(239,68,68,0.12);color:#F87171;border:1px solid rgba(239,68,68,0.08);}}
+.uuid-box{{background:rgba(100,80,255,0.02);border:1px solid rgba(100,80,255,0.04);border-radius:6px;padding:4px 8px;font-size:8px;font-family:monospace;color:#555577;word-break:break-all;margin:3px 0 8px;cursor:pointer;transition:.3s}}
+.uuid-box:hover{{background:rgba(100,80,255,0.04);transform:scale(1.01)}}
+.info-grid{{display:grid;gap:5px;margin:8px 0}}
+.info-item{{background:rgba(100,80,255,0.02);border:1px solid rgba(100,80,255,0.02);border-radius:6px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;transition:.3s}}
+.info-item:hover{{background:rgba(100,80,255,0.04)}}
+.info-label{{font-size:9px;color:#8888BB;display:flex;align-items:center;gap:3px}}
+.info-label i{{font-size:10px;color:#7C6BFF}}
+.info-value{{font-size:11px;font-weight:700;color:#F0EEFF}}
+.info-value.used{{color:#A78BFA}}
+.info-value.proto{{font-size:8px;background:rgba(100,80,255,0.05);padding:1px 6px;border-radius:4px;border:1px solid rgba(100,80,255,0.04);}}
+.progress{{margin:8px 0 10px}}
+.progress-bar{{height:3px;border-radius:3px;background:rgba(100,80,255,0.04);overflow:hidden}}
+.progress-fill{{height:100%;border-radius:3px;background:linear-gradient(90deg,#7C6BFF,#5B4BD9,#A78BFA);width:{percent:.1f}%;transition:width 1s ease}}
+.progress-text{{display:flex;justify-content:space-between;font-size:8px;color:#8888BB;margin-top:2px}}
+.progress-text .pct{{font-weight:700;color:#F0EEFF}}
+.vless-section{{background:rgba(100,80,255,0.02);border:1px solid rgba(100,80,255,0.03);border-radius:8px;padding:8px 10px;margin:8px 0}}
+.vless-label{{font-size:7px;color:#8888BB;font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:4px;margin-bottom:4px}}
+.vless-label i{{color:#7C6BFF;font-size:10px}}
+.vless-link{{font-family:monospace;font-size:8px;color:#A78BFA;word-break:break-all;line-height:1.5;background:rgba(0,0,0,0.2);padding:4px 6px;border-radius:4px;border:1px solid rgba(100,80,255,0.02);}}
+.actions{{display:flex;gap:4px;margin-top:8px;flex-wrap:wrap}}
+.btn{{font-family:inherit;font-size:9px;font-weight:600;border-radius:6px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;border:none;transition:all .3s;white-space:nowrap;flex:1;justify-content:center}}
+.btn i{{font-size:11px}}
+.btn-primary{{background:linear-gradient(135deg,#7C6BFF,#5B4BD9);color:#fff;box-shadow:0 3px 15px rgba(100,80,255,0.15)}}
+.btn-primary:hover{{transform:translateY(-2px);box-shadow:0 6px 25px rgba(100,80,255,0.25)}}
+.btn-secondary{{background:rgba(100,80,255,0.03);border:1px solid rgba(100,80,255,0.04);color:#8888BB}}
+.btn-secondary:hover{{background:rgba(100,80,255,0.06);color:#F0EEFF;transform:translateY(-2px)}}
+.btn-success{{background:rgba(16,185,129,0.06);border:1px solid rgba(16,185,129,0.08);color:#34D399}}
+.btn-success:hover{{background:rgba(16,185,129,0.1);transform:translateY(-2px)}}
+.footer{{margin-top:12px;padding-top:10px;border-top:1px solid rgba(100,80,255,0.02);text-align:center;font-size:7px;color:#555577}}
+.footer .eagle{{color:#7C6BFF;font-weight:700}}
+.toast{{position:fixed;bottom:16px;left:50%;transform:translateX(-50%) translateY(40px);background:rgba(10,10,30,0.9);backdrop-filter:blur(20px);border:1px solid rgba(100,80,255,0.08);color:#F0EEFF;border-radius:8px;padding:6px 14px;font-size:10px;opacity:0;transition:all .4s;z-index:999;pointer-events:none;display:flex;align-items:center;gap:4px;box-shadow:0 8px 30px rgba(0,0,0,0.3)}}
+.toast.show{{opacity:1;transform:translateX(-50%) translateY(0)}}
+.toast.ok{{border-color:rgba(16,185,129,0.15);color:#34D399}}
+@media(max-width:400px){{.card{{padding:16px 14px 14px}}.user-name{{font-size:15px}}.brand-icon{{width:30px;height:30px;font-size:14px}}.info-item{{padding:4px 8px}}.btn{{font-size:8px;padding:4px 8px}}}}
+</style>
+</head>
+<body>
+<div class="stars-sub">
+    <div class="star-sub" style="width:2px;height:2px;top:10%;left:10%;animation-delay:0s"></div>
+    <div class="star-sub" style="width:3px;height:3px;top:30%;left:40%;animation-delay:1.5s"></div>
+    <div class="star-sub" style="width:1px;height:1px;top:50%;left:70%;animation-delay:0.8s"></div>
+    <div class="star-sub" style="width:2px;height:2px;top:70%;left:20%;animation-delay:2.2s"></div>
+    <div class="star-sub" style="width:3px;height:3px;top:85%;left:80%;animation-delay:0.5s"></div>
+</div>
+<div class="glow-sub glow-sub1"></div><div class="glow-sub glow-sub2"></div>
+<div class="toast" id="toast"></div>
+<div class="card">
+    <div class="brand"><div class="brand-icon">🪐</div><div class="brand-text"><div class="name">پنل عقاب</div><div class="sub">اطلاعات اشتراک</div></div></div>
+    <div class="user-header"><div class="user-name"><span class="fire">🪐</span> {label}</div><span class="status {'active' if is_allowed else 'inactive'}"><i class="ti {'ti-circle-check' if is_allowed else 'ti-circle-x'}"></i>{'فعال' if is_allowed else 'غیرفعال'}</span></div>
+    <div class="uuid-box" onclick="copyUUID()">🔑 {uuid}</div>
+    {conns_html}
+    <div class="info-grid">
+        <div class="info-item"><span class="info-label"><i class="ti ti-database"></i> مصرف</span><span class="info-value used">{used_fmt}</span></div>
+        <div class="info-item"><span class="info-label"><i class="ti ti-package"></i> سهمیه</span><span class="info-value">{limit_fmt}</span></div>
+        <div class="info-item"><span class="info-label"><i class="ti ti-calendar"></i> باقیمانده</span><span class="info-value">{days_left if days_left == 'نامحدود' else f'{days_left} روز'}</span></div>
+        <div class="info-item"><span class="info-label"><i class="ti ti-devices"></i> دستگاه</span><span class="info-value">{max_devices if max_devices > 0 else '∞'}</span></div>
+        <div class="info-item"><span class="info-label"><i class="ti ti-clock"></i> آخرین اتصال</span><span class="info-value" style="font-size:9px;">{last_connected_text}</span></div>
+        <div class="info-item"><span class="info-label"><i class="ti ti-fingerprint"></i> FP</span><span class="info-value proto">{fingerprint}</span></div>
+        <div class="info-item"><span class="info-label"><i class="ti ti-settings"></i> پروتکل</span><span class="info-value proto">{protocol}</span></div>
+        <div class="info-item"><span class="info-label"><i class="ti ti-plug"></i> پورت</span><span class="info-value proto">{port}</span></div>
+    </div>
+    <div class="progress"><div class="progress-bar"><div class="progress-fill" style="width:{percent:.1f}%"></div></div><div class="progress-text"><span>میزان مصرف</span><span class="pct">{percent:.1f}%</span></div></div>
+    <div class="vless-section"><div class="vless-label"><i class="ti ti-link"></i> لینک کانفیگ</div><div class="vless-link" id="vless-link">{new_vless_link}</div></div>
+    <div class="actions"><button class="btn btn-primary" onclick="copyVless()"><i class="ti ti-copy"></i> کپی</button><button class="btn btn-success" onclick="copySub()"><i class="ti ti-link"></i> ساب</button><button class="btn btn-secondary" onclick="showQR()"><i class="ti ti-qrcode"></i> QR</button></div>
+    <div class="footer"><span class="eagle">🪐</span> پنل عقاب</div>
+</div>
+<script>
+const vless=`{new_vless_link}`;
+const subUrl=`{sub_url}`;
+const uuid=`{uuid}`;
+function toast(msg,type=''){{const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(type?' '+type:'');setTimeout(()=>t.classList.remove('show'),2000);}}
+function copyVless(){{navigator.clipboard.writeText(vless).then(()=>toast('✅ کپی شد','ok'));}}
+function copySub(){{navigator.clipboard.writeText(subUrl).then(()=>toast('✅ کپی شد','ok'));}}
+function copyUUID(){{navigator.clipboard.writeText(uuid).then(()=>toast('✅ کپی شد','ok'));}}
+function showQR(){{window.open('https://api.qrserver.com/v1/create-qr-code/?size=250x250&data='+encodeURIComponent(vless),'_blank');}}
+</script>
+</body></html>"""
+
+# ─── Subscriptions ─────────────────────────────────────────────────────────
 
 @app.get("/sub/{uuid}")
 async def subscription_single(request: Request, uuid: str):
-    """
-    اگر با کلاینت (V2RayNG, Nekobox, Hiddify) باز بشه → کانفیگ دانلود میشه
-    اگر با مرورگر باز بشه → صفحه اطلاعات زیبا نشون داده میشه
-    """
     import base64
     
     # تشخیص User-Agent
     user_agent = request.headers.get("user-agent", "").lower()
     is_browser = any(b in user_agent for b in [
         "chrome", "firefox", "safari", "edge", "opera", "brave",
-        "msie", "trident", "android.*webkit", "iphone.*safari"
+        "msie", "trident"
     ])
     
     async with LINKS_LOCK:
@@ -1125,7 +1308,6 @@ async def subscription_single(request: Request, uuid: str):
         else:
             raise HTTPException(status_code=404, detail="user not found")
     
-    # اگر کاربر غیرفعال یا منقضی شده باشه
     if not is_link_allowed(link):
         if is_browser:
             return HTMLResponse("""
@@ -1189,8 +1371,6 @@ async def subscription_single(request: Request, uuid: str):
         )
     
     # ===== اگر مرورگر باشد → صفحه اطلاعات زیبا =====
-    from pages import get_sub_page_html
-    
     active_connections_list = []
     for c in connections.values():
         if c.get("uuid") == uuid:
@@ -1347,7 +1527,151 @@ async def public_sub_data(uuid_key: str, request: Request):
 
 # ─── HTML Pages ─────────────────────────────────────────────────────────────
 
-from pages import LOGIN_HTML, DASHBOARD_HTML
+# صفحه لاگین (ساده شده)
+LOGIN_HTML = r"""<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🪐 ورود · پنل عقاب</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a1a;--card:rgba(10,10,30,0.75);--card-b:rgba(100,80,255,0.12);--accent:#7C6BFF;--t1:#F0EEFF;--t2:#8888BB;--t3:#555577;--border:rgba(100,80,255,0.08)}
+body{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a0a1a,#1a0a2a,#0a0a2a);padding:20px;color:var(--t1)}
+.container{max-width:400px;width:100%;background:var(--card);backdrop-filter:blur(30px);border-radius:24px;border:1px solid var(--border);padding:40px;box-shadow:0 25px 80px rgba(0,0,0,0.6)}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+.brand-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#7C6BFF,#5B4BD9,#A78BFA);display:flex;align-items:center;justify-content:center;font-size:22px}
+.brand-text{font-size:16px;font-weight:800;background:linear-gradient(135deg,#A78BFA,#7C6BFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.brand-sub{font-size:9px;color:var(--t3)}
+.welcome{font-size:22px;font-weight:800;color:var(--t1);margin-bottom:4px}
+.sub-text{font-size:13px;color:var(--t3);margin-bottom:28px}
+.field{margin-bottom:18px}
+.field label{display:block;font-size:10px;font-weight:600;color:var(--t2);margin-bottom:4px}
+.field input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,20,.3);color:var(--t1);font-family:inherit;font-size:14px;outline:none;transition:.3s}
+.field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(100,80,255,.08)}
+.field input::placeholder{color:var(--t3)}
+.options{display:flex;justify-content:space-between;align-items:center;margin:14px 0 20px;font-size:12px}
+.options label{display:flex;align-items:center;gap:6px;color:var(--t2);cursor:pointer}
+.options label input[type="checkbox"]{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
+.btn-login{width:100%;padding:12px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#7C6BFF,#5B4BD9,#A78BFA);color:#fff;font-family:inherit;font-size:15px;font-weight:700;transition:all .3s}
+.btn-login:hover{transform:translateY(-2px);box-shadow:0 8px 40px rgba(100,80,255,.35)}
+.btn-login:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.error-box{display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.15);border-radius:8px;padding:10px 12px;margin-bottom:14px;font-size:12px;color:#F87171;align-items:center;gap:8px}
+.error-box.show{display:flex}
+</style>
+</head>
+<body>
+<div class="container">
+    <div class="brand"><div class="brand-icon">🪐</div><div><div class="brand-text">پنل عقاب</div><div class="brand-sub">مدیریت کاربران</div></div></div>
+    <div class="welcome" id="welcome-text">خوش آمدید</div>
+    <div class="sub-text" id="sub-text">وارد حساب کاربری خود شوید</div>
+    <div class="error-box" id="error-box"><i class="ti ti-alert-circle"></i><span id="error-text"></span></div>
+    <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="field"><label id="label-username">نام کاربری یا ایمیل</label><input type="text" id="username" placeholder="نام کاربری" value="admin" dir="ltr"></div>
+        <div class="field"><label id="label-password">رمز عبور</label><input type="password" id="password" placeholder="رمز عبور را وارد کنید" dir="ltr"></div>
+        <div class="options"><label><input type="checkbox" id="remember"> <span id="remember-text">مرا به خاطر بسپار</span></label></div>
+        <button class="btn-login" type="submit" id="login-btn"><i class="ti ti-login-2"></i> <span id="login-text">ورود</span></button>
+    </form>
+</div>
+<script>
+const translations={fa:{welcome:"خوش آمدید",sub:"وارد حساب کاربری خود شوید",username:"نام کاربری یا ایمیل",password:"رمز عبور",remember:"مرا به خاطر بسپار",login:"ورود"},en:{welcome:"Welcome Back",sub:"Login to your account",username:"Username or Email",password:"Password",remember:"Remember me",login:"Login"}};
+let currentLang=localStorage.getItem('eagle-lang')||'fa';
+function setLang(lang){currentLang=lang;localStorage.setItem('eagle-lang',lang);updateTexts()}
+function updateTexts(){const t=translations[currentLang];document.getElementById('welcome-text').textContent=t.welcome;document.getElementById('sub-text').textContent=t.sub;document.getElementById('label-username').textContent=t.username;document.getElementById('label-password').textContent=t.password;document.getElementById('remember-text').textContent=t.remember;document.getElementById('login-text').textContent=t.login}
+async function handleLogin(e){e.preventDefault();const btn=document.getElementById('login-btn');const err=document.getElementById('error-box');const errText=document.getElementById('error-text');err.classList.remove('show');btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال ورود...';try{const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:document.getElementById('password').value,remember:document.getElementById('remember').checked})});if(!r.ok){const d=await r.json().catch(()=>({}));errText.textContent=d.detail||'رمز عبور اشتباه است';err.classList.add('show');btn.disabled=false;btn.innerHTML='<i class="ti ti-login-2"></i> '+translations[currentLang].login;return}window.location.href='/dashboard'}catch(e){errText.textContent='خطا در ارتباط با سرور';err.classList.add('show');btn.disabled=false;btn.innerHTML='<i class="ti ti-login-2"></i> '+translations[currentLang].login}}
+setLang(currentLang);
+</script>
+</body></html>"""
+
+# صفحه داشبورد (ساده شده)
+DASHBOARD_HTML = r"""<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🪐 پنل عقاب · خانه</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0a0a1a;--bg2:#12122a;--card:rgba(10,10,30,0.7);--card-b:rgba(100,80,255,0.08);--card-bh:rgba(100,80,255,0.15);--accent:#7C6BFF;--accent2:#A78BFA;--accent3:#5B4BD9;--green:#10B981;--green-bg:rgba(16,185,129,0.08);--green-t:#34D399;--red:#EF4444;--red-bg:rgba(239,68,68,0.08);--red-t:#F87171;--amber:#F59E0B;--amber-bg:rgba(245,158,11,0.08);--amber-t:#FCD34D;--t1:#F0EEFF;--t2:#8888BB;--t3:#555577;--sidebar-w:180px;--radius:12px;--shadow:0 8px 32px rgba(0,0,0,0.5)}
+body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;display:flex;font-size:13px}
+.sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--card);backdrop-filter:blur(30px);border-left:1px solid var(--card-b);display:flex;flex-direction:column;flex-shrink:0;position:fixed;right:0;top:0;bottom:0;z-index:200}
+.logo{display:flex;align-items:center;gap:10px;padding:16px 12px;border-bottom:1px solid var(--card-b)}
+.logo-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#7C6BFF,#5B4BD9,#A78BFA);display:flex;align-items:center;justify-content:center;font-size:18px}
+.logo-name{font-size:13px;font-weight:800;background:linear-gradient(135deg,#A78BFA,#7C6BFF);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.logo-sub{font-size:7px;color:var(--t3)}
+.nav-wrap{flex:1;overflow-y:auto;padding:6px 0}
+.nav-it{display:flex;align-items:center;gap:8px;padding:8px 10px;color:var(--t3);font-size:11px;cursor:pointer;border-right:2px solid transparent;transition:all .2s;margin:1px 4px;border-radius:6px}
+.nav-it i{font-size:14px;width:18px;text-align:center}
+.nav-it:hover{background:rgba(100,80,255,0.05);color:var(--t2)}
+.nav-it.on{background:rgba(100,80,255,0.08);color:var(--t1);border-right-color:var(--accent);font-weight:600}
+.sb-foot{padding:10px 12px;border-top:1px solid var(--card-b)}
+.logout-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--red-bg);color:var(--red-t);border-radius:6px;padding:6px;font-size:10px;font-weight:500;font-family:inherit;border:1px solid rgba(239,68,68,0.1);cursor:pointer;width:100%;transition:.2s}
+.logout-btn:hover{background:rgba(239,68,68,0.15)}
+.main{margin-right:var(--sidebar-w);flex:1;padding:16px 20px 80px;min-width:0}
+.pg{display:none}.pg.on{display:block}
+.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.tb-title{font-size:17px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:6px}
+.tb-title i{color:var(--accent);font-size:19px}
+.tb-sub{font-size:10px;color:var(--t3)}
+.btn{font-family:inherit;font-size:10px;font-weight:600;border-radius:6px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border:none;transition:all .2s;white-space:nowrap}
+.btn-p{background:linear-gradient(135deg,#7C6BFF,#5B4BD9,#A78BFA);color:#fff;box-shadow:0 3px 15px rgba(100,80,255,.2)}
+.btn-p:hover{transform:translateY(-1px);box-shadow:0 6px 25px rgba(100,80,255,.3)}
+.btn-o{background:rgba(255,255,255,0.02);border:1px solid var(--card-b);color:var(--t2)}
+.btn-o:hover{background:rgba(100,80,255,0.05)}
+.btn-sm{padding:2px 6px;font-size:8px;border-radius:4px}
+.btn-d{background:var(--red-bg);color:var(--red-t);border:1px solid rgba(239,68,68,.1)}
+.btn-d:hover{background:rgba(239,68,68,.15)}
+.badge{font-size:8px;padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:3px}
+.bg-green{background:var(--green-bg);color:var(--green-t)}
+.bg-fire{background:rgba(100,80,255,0.08);color:#A78BFA}
+.dot{width:5px;height:5px;border-radius:50%;display:inline-block}
+.dg{background:var(--green)}
+.stats-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
+.stat-card{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--card-b);border-radius:var(--radius);padding:12px 8px;text-align:center}
+.stat-card .icon{font-size:18px;display:block;margin-bottom:3px}
+.stat-card .number{font-size:18px;font-weight:800;color:var(--t1)}
+.stat-card .label{font-size:9px;color:var(--t3);margin-top:2px}
+.stat-card .sub{font-size:7px;color:var(--t3);opacity:.6}
+</style>
+</head>
+<body>
+<aside class="sidebar" id="sb">
+  <div class="logo"><div class="logo-icon">🪐</div><div><div class="logo-name">پنل عقاب</div><div class="logo-sub">مدیریت کاربران</div></div></div>
+  <div class="nav-wrap">
+    <div class="nav-it on" data-pg="dashboard"><i class="ti ti-layout-dashboard"></i> خانه</div>
+    <div class="nav-it" data-pg="users"><i class="ti ti-users"></i> کاربران</div>
+    <div class="nav-it" data-pg="inbound"><i class="ti ti-plug"></i> اینباند</div>
+    <div class="nav-it" data-pg="connections"><i class="ti ti-plug-connected"></i> اتصالات</div>
+    <div class="nav-it" data-pg="settings"><i class="ti ti-settings"></i> تنظیمات</div>
+  </div>
+  <div class="sb-foot"><button class="logout-btn" onclick="logout()"><i class="ti ti-logout"></i> خروج</button></div>
+</aside>
+<main class="main">
+<section class="pg on" id="pg-dashboard">
+  <div class="topbar"><div><div class="tb-title"><i class="ti ti-layout-dashboard"></i> خانه</div><div class="tb-sub" id="last-update">بروزرسانی: لحظه‌ای</div></div>
+    <div class="tb-right"><span class="badge bg-fire" id="online-badge"><span class="dot dg"></span> ۰ آنلاین</span></div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><span class="icon">📊</span><div class="number" id="stat-traffic">۰</div><div class="label">ترافیک</div><div class="sub">MB</div></div>
+    <div class="stat-card"><span class="icon">📨</span><div class="number" id="stat-requests">۰</div><div class="label">درخواست‌ها</div><div class="sub">تعداد</div></div>
+    <div class="stat-card"><span class="icon">⏱️</span><div class="number" id="stat-uptime">۰۰:۰۰:۰۰</div><div class="label">آپتایم</div><div class="sub">زمان</div></div>
+    <div class="stat-card"><span class="icon">💾</span><div class="number" id="stat-disk">۰ GB</div><div class="label">فضای دیسک</div><div class="sub" id="stat-disk-used">استفاده</div></div>
+    <div class="stat-card"><span class="icon">📶</span><div class="number" id="stat-speed">۰ B/s</div><div class="label">سرعت</div><div class="sub">لحظه‌ای</div></div>
+    <div class="stat-card"><span class="icon">👥</span><div class="number" id="stat-users">۰</div><div class="label">کاربران</div><div class="sub" id="stat-users-active">۰ فعال</div></div>
+  </div>
+</section>
+</main>
+<script>
+async function logout(){try{await fetch('/api/logout',{method:'POST'})}catch(e){}location.href='/login'}
+async function loadDashboard(){try{const r=await fetch('/api/dashboard/stats');const data=await r.json();document.getElementById('stat-traffic').textContent=(data.traffic.total/(1024*1024)).toFixed(1);document.getElementById('stat-requests').textContent=data.requests||0;document.getElementById('stat-uptime').textContent=data.uptime||'00:00:00';document.getElementById('stat-disk').textContent=data.disk.total_fmt||'0 GB';document.getElementById('stat-disk-used').textContent='استفاده: '+(data.disk.used_fmt||'0');document.getElementById('stat-speed').textContent=data.speed.download_fmt||'0 B/s';document.getElementById('stat-users').textContent=data.links_count||0;document.getElementById('stat-users-active').textContent=(data.active_links||0)+' فعال';document.getElementById('online-badge').innerHTML='<span class="dot dg"></span> '+(data.connections||0)+' آنلاین';document.getElementById('last-update').textContent='بروزرسانی: '+new Date().toLocaleTimeString('fa-IR')}catch(e){}}
+document.addEventListener('DOMContentLoaded',async()=>{try{const r=await fetch('/api/me');const d=await r.json();if(!d.authenticated)location.href='/login'}catch(e){location.href='/login'}loadDashboard();setInterval(loadDashboard,5000)});
+</script>
+</body></html>"""
 
 @app.get("/login", response_class=HTMLResponse)
 async def login_page(request: Request):
