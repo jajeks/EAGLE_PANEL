@@ -83,7 +83,7 @@ FINGERPRINTS = {
 # ─── Telegram ─────────────────────────────────────────────────────────────────
 TELEGRAM_SESSIONS: dict = {}
 TELEGRAM_SESSIONS_LOCK = asyncio.Lock()
-CACHE_USERS = {"data": [], "timestamp": 0, "ttl": 5}
+CACHE_USERS = {"data": [], "timestamp": 0, "ttl": 3}
 
 # ─── Functions ─────────────────────────────────────────────────────────────────
 
@@ -182,7 +182,6 @@ async def remove_device_connection(uuid: str, client_ip: str):
 # ─── Telegram Functions (سریع) ─────────────────────────────────────────────
 
 async def tg_send(chat_id, text, kb=None):
-    """ارسال پیام سریع به تلگرام"""
     token = SETTINGS.get("telegram_bot_token", "")
     if not token:
         return False
@@ -305,7 +304,7 @@ async def shutdown():
         await http_client.aclose()
 
 # ===================================================================
-# ===== API ENDPOINTS (کوتاه شده برای کاهش حجم) =====
+# ===== API ENDPOINTS (کوتاه شده) =====
 # ===================================================================
 
 @app.post("/api/settings/language")
@@ -945,6 +944,7 @@ async def send_main_menu(chat_id, username):
 async def handle_text_msg(chat_id, text, username):
     async with TELEGRAM_SESSIONS_LOCK:
         session = TELEGRAM_SESSIONS.get(str(chat_id))
+    
     if session and session.get("action") in ["creating_user", "editing_user"]:
         await handle_user_step(chat_id, text, session)
     else:
@@ -964,16 +964,18 @@ async def handle_user_step(chat_id, text, session):
         async with TELEGRAM_SESSIONS_LOCK:
             TELEGRAM_SESSIONS[str(chat_id)]["step"] = "quota"
             TELEGRAM_SESSIONS[str(chat_id)]["data"] = data
+        
         kb = [[{"text": "1GB", "callback_data": "quota_1"}, {"text": "2GB", "callback_data": "quota_2"},
                {"text": "5GB", "callback_data": "quota_5"}],
               [{"text": "10GB", "callback_data": "quota_10"}, {"text": "20GB", "callback_data": "quota_20"},
                {"text": "50GB", "callback_data": "quota_50"}],
-              [{"text": "∞ نامحدود", "callback_data": "quota_0"}, {"text": "✏️ عدد دلخواه", "callback_data": "quota_custom"}],
+              [{"text": "♾️ نامحدود", "callback_data": "quota_0"}, {"text": "✏️ عدد دلخواه", "callback_data": "quota_custom"}],
               [{"text": "❌ انصراف", "callback_data": "main_menu"}]]
-        await tg_send(chat_id, f"✅ نام <b>{data['label']}</b> ذخیره شد!\nحجم را انتخاب کنید:", kb)
+        await tg_send(chat_id, f"✅ نام <b>{data['label']}</b> ذخیره شد!\n📊 حجم را انتخاب کنید:", kb)
 
     elif step == "quota":
-        if text.isdigit() or (text.replace('.', '').isdigit() and '.' in text):
+        # کاربر عدد دلخواه وارد کرده
+        try:
             quota = float(text)
             if quota < 0:
                 await tg_send(chat_id, "❌ عدد منفی مجاز نیست.")
@@ -981,36 +983,31 @@ async def handle_user_step(chat_id, text, session):
             data["quota"] = quota
             async with TELEGRAM_SESSIONS_LOCK:
                 TELEGRAM_SESSIONS[str(chat_id)]["step"] = "days"
-        else:
-            await tg_send(chat_id, "❌ عدد معتبر وارد کنید.")
-            return
+            await tg_send(chat_id, f"✅ {quota}GB\n📅 تعداد روز انقضا را وارد کنید:")
+        except ValueError:
+            await tg_send(chat_id, "❌ عدد معتبر وارد کنید (مثلاً 10)")
 
     elif step == "days":
         try:
             days = int(text)
             if days <= 0:
-                raise ValueError
+                await tg_send(chat_id, "❌ روز باید بیشتر از 0 باشد.")
+                return
             data["days"] = days
             async with TELEGRAM_SESSIONS_LOCK:
                 TELEGRAM_SESSIONS[str(chat_id)]["step"] = "fingerprint"
+            
             kb = [[{"text": "🌐 Chrome", "callback_data": "fp_chrome"}, {"text": "🦊 Firefox", "callback_data": "fp_firefox"}],
                   [{"text": "🧭 Safari", "callback_data": "fp_safari"}, {"text": "📱 iOS", "callback_data": "fp_ios"}],
-                  [{"text": "🤖 Android", "callback_data": "fp_android"}, {"text": "🎲 Random", "callback_data": "fp_random"}]]
-            await tg_send(chat_id, f"✅ {days} روز\nفینگرپرینت را انتخاب کنید:", kb)
-        except:
+                  [{"text": "🤖 Android", "callback_data": "fp_android"}, {"text": "🎲 Random", "callback_data": "fp_random"}],
+                  [{"text": "🚫 None", "callback_data": "fp_none"}]]
+            await tg_send(chat_id, f"✅ {days} روز\n🖐️ فینگرپرینت را انتخاب کنید:", kb)
+        except ValueError:
             await tg_send(chat_id, "❌ عدد روز معتبر وارد کنید (مثلاً 30)")
 
     elif step == "fingerprint":
-        fp_map = {"chrome": "chrome", "firefox": "firefox", "safari": "safari", "ios": "ios", "android": "android",
-                  "random": "random", "none": "none"}
-        fp = fp_map.get(text, "chrome")
-        data["fingerprint"] = fp
-        if is_edit:
-            async with TELEGRAM_SESSIONS_LOCK:
-                TELEGRAM_SESSIONS[str(chat_id)]["step"] = "finish"
-            await finish_edit_user(chat_id, data)
-        else:
-            await finish_create_user(chat_id, data)
+        # کاربر با دکمه انتخاب میکنه، اینجا اجرا نمیشه
+        pass
 
 async def finish_create_user(chat_id, data):
     label = data.get("label", "کاربر")
@@ -1097,15 +1094,28 @@ async def handle_callback(chat_id, data, username):
     elif data == "delete_user":
         await show_user_list_for_delete(chat_id)
 
+    elif data == "quota_custom":
+        async with TELEGRAM_SESSIONS_LOCK:
+            session = TELEGRAM_SESSIONS.get(str(chat_id))
+            if session:
+                session["step"] = "quota"
+        await tg_send(chat_id, "✏️ عدد حجم را به <b>GB</b> وارد کنید (مثلاً 15):",
+                      [[{"text": "🔙 برگشت", "callback_data": "back_to_quota"}]])
+
+    elif data == "back_to_quota":
+        async with TELEGRAM_SESSIONS_LOCK:
+            session = TELEGRAM_SESSIONS.get(str(chat_id))
+            if session:
+                session["step"] = "quota"
+        kb = [[{"text": "1GB", "callback_data": "quota_1"}, {"text": "2GB", "callback_data": "quota_2"},
+               {"text": "5GB", "callback_data": "quota_5"}],
+              [{"text": "10GB", "callback_data": "quota_10"}, {"text": "20GB", "callback_data": "quota_20"},
+               {"text": "50GB", "callback_data": "quota_50"}],
+              [{"text": "♾️ نامحدود", "callback_data": "quota_0"}, {"text": "✏️ عدد دلخواه", "callback_data": "quota_custom"}]]
+        await tg_send(chat_id, "📊 حجم را انتخاب کنید:", kb)
+
     elif data.startswith("quota_"):
         val = data.replace("quota_", "")
-        if val == "custom":
-            async with TELEGRAM_SESSIONS_LOCK:
-                session = TELEGRAM_SESSIONS.get(str(chat_id))
-                if session:
-                    session["step"] = "quota"
-            await tg_send(chat_id, "✏️ عدد حجم را به GB وارد کنید:")
-            return
         quota = float(val)
         async with TELEGRAM_SESSIONS_LOCK:
             session = TELEGRAM_SESSIONS.get(str(chat_id))
@@ -1225,7 +1235,7 @@ async def send_user_config(chat_id, uuid):
         await tg_send(chat_id, "❌ کاربر یافت نشد!")
         return
     host, label = get_host(), link.get("label", "کاربر")
-    vless_links = [generate_vless_link(uuid, host, remark=label, fingerprint="chrome", port=port) for port in link.get("ports", [443])]
+    vless_links = [generate_vless_link(uuid, host, remark=label, fingerprint=link.get("fingerprint", "chrome"), port=port) for port in link.get("ports", [443])]
     await tg_doc(chat_id, "\n\n".join(vless_links), f"config_{uuid[:8]}.txt")
     await tg_send(chat_id, f"🔗 ساب: <code>https://{host}/sub/{uuid}</code>", [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
 
