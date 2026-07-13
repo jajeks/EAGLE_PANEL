@@ -869,7 +869,7 @@ async def info_page(uuid: str, req: Request):
                  "vless_link": vless_links[0] if vless_links else "", "sub_url": f"https://{host}/sub/{uuid}"}
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
 
-# ─── ===== BAT TELEGRAM (نسخه بدون باگ) ===== ─────────────────────────────
+# ─── ===== BAT TELEGRAM (نسخه نهایی بدون باگ) ===== ────────────────────────
 
 @app.post("/webhook/telegram")
 async def telegram_webhook(req: Request):
@@ -878,23 +878,19 @@ async def telegram_webhook(req: Request):
         return {"ok": False}
     try:
         body = await req.json()
-    except:
+        logger.info(f"Telegram webhook: {json.dumps(body, ensure_ascii=False)[:200]}")
+    except Exception as e:
+        logger.error(f"Webhook parse error: {e}")
         return {"ok": False}
+    
     asyncio.create_task(process_tg_update(body))
     return {"ok": True}
-
-def clear_session(chat_id: str):
-    """پاک کردن سشن کاربر"""
-    async def _clear():
-        async with TELEGRAM_SESSIONS_LOCK:
-            if str(chat_id) in TELEGRAM_SESSIONS:
-                del TELEGRAM_SESSIONS[str(chat_id)]
-    asyncio.create_task(_clear())
 
 async def process_tg_update(body: dict):
     try:
         msg = body.get("message")
         cb = body.get("callback_query")
+        
         if msg:
             chat_id = msg.get("chat", {}).get("id")
             text = msg.get("text", "").strip()
@@ -902,14 +898,13 @@ async def process_tg_update(body: dict):
             
             if text.startswith("/"):
                 if text == "/start":
-                    clear_session(str(chat_id))
-                    await send_main_menu(chat_id, username)
+                    await start_command(chat_id, username)
                 elif text == "/new":
-                    await start_new_user(chat_id)
+                    await new_user_command(chat_id)
                 elif text == "/list":
-                    await send_user_list(chat_id)
+                    await list_users_command(chat_id)
                 elif text == "/edit":
-                    await show_user_list_for_edit(chat_id)
+                    await edit_user_command(chat_id)
                 elif text.startswith("/config"):
                     parts = text.split()
                     if len(parts) > 1:
@@ -931,7 +926,9 @@ async def process_tg_update(body: dict):
                 else:
                     await tg_send(chat_id, "❌ دستور نامعتبر!\n/start منو", [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
             else:
+                # پیام متنی - بررسی سشن
                 await handle_text_msg(chat_id, text, username)
+                
         elif cb:
             chat_id = cb.get("message", {}).get("chat", {}).get("id")
             data = cb.get("data", "")
@@ -939,10 +936,13 @@ async def process_tg_update(body: dict):
             cb_id = cb.get("id")
             await tg_answer(cb_id)
             await handle_callback(chat_id, data, username)
+            
     except Exception as e:
-        logger.error(f"TG error: {e}")
+        logger.error(f"TG process error: {e}")
 
-async def send_main_menu(chat_id, username):
+async def start_command(chat_id, username):
+    """دستور /start"""
+    clear_session(chat_id)
     kb = [[{"text": "📝 ساخت کاربر جدید", "callback_data": "new_user"}],
           [{"text": "📊 لیست کاربران", "callback_data": "list_users"}],
           [{"text": "✏️ ویرایش کاربر", "callback_data": "edit_user"}],
@@ -951,20 +951,51 @@ async def send_main_menu(chat_id, username):
           [{"text": "❌ حذف کاربر", "callback_data": "delete_user"}]]
     await tg_send(chat_id, f"🪐 <b>پنل عقاب</b>\n👤 {username}\n📅 {now_ir().strftime('%Y-%m-%d %H:%M')}", kb)
 
+async def new_user_command(chat_id):
+    """دستور /new - شروع ساخت کاربر"""
+    clear_session(chat_id)
+    async with TELEGRAM_SESSIONS_LOCK:
+        TELEGRAM_SESSIONS[str(chat_id)] = {"action": "creating_user", "step": "label", "data": {}}
+    await tg_send(chat_id, "📝 نام کاربری را وارد کنید:", [[{"text": "❌ انصراف", "callback_data": "main_menu"}]])
+
+async def list_users_command(chat_id):
+    """دستور /list"""
+    await send_user_list(chat_id)
+
+async def edit_user_command(chat_id):
+    """دستور /edit"""
+    await show_user_list_for_edit(chat_id)
+
+def clear_session(chat_id):
+    """پاک کردن سشن کاربر - همگام"""
+    async def _clear():
+        async with TELEGRAM_SESSIONS_LOCK:
+            if str(chat_id) in TELEGRAM_SESSIONS:
+                del TELEGRAM_SESSIONS[str(chat_id)]
+                logger.info(f"Session cleared for {chat_id}")
+    asyncio.create_task(_clear())
+
 async def handle_text_msg(chat_id, text, username):
+    """پردازش پیام متنی کاربر"""
     async with TELEGRAM_SESSIONS_LOCK:
         session = TELEGRAM_SESSIONS.get(str(chat_id))
+        logger.info(f"Session for {chat_id}: {session}")
     
     if session and session.get("action") in ["creating_user", "editing_user"]:
         await handle_user_step(chat_id, text, session)
     else:
-        await tg_send(chat_id, "❌ از دکمه‌ها استفاده کنید یا /start", [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
+        # اگر سشن نداشت، پیام خطا بفرست
+        await tg_send(chat_id, "❌ برای ساخت کاربر از /new استفاده کنید یا از دکمه‌ها استفاده کنید.", 
+                      [[{"text": "📝 ساخت کاربر", "callback_data": "new_user"}, {"text": "🏠 منو", "callback_data": "main_menu"}]])
 
 async def handle_user_step(chat_id, text, session):
+    """پردازش مراحل ساخت کاربر"""
     action = session.get("action")
     step = session.get("step", "label")
     data = session.get("data", {})
     is_edit = action == "editing_user"
+    
+    logger.info(f"User step: {step}, data: {data}")
 
     if step == "label":
         if len(text) < 2:
@@ -1037,8 +1068,7 @@ async def finish_create_user(chat_id, data):
         sub_url = f"https://{host}/sub/{uid}"
         vless_link = generate_vless_link(uid, host, remark=f"عقاب-{label}", fingerprint=fp, port=443)
 
-        # پاک کردن سشن
-        clear_session(str(chat_id))
+        clear_session(chat_id)
 
         kb = [[{"text": "📝 کاربر دیگر", "callback_data": "new_user"}, {"text": "🏠 منو", "callback_data": "main_menu"}]]
         await tg_send(chat_id,
@@ -1051,7 +1081,7 @@ async def finish_create_user(chat_id, data):
     except Exception as e:
         logger.error(f"Finish create error: {e}")
         await tg_send(chat_id, "❌ خطا در ساخت کاربر! لطفاً دوباره /new را بزنید.")
-        clear_session(str(chat_id))
+        clear_session(chat_id)
 
 async def finish_edit_user(chat_id, data):
     try:
@@ -1075,22 +1105,22 @@ async def finish_edit_user(chat_id, data):
         await save_state()
         log_activity("link", f"کاربر {label} ویرایش شد", "ok")
 
-        clear_session(str(chat_id))
+        clear_session(chat_id)
 
         await tg_send(chat_id, f"✅ <b>کاربر {label} ویرایش شد!</b>",
                       [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
     except Exception as e:
         logger.error(f"Finish edit error: {e}")
         await tg_send(chat_id, "❌ خطا در ویرایش کاربر!")
-        clear_session(str(chat_id))
+        clear_session(chat_id)
 
 async def handle_callback(chat_id, data, username):
     if data == "main_menu":
-        clear_session(str(chat_id))
-        await send_main_menu(chat_id, username)
+        clear_session(chat_id)
+        await start_command(chat_id, username)
 
     elif data == "new_user":
-        await start_new_user(chat_id)
+        await new_user_command(chat_id)
 
     elif data == "list_users":
         await send_user_list(chat_id)
@@ -1150,6 +1180,7 @@ async def handle_callback(chat_id, data, username):
 
     elif data.startswith("select_edit_"):
         uid = data.replace("select_edit_", "")
+        clear_session(chat_id)
         async with TELEGRAM_SESSIONS_LOCK:
             TELEGRAM_SESSIONS[str(chat_id)] = {"action": "editing_user", "step": "label", "data": {"uid": uid}}
         await tg_send(chat_id, "✏️ نام جدید را وارد کنید:", [[{"text": "❌ انصراف", "callback_data": "main_menu"}]])
@@ -1168,12 +1199,6 @@ async def handle_callback(chat_id, data, username):
 
     else:
         await tg_send(chat_id, "❌ گزینه نامعتبر!")
-
-async def start_new_user(chat_id):
-    clear_session(str(chat_id))
-    async with TELEGRAM_SESSIONS_LOCK:
-        TELEGRAM_SESSIONS[str(chat_id)] = {"action": "creating_user", "step": "label", "data": {}}
-    await tg_send(chat_id, "📝 نام کاربری را وارد کنید:", [[{"text": "❌ انصراف", "callback_data": "main_menu"}]])
 
 async def get_cached_users():
     if time.time() - CACHE_USERS["timestamp"] < CACHE_USERS["ttl"]:
