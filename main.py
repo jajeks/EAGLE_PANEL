@@ -869,7 +869,7 @@ async def info_page(uuid: str, req: Request):
                  "vless_link": vless_links[0] if vless_links else "", "sub_url": f"https://{host}/sub/{uuid}"}
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
 
-# ─── ===== BAT TELEGRAM (نسخه نهایی بدون باگ) ===== ────────────────────────
+# ─── ===== BAT TELEGRAM (نسخه نهایی تست شده) ===== ─────────────────────────
 
 @app.post("/webhook/telegram")
 async def telegram_webhook(req: Request):
@@ -878,7 +878,7 @@ async def telegram_webhook(req: Request):
         return {"ok": False}
     try:
         body = await req.json()
-        logger.info(f"Telegram webhook: {json.dumps(body, ensure_ascii=False)[:200]}")
+        logger.info(f"📩 Webhook received")
     except Exception as e:
         logger.error(f"Webhook parse error: {e}")
         return {"ok": False}
@@ -896,15 +896,17 @@ async def process_tg_update(body: dict):
             text = msg.get("text", "").strip()
             username = msg.get("from", {}).get("username", "کاربر")
             
+            logger.info(f"📨 Message from {chat_id}: {text}")
+            
             if text.startswith("/"):
                 if text == "/start":
-                    await start_command(chat_id, username)
+                    await send_main_menu(chat_id, username)
                 elif text == "/new":
-                    await new_user_command(chat_id)
+                    await start_new_user(chat_id)
                 elif text == "/list":
-                    await list_users_command(chat_id)
+                    await send_user_list(chat_id)
                 elif text == "/edit":
-                    await edit_user_command(chat_id)
+                    await show_user_list_for_edit(chat_id)
                 elif text.startswith("/config"):
                     parts = text.split()
                     if len(parts) > 1:
@@ -924,7 +926,7 @@ async def process_tg_update(body: dict):
                     else:
                         await tg_send(chat_id, "❌ UUID را وارد کنید: /delete UUID")
                 else:
-                    await tg_send(chat_id, "❌ دستور نامعتبر!\n/start منو", [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
+                    await tg_send(chat_id, "❌ دستور نامعتبر!", [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
             else:
                 # پیام متنی - بررسی سشن
                 await handle_text_msg(chat_id, text, username)
@@ -934,98 +936,84 @@ async def process_tg_update(body: dict):
             data = cb.get("data", "")
             username = cb.get("from", {}).get("username", "کاربر")
             cb_id = cb.get("id")
+            
+            logger.info(f"🔘 Callback from {chat_id}: {data}")
+            
             await tg_answer(cb_id)
             await handle_callback(chat_id, data, username)
             
     except Exception as e:
         logger.error(f"TG process error: {e}")
 
-async def start_command(chat_id, username):
-    """دستور /start"""
+async def send_main_menu(chat_id, username):
     clear_session(chat_id)
-    kb = [[{"text": "📝 ساخت کاربر جدید", "callback_data": "new_user"}],
-          [{"text": "📊 لیست کاربران", "callback_data": "list_users"}],
-          [{"text": "✏️ ویرایش کاربر", "callback_data": "edit_user"}],
-          [{"text": "📥 دریافت کانفیگ", "callback_data": "get_config"}],
-          [{"text": "🔄 تمدید کاربر", "callback_data": "renew_user"}],
-          [{"text": "❌ حذف کاربر", "callback_data": "delete_user"}]]
+    kb = [
+        [{"text": "📝 ساخت کاربر جدید", "callback_data": "new_user"}],
+        [{"text": "📊 لیست کاربران", "callback_data": "list_users"}],
+        [{"text": "✏️ ویرایش کاربر", "callback_data": "edit_user"}],
+        [{"text": "📥 دریافت کانفیگ", "callback_data": "get_config"}],
+        [{"text": "🔄 تمدید کاربر", "callback_data": "renew_user"}],
+        [{"text": "❌ حذف کاربر", "callback_data": "delete_user"}]
+    ]
     await tg_send(chat_id, f"🪐 <b>پنل عقاب</b>\n👤 {username}\n📅 {now_ir().strftime('%Y-%m-%d %H:%M')}", kb)
 
-async def new_user_command(chat_id):
-    """دستور /new - شروع ساخت کاربر"""
-    clear_session(chat_id)
-    async with TELEGRAM_SESSIONS_LOCK:
-        TELEGRAM_SESSIONS[str(chat_id)] = {"action": "creating_user", "step": "label", "data": {}}
-    await tg_send(chat_id, "📝 نام کاربری را وارد کنید:", [[{"text": "❌ انصراف", "callback_data": "main_menu"}]])
-
-async def list_users_command(chat_id):
-    """دستور /list"""
-    await send_user_list(chat_id)
-
-async def edit_user_command(chat_id):
-    """دستور /edit"""
-    await show_user_list_for_edit(chat_id)
-
 def clear_session(chat_id):
-    """پاک کردن سشن کاربر - همگام"""
     async def _clear():
         async with TELEGRAM_SESSIONS_LOCK:
             if str(chat_id) in TELEGRAM_SESSIONS:
                 del TELEGRAM_SESSIONS[str(chat_id)]
-                logger.info(f"Session cleared for {chat_id}")
+                logger.info(f"🧹 Session cleared for {chat_id}")
     asyncio.create_task(_clear())
 
 async def handle_text_msg(chat_id, text, username):
     """پردازش پیام متنی کاربر"""
     async with TELEGRAM_SESSIONS_LOCK:
         session = TELEGRAM_SESSIONS.get(str(chat_id))
-        logger.info(f"Session for {chat_id}: {session}")
+        logger.info(f"📋 Session for {chat_id}: {session}")
     
     if session and session.get("action") in ["creating_user", "editing_user"]:
         await handle_user_step(chat_id, text, session)
     else:
-        # اگر سشن نداشت، پیام خطا بفرست
-        await tg_send(chat_id, "❌ برای ساخت کاربر از /new استفاده کنید یا از دکمه‌ها استفاده کنید.", 
-                      [[{"text": "📝 ساخت کاربر", "callback_data": "new_user"}, {"text": "🏠 منو", "callback_data": "main_menu"}]])
+        await tg_send(chat_id, "❌ لطفاً از /new برای ساخت کاربر استفاده کنید.", 
+                      [[{"text": "📝 ساخت کاربر", "callback_data": "new_user"}]])
 
 async def handle_user_step(chat_id, text, session):
-    """پردازش مراحل ساخت کاربر"""
     action = session.get("action")
     step = session.get("step", "label")
     data = session.get("data", {})
-    is_edit = action == "editing_user"
     
-    logger.info(f"User step: {step}, data: {data}")
+    logger.info(f"🔄 Step: {step}, Action: {action}, Data: {data}")
 
     if step == "label":
         if len(text) < 2:
             await tg_send(chat_id, "❌ نام باید حداقل ۲ کاراکتر باشد.")
             return
+        
         data["label"] = text.strip()
         async with TELEGRAM_SESSIONS_LOCK:
             TELEGRAM_SESSIONS[str(chat_id)]["step"] = "quota"
             TELEGRAM_SESSIONS[str(chat_id)]["data"] = data
         
-        kb = [[{"text": "1GB", "callback_data": "quota_1"}, {"text": "2GB", "callback_data": "quota_2"},
-               {"text": "5GB", "callback_data": "quota_5"}],
-              [{"text": "10GB", "callback_data": "quota_10"}, {"text": "20GB", "callback_data": "quota_20"},
-               {"text": "50GB", "callback_data": "quota_50"}],
-              [{"text": "♾️ نامحدود", "callback_data": "quota_0"}, {"text": "✏️ عدد دلخواه", "callback_data": "quota_custom"}],
-              [{"text": "❌ انصراف", "callback_data": "main_menu"}]]
+        kb = [
+            [{"text": "1GB", "callback_data": "quota_1"}, {"text": "2GB", "callback_data": "quota_2"}, {"text": "5GB", "callback_data": "quota_5"}],
+            [{"text": "10GB", "callback_data": "quota_10"}, {"text": "20GB", "callback_data": "quota_20"}, {"text": "50GB", "callback_data": "quota_50"}],
+            [{"text": "♾️ نامحدود", "callback_data": "quota_0"}, {"text": "✏️ عدد دلخواه", "callback_data": "quota_custom"}],
+            [{"text": "❌ انصراف", "callback_data": "main_menu"}]
+        ]
         await tg_send(chat_id, f"✅ نام <b>{data['label']}</b> ذخیره شد!\n📊 حجم را انتخاب کنید:", kb)
 
     elif step == "quota":
         try:
-            quota = float(text)
+            quota = float(text.replace(",", "."))
             if quota < 0:
                 await tg_send(chat_id, "❌ عدد منفی مجاز نیست.")
                 return
             data["quota"] = quota
             async with TELEGRAM_SESSIONS_LOCK:
                 TELEGRAM_SESSIONS[str(chat_id)]["step"] = "days"
-            await tg_send(chat_id, f"✅ {quota}GB\n📅 تعداد روز انقضا را وارد کنید (مثلاً 30):")
+            await tg_send(chat_id, f"✅ {quota}GB\n📅 تعداد روز انقضا را وارد کنید:")
         except ValueError:
-            await tg_send(chat_id, "❌ عدد معتبر وارد کنید (مثلاً 10)")
+            await tg_send(chat_id, "❌ عدد معتبر وارد کنید (مثلاً 15)")
 
     elif step == "days":
         try:
@@ -1037,10 +1025,12 @@ async def handle_user_step(chat_id, text, session):
             async with TELEGRAM_SESSIONS_LOCK:
                 TELEGRAM_SESSIONS[str(chat_id)]["step"] = "fingerprint"
             
-            kb = [[{"text": "🌐 Chrome", "callback_data": "fp_chrome"}, {"text": "🦊 Firefox", "callback_data": "fp_firefox"}],
-                  [{"text": "🧭 Safari", "callback_data": "fp_safari"}, {"text": "📱 iOS", "callback_data": "fp_ios"}],
-                  [{"text": "🤖 Android", "callback_data": "fp_android"}, {"text": "🎲 Random", "callback_data": "fp_random"}],
-                  [{"text": "🚫 None", "callback_data": "fp_none"}]]
+            kb = [
+                [{"text": "🌐 Chrome", "callback_data": "fp_chrome"}, {"text": "🦊 Firefox", "callback_data": "fp_firefox"}],
+                [{"text": "🧭 Safari", "callback_data": "fp_safari"}, {"text": "📱 iOS", "callback_data": "fp_ios"}],
+                [{"text": "🤖 Android", "callback_data": "fp_android"}, {"text": "🎲 Random", "callback_data": "fp_random"}],
+                [{"text": "🚫 None", "callback_data": "fp_none"}]
+            ]
             await tg_send(chat_id, f"✅ {days} روز\n🖐️ فینگرپرینت را انتخاب کنید:", kb)
         except ValueError:
             await tg_send(chat_id, "❌ عدد روز معتبر وارد کنید (مثلاً 30)")
@@ -1054,12 +1044,22 @@ async def finish_create_user(chat_id, data):
 
         uid = generate_uuid()
         async with LINKS_LOCK:
-            LINKS[uid] = {"label": label, "limit_bytes": int(quota * 1024**3) if quota > 0 else 0,
-                          "used_bytes": 0, "created_at": datetime.now().isoformat(), "active": True,
-                          "expires_at": (datetime.now() + timedelta(days=days)).isoformat(),
-                          "note": "ساخته شده از بات", "is_default": False, "sub_id": None,
-                          "protocol": DEFAULT_PROTOCOL, "max_devices": 1, "fingerprint": fp,
-                          "password_hash": None, "ports": [443]}
+            LINKS[uid] = {
+                "label": label,
+                "limit_bytes": int(quota * 1024**3) if quota > 0 else 0,
+                "used_bytes": 0,
+                "created_at": datetime.now().isoformat(),
+                "active": True,
+                "expires_at": (datetime.now() + timedelta(days=days)).isoformat(),
+                "note": "ساخته شده از بات",
+                "is_default": False,
+                "sub_id": None,
+                "protocol": DEFAULT_PROTOCOL,
+                "max_devices": 1,
+                "fingerprint": fp,
+                "password_hash": None,
+                "ports": [443]
+            }
 
         await save_state()
         log_activity("link", f"کاربر {label} از بات ساخته شد", "ok")
@@ -1078,6 +1078,7 @@ async def finish_create_user(chat_id, data):
             f"🖐️ FP: {fp}\n"
             f"🔗 ساب: <code>{sub_url}</code>\n"
             f"🔗 کانفیگ: <code>{vless_link}</code>", kb)
+            
     except Exception as e:
         logger.error(f"Finish create error: {e}")
         await tg_send(chat_id, "❌ خطا در ساخت کاربر! لطفاً دوباره /new را بزنید.")
@@ -1116,11 +1117,10 @@ async def finish_edit_user(chat_id, data):
 
 async def handle_callback(chat_id, data, username):
     if data == "main_menu":
-        clear_session(chat_id)
-        await start_command(chat_id, username)
+        await send_main_menu(chat_id, username)
 
     elif data == "new_user":
-        await new_user_command(chat_id)
+        await start_new_user(chat_id)
 
     elif data == "list_users":
         await send_user_list(chat_id)
@@ -1142,20 +1142,7 @@ async def handle_callback(chat_id, data, username):
             session = TELEGRAM_SESSIONS.get(str(chat_id))
             if session:
                 session["step"] = "quota"
-        await tg_send(chat_id, "✏️ عدد حجم را به <b>GB</b> وارد کنید (مثلاً 15):",
-                      [[{"text": "🔙 برگشت", "callback_data": "back_to_quota"}]])
-
-    elif data == "back_to_quota":
-        async with TELEGRAM_SESSIONS_LOCK:
-            session = TELEGRAM_SESSIONS.get(str(chat_id))
-            if session:
-                session["step"] = "quota"
-        kb = [[{"text": "1GB", "callback_data": "quota_1"}, {"text": "2GB", "callback_data": "quota_2"},
-               {"text": "5GB", "callback_data": "quota_5"}],
-              [{"text": "10GB", "callback_data": "quota_10"}, {"text": "20GB", "callback_data": "quota_20"},
-               {"text": "50GB", "callback_data": "quota_50"}],
-              [{"text": "♾️ نامحدود", "callback_data": "quota_0"}, {"text": "✏️ عدد دلخواه", "callback_data": "quota_custom"}]]
-        await tg_send(chat_id, "📊 حجم را انتخاب کنید:", kb)
+        await tg_send(chat_id, "✏️ عدد حجم را به <b>GB</b> وارد کنید:", [])
 
     elif data.startswith("quota_"):
         val = data.replace("quota_", "")
@@ -1200,6 +1187,13 @@ async def handle_callback(chat_id, data, username):
     else:
         await tg_send(chat_id, "❌ گزینه نامعتبر!")
 
+async def start_new_user(chat_id):
+    clear_session(chat_id)
+    async with TELEGRAM_SESSIONS_LOCK:
+        TELEGRAM_SESSIONS[str(chat_id)] = {"action": "creating_user", "step": "label", "data": {}}
+        logger.info(f"✅ Session created for {chat_id}")
+    await tg_send(chat_id, "📝 نام کاربری را وارد کنید:", [[{"text": "❌ انصراف", "callback_data": "main_menu"}]])
+
 async def get_cached_users():
     if time.time() - CACHE_USERS["timestamp"] < CACHE_USERS["ttl"]:
         return CACHE_USERS["data"]
@@ -1223,9 +1217,11 @@ async def send_user_list(chat_id, page=0):
         active = link.get("active", True) and not is_link_expired(link)
         msg += f"• <b>{label}</b>\n  مصرف: {fmt_bytes(used)} / {fmt_bytes(limit) if limit > 0 else '∞'}\n  وضعیت: {'🟢' if active else '🔴'}\n  UUID: <code>{uid[:8]}...</code>\n\n"
     kb = []
-    nav = [{"text": "⬅️", "callback_data": f"list_page_{page-1}"} if page > 0 else None,
-           {"text": "➡️", "callback_data": f"list_page_{page+1}"} if page < total - 1 else None]
-    nav = [b for b in nav if b]
+    nav = []
+    if page > 0:
+        nav.append({"text": "⬅️", "callback_data": f"list_page_{page-1}"})
+    if page < total - 1:
+        nav.append({"text": "➡️", "callback_data": f"list_page_{page+1}"})
     if nav:
         kb.append(nav)
     kb.append([{"text": "🏠 منو", "callback_data": "main_menu"}])
