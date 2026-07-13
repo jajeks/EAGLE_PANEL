@@ -394,16 +394,12 @@ async def dashboard_stats(_=Depends(require_auth)):
     else:
         speed = 0
     
-    # محاسبه مصرف امروز
-    today = now_ir().strftime("%Y-%m-%d")
-    today_traffic = sum(v for k, v in hourly_traffic.items() if k.startswith(today))
-    
     return {
         "traffic": {
             "total": stats["total_bytes"],
             "total_fmt": fmt_bytes(stats["total_bytes"]),
-            "today": today_traffic,
-            "today_fmt": fmt_bytes(today_traffic)
+            "today": sum(hourly_traffic.values()),
+            "today_fmt": fmt_bytes(sum(hourly_traffic.values()))
         },
         "requests": stats["total_requests"],
         "uptime": uptime(),
@@ -1071,11 +1067,12 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await remove_device_connection(uuid, client_ip)
         logger.info(f"🔌 WS closed [{conn_id}] total={len(connections)}")
 
-# ─── ===== ساب‌لینک با اطلاعات کامل (مثل Hiddify) ===== ──────────────────
+# ─── ===== ساب‌لینک با اطلاعات کامل ===== ──────────────────────────────────
 
 @app.get("/sub/{uuid}")
 async def subscription_single(request: Request, uuid: str):
     """ساب‌لینک با اطلاعات کامل حجم، زمان، IP و سرعت"""
+    import base64
     
     # تشخیص User-Agent
     user_agent = request.headers.get("user-agent", "").lower()
@@ -1172,7 +1169,7 @@ async def subscription_single(request: Request, uuid: str):
         except:
             days_left = "نامشخص"
     
-    # گرفتن IP کاربر و سرعت
+    # گرفتن IP کاربر
     user_ip = "نامشخص"
     for c in connections.values():
         if c.get("uuid") == uuid:
@@ -1190,12 +1187,12 @@ async def subscription_single(request: Request, uuid: str):
     
     # ===== اگر کلاینت باشد → کانفیگ با اطلاعات کامل =====
     if not is_browser:
-        # ساخت کانفیگ با اطلاعات اضافی (برای کلاینت‌های پیشرفته)
+        # ساخت کانفیگ با اطلاعات اضافی
         config_lines = []
         for link_str in vless_links:
             config_lines.append(link_str)
         
-        # اضافه کردن اطلاعات به عنوان کامنت (برای کلاینت‌هایی که پشتیبانی می‌کنن)
+        # اضافه کردن اطلاعات به عنوان کامنت
         info_lines = [
             f"# نام: {label}",
             f"# مصرف: {fmt_bytes(used_bytes)} / {fmt_bytes(limit_bytes) if limit_bytes > 0 else 'نامحدود'}",
@@ -1238,13 +1235,6 @@ async def subscription_single(request: Request, uuid: str):
             if not last_connected or c.get("connected_at") > last_connected:
                 last_connected = c.get("connected_at")
     
-    # محاسبه سرعت لحظه‌ای
-    current_speed = 0
-    if len(hourly_traffic) > 0:
-        recent = list(hourly_traffic.values())[-3:]
-        if recent:
-            current_speed = sum(recent) / 30
-    
     link_data = {
         **link,
         "expired": is_link_expired(link),
@@ -1255,8 +1245,6 @@ async def subscription_single(request: Request, uuid: str):
         "vless_link": vless_links[0] if vless_links else "",
         "sub_url": f"https://{host}/sub/{uuid}",
         "user_ip": user_ip,
-        "current_speed": current_speed,
-        "current_speed_fmt": fmt_bytes(current_speed) + "/s" if current_speed > 0 else "0 B/s",
         "percent": percent,
         "days_left": days_left,
         "used_fmt": fmt_bytes(used_bytes),
@@ -1268,6 +1256,7 @@ async def subscription_single(request: Request, uuid: str):
 
 @app.get("/sub-all")
 async def subscription_all(_=Depends(require_auth)):
+    import base64
     host = get_host()
     async with LINKS_LOCK:
         lines = []
@@ -1286,6 +1275,7 @@ async def subscription_all(_=Depends(require_auth)):
 
 @app.get("/sub-group/{uuid_key}")
 async def sub_group_subscription(uuid_key: str, request: Request):
+    import base64
     async with SUBS_LOCK:
         sub = next((s for s in SUBS.values() if s.get("uuid_key") == uuid_key), None)
     if not sub:
@@ -1395,12 +1385,10 @@ async def info_page(uuid: str, request: Request):
     expires_at = link.get("expires_at")
     max_devices = link.get("max_devices", 0)
     
-    # محاسبه درصد مصرف
     percent = 0
     if limit_bytes > 0:
         percent = min(100, (used_bytes / limit_bytes) * 100)
     
-    # محاسبه روزهای باقی‌مونده
     days_left = "نامحدود"
     if expires_at:
         try:
@@ -1410,14 +1398,12 @@ async def info_page(uuid: str, request: Request):
         except:
             days_left = "نامشخص"
     
-    # گرفتن IP کاربر و سرعت
     user_ip = "نامشخص"
     for c in connections.values():
         if c.get("uuid") == uuid:
             user_ip = c.get("ip", "نامشخص")
             break
     
-    # ساخت لینک‌های VLESS
     vless_links = []
     for i, port in enumerate(ports):
         remark = f"{label}-p{port}" if len(ports) > 1 else label
@@ -1426,7 +1412,6 @@ async def info_page(uuid: str, request: Request):
             fingerprint=fingerprint, port=port
         ))
     
-    # اتصالات فعال
     active_connections_list = []
     for c in connections.values():
         if c.get("uuid") == uuid:
