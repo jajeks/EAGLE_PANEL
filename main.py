@@ -1017,8 +1017,10 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
             connections[conn_id]["bytes"] = connections[conn_id].get("bytes", 0) + len(first_chunk)
         logger.info(f"➡️  [{conn_id}] → {address}:{port}")
 
+        # ✅ رفع مشکل پورت: از لینک پورت می‌گیریم
+        target_port = port
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection(address, port),
+            asyncio.open_connection(address, target_port),
             timeout=10.0
         )
         sock = writer.transport.get_extra_info('socket')
@@ -1067,12 +1069,11 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await remove_device_connection(uuid, client_ip)
         logger.info(f"🔌 WS closed [{conn_id}] total={len(connections)}")
 
-# ─── ===== ساب‌لینک با اطلاعات کامل ===== ──────────────────────────────────
+# ─── ===== ساب‌لینک با اطلاعات کامل و Userinfo ===== ──────────────────
 
 @app.get("/sub/{uuid}")
 async def subscription_single(request: Request, uuid: str):
-    """ساب‌لینک با اطلاعات کامل حجم، زمان، IP و سرعت"""
-    import base64
+    """ساب‌لینک با اطلاعات کامل حجم، زمان و Userinfo برای کلاینت"""
     
     # تشخیص User-Agent
     user_agent = request.headers.get("user-agent", "").lower()
@@ -1185,24 +1186,21 @@ async def subscription_single(request: Request, uuid: str):
             fingerprint=fingerprint, port=port
         ))
     
-    # ===== اگر کلاینت باشد → کانفیگ با اطلاعات کامل =====
+    # ===== اگر کلاینت باشد → کانفیگ با Userinfo =====
     if not is_browser:
-        # ساخت کانفیگ با اطلاعات اضافی
-        config_lines = []
-        for link_str in vless_links:
-            config_lines.append(link_str)
+        # استاندارد Subscription Userinfo (برای کلاینت‌های مدرن)
+        # فرمت: upload=0&download=0&total=1073741824&expire=0
+        total_bytes = limit_bytes if limit_bytes > 0 else 0
+        # ساخت هدر Userinfo
+        userinfo = f"upload=0&download={used_bytes}&total={total_bytes}"
+        if expires_at:
+            try:
+                exp_ts = int(datetime.fromisoformat(expires_at.replace('Z', '+00:00')).timestamp())
+                userinfo += f"&expire={exp_ts}"
+            except:
+                pass
         
-        # اضافه کردن اطلاعات به عنوان کامنت
-        info_lines = [
-            f"# نام: {label}",
-            f"# مصرف: {fmt_bytes(used_bytes)} / {fmt_bytes(limit_bytes) if limit_bytes > 0 else 'نامحدود'}",
-            f"# درصد: {percent:.1f}%",
-            f"# زمان باقی‌مانده: {days_left}",
-            f"# IP: {user_ip}",
-            f"# پورت‌ها: {', '.join(str(p) for p in ports)}",
-        ]
-        
-        content = "\n".join(info_lines + config_lines)
+        content = "\n".join(vless_links)
         content_b64 = base64.b64encode(content.encode()).decode()
         
         return Response(
@@ -1216,6 +1214,8 @@ async def subscription_single(request: Request, uuid: str):
                 "profile-title": quote(label),
                 "profile-update-interval": "12",
                 "profile-web-page-url": f"https://{host}/info/{uuid}",
+                # ✅ هدر Userinfo برای نمایش حجم در کلاینت
+                "Subscription-Userinfo": userinfo,
             }
         )
     
@@ -1256,7 +1256,6 @@ async def subscription_single(request: Request, uuid: str):
 
 @app.get("/sub-all")
 async def subscription_all(_=Depends(require_auth)):
-    import base64
     host = get_host()
     async with LINKS_LOCK:
         lines = []
@@ -1275,7 +1274,6 @@ async def subscription_all(_=Depends(require_auth)):
 
 @app.get("/sub-group/{uuid_key}")
 async def sub_group_subscription(uuid_key: str, request: Request):
-    import base64
     async with SUBS_LOCK:
         sub = next((s for s in SUBS.values() if s.get("uuid_key") == uuid_key), None)
     if not sub:
