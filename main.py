@@ -15,9 +15,12 @@ import socket
 import base64
 from io import BytesIO
 import httpx
+import re
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment
 
 from fastapi import FastAPI, Request, HTTPException, Depends, WebSocket, WebSocketDisconnect
-from fastapi.responses import Response, HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import Response, HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import logging
@@ -33,6 +36,7 @@ CONFIG = {
     "secret": os.environ.get("SECRET_KEY", secrets.token_urlsafe(32)),
     "host": os.environ.get("RAILWAY_PUBLIC_DOMAIN", os.environ.get("RENDER_EXTERNAL_URL", "localhost")),
     "admin_password": os.environ.get("ADMIN_PASSWORD", "123456"),
+    "admin_username": os.environ.get("ADMIN_USERNAME", "admin"),
 }
 
 app = FastAPI(title="🪐 Eagle Gateway v10 Pro", docs_url=None, redoc_url=None)
@@ -43,10 +47,54 @@ DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DATA_FILE = DATA_DIR / "eagle_state.json"
 SAVE_LOCK = asyncio.Lock()
 
-LINKS: dict = {}
-LINKS_LOCK = asyncio.Lock()
-SUBS: dict = {}
-SUBS_LOCK = asyncio.Lock()
+# ─── Workspace System ─────────────────────────────────────────────────────────
+WORKSPACES: dict = {}
+WORKSPACES_LOCK = asyncio.Lock()
+
+# Super Admin (مدیر کل)
+SUPER_ADMIN = {
+    "username": os.environ.get("SUPER_ADMIN_USERNAME", "superadmin"),
+    "password_hash": hashlib.sha256(f"{os.environ.get('SUPER_ADMIN_PASSWORD', 'superadmin123')}{CONFIG['secret']}".encode()).hexdigest(),
+}
+
+# ─── Auth ──────────────────────────────────────────────────────────────────────
+SESSION_COOKIE = "eagle_session"
+SESSION_TTL = 60 * 60 * 24 * 7
+AUTH = {
+    "password_hash": hashlib.sha256(f"{CONFIG['admin_password']}{CONFIG['secret']}".encode()).hexdigest(),
+    "username": CONFIG["admin_username"],
+}
+SESSIONS: dict = {}
+SESSIONS_LOCK = asyncio.Lock()
+
+# ─── Default Settings ─────────────────────────────────────────────────────────
+DEFAULT_SETTINGS = {
+    "rgb_mode": False,
+    "default_protocol": "vless-ws",
+    "default_port": 443,
+    "inbound_port": 443,
+    "language": "fa",
+    "theme": "dark",
+    "telegram_bot_token": "",
+    "telegram_chat_id": "",
+    "clean_ips": [
+        {"ip": "104.16.5.10", "provider": "MCI", "active": True},
+        {"ip": "104.17.20.30", "provider": "Irancell", "active": True},
+        {"ip": "104.18.10.20", "provider": "Hamrahe Aval", "active": True},
+    ],
+    "ad_filter_enabled": True,
+    "porn_filter_enabled": True,
+    "malware_filter_enabled": True,
+    "backup_interval": 6,
+    "multi_server": False,
+    "servers": [],
+    "routes": [],
+    "log_retention_days": 30,
+}
+
+SETTINGS: dict = DEFAULT_SETTINGS.copy()
+
+# ─── In-Memory State ─────────────────────────────────────────────────────────
 connections: dict = {}
 stats = {"total_bytes": 0, "total_requests": 0, "total_errors": 0, "start_time": time.time()}
 error_logs: deque = deque(maxlen=50)
@@ -57,33 +105,21 @@ device_connections: dict = {}
 DEVICE_CONNECTIONS_LOCK = asyncio.Lock()
 http_client: httpx.AsyncClient | None = None
 
-# ─── Auth ──────────────────────────────────────────────────────────────────────
-SESSION_COOKIE = "eagle_session"
-SESSION_TTL = 60 * 60 * 24 * 7
-AUTH = {"password_hash": hashlib.sha256(f"{CONFIG['admin_password']}{CONFIG['secret']}".encode()).hexdigest()}
-SESSIONS: dict = {}
-SESSIONS_LOCK = asyncio.Lock()
-
-SETTINGS: dict = {
-    "rgb_mode": False, "default_protocol": "vless-ws", "default_port": 443,
-    "inbound_port": 443, "language": "fa", "theme": "dark",
-    "telegram_bot_token": "", "telegram_chat_id": "",
-}
-
 PROTOCOLS = ("vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one")
 DEFAULT_PROTOCOL = "vless-ws"
 DEFAULT_PORTS = [443, 8443, 2053, 2096, 2087, 2083, 8080]
 
 FINGERPRINTS = {
-    "chrome": "🌐 Chrome", "firefox": "🦊 Firefox", "safari": "🧭 Safari",
-    "edge": "🌊 Edge", "ios": "📱 iOS", "android": "🤖 Android",
-    "safari_ios": "🍏 Safari iOS", "random": "🎲 Random", "none": "🚫 None"
+    "chrome": "🌐 Chrome",
+    "firefox": "🦊 Firefox",
+    "safari": "🧭 Safari",
+    "edge": "🌊 Edge",
+    "ios": "📱 iOS",
+    "android": "🤖 Android",
+    "safari_ios": "🍏 Safari iOS",
+    "random": "🎲 Random",
+    "none": "🚫 None",
 }
-
-# ─── Telegram ─────────────────────────────────────────────────────────────────
-TELEGRAM_SESSIONS: dict = {}
-TELEGRAM_SESSIONS_LOCK = asyncio.Lock()
-CACHE_USERS = {"data": [], "timestamp": 0, "ttl": 3}
 
 # ─────────────────────────────────────────────────────────────────────────────
 # ===== Functions =====
@@ -155,10 +191,13 @@ def is_link_allowed(link: dict | None) -> bool:
     return True
 
 def generate_vless_link(uuid: str, host: str, remark: str = "", protocol: str = DEFAULT_PROTOCOL,
-                        fingerprint: str = "chrome", port: int = 443, sni: str = None) -> str:
+                        fingerprint: str = "chrome", port: int = 443, sni: str = None,
+                        clean_ip: str = None) -> str:
     if not remark:
         remark = "عقاب"
     sni = sni or host
+    actual_host = clean_ip if clean_ip else host
+    
     if protocol == "vless-ws":
         path = f"/ws/{uuid}"
         params = {"encryption": "none", "security": "tls", "type": "ws", "host": host,
@@ -169,10 +208,16 @@ def generate_vless_link(uuid: str, host: str, remark: str = "", protocol: str = 
         params = {"encryption": "none", "security": "tls", "type": "xhttp", "mode": mode,
                   "host": host, "path": path, "sni": sni, "fp": fingerprint, "alpn": "h2,http/1.1"}
     query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
-    return f"vless://{uuid}@{host}:{port}?{query}#{quote(remark)}"
+    return f"vless://{uuid}@{actual_host}:{port}?{query}#{quote(remark)}"
 
-def log_activity(kind: str, message: str, level: str = "info"):
-    activity_logs.append({"kind": kind, "level": level, "message": message, "time": datetime.now().isoformat()})
+def log_activity(kind: str, message: str, level: str = "info", workspace_id: str = None):
+    activity_logs.append({
+        "kind": kind,
+        "level": level,
+        "message": message,
+        "time": datetime.now().isoformat(),
+        "workspace_id": workspace_id
+    })
 
 async def remove_device_connection(uuid: str, client_ip: str):
     async with DEVICE_CONNECTIONS_LOCK:
@@ -180,6 +225,143 @@ async def remove_device_connection(uuid: str, client_ip: str):
             device_connections[uuid].remove(client_ip)
             if not device_connections[uuid]:
                 del device_connections[uuid]
+
+# ─── Workspace Functions ──────────────────────────────────────────────────────
+
+async def load_workspaces():
+    """بارگذاری Workspace ها"""
+    global WORKSPACES, SUPER_ADMIN, SETTINGS
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        if DATA_FILE.exists():
+            async with aiofiles.open(DATA_FILE, "r") as f:
+                data = json.loads(await f.read())
+                WORKSPACES = data.get("workspaces", {})
+                if "super_admin" in data:
+                    SUPER_ADMIN["username"] = data["super_admin"].get("username", SUPER_ADMIN["username"])
+                    SUPER_ADMIN["password_hash"] = data["super_admin"].get("password_hash", SUPER_ADMIN["password_hash"])
+                if "settings" in data:
+                    SETTINGS.update(data["settings"])
+                logger.info(f"📂 Loaded {len(WORKSPACES)} workspaces")
+    except Exception as e:
+        logger.warning(f"Load workspaces error: {e}")
+
+async def save_workspaces():
+    """ذخیره Workspace ها"""
+    async with SAVE_LOCK:
+        try:
+            data = {
+                "workspaces": WORKSPACES,
+                "super_admin": {
+                    "username": SUPER_ADMIN["username"],
+                    "password_hash": SUPER_ADMIN["password_hash"],
+                },
+                "settings": SETTINGS,
+                "saved_at": datetime.now().isoformat()
+            }
+            async with aiofiles.open(DATA_FILE, "w") as f:
+                await f.write(json.dumps(data, ensure_ascii=False, indent=2))
+        except Exception as e:
+            logger.warning(f"Save workspaces error: {e}")
+
+async def get_workspace_data(workspace_id: str) -> dict:
+    """دریافت دیتای Workspace با fallback"""
+    ws = WORKSPACES.get(workspace_id, {})
+    if not ws:
+        return {
+            "links": {},
+            "settings": DEFAULT_SETTINGS.copy(),
+            "daily_traffic": {},
+            "activity_logs": [],
+            "stats": {"total_bytes": 0, "total_requests": 0, "total_errors": 0},
+            "quota_limit_bytes": 0,
+            "quota_used_bytes": 0,
+            "quota_reset_date": None,
+            "is_quota_exceeded": False,
+        }
+    return ws
+
+async def check_workspace_quota(workspace_id: str) -> tuple[bool, str]:
+    """بررسی سهمیه Workspace"""
+    ws = WORKSPACES.get(workspace_id)
+    if not ws:
+        return False, "Workspace یافت نشد"
+    
+    limit = ws.get("quota_limit_bytes", 0)
+    used = ws.get("quota_used_bytes", 0)
+    
+    # اگر سهمیه 0 باشه = نامحدود
+    if limit == 0:
+        return True, "نامحدود"
+    
+    # اگر مصرف از سهمیه بیشتر شده = غیرفعال
+    if used >= limit:
+        ws["is_quota_exceeded"] = True
+        await save_workspaces()
+        return False, f"سهمیه تمام شده! {fmt_bytes(used)} / {fmt_bytes(limit)}"
+    
+    return True, f"{fmt_bytes(used)} / {fmt_bytes(limit)}"
+
+async def update_workspace_usage(workspace_id: str, bytes_used: int):
+    """به‌روزرسانی مصرف Workspace"""
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            return
+        ws = WORKSPACES[workspace_id]
+        ws["quota_used_bytes"] = ws.get("quota_used_bytes", 0) + bytes_used
+        # بررسی دوباره سهمیه
+        limit = ws.get("quota_limit_bytes", 0)
+        if limit > 0 and ws["quota_used_bytes"] >= limit:
+            ws["is_quota_exceeded"] = True
+        await save_workspaces()
+
+# ─── Session Functions ──────────────────────────────────────────────────────
+
+async def create_session() -> str:
+    token = secrets.token_urlsafe(32)
+    async with SESSIONS_LOCK:
+        SESSIONS[token] = time.time() + SESSION_TTL
+    return token
+
+async def is_valid_session(token: str | None) -> bool:
+    if not token:
+        return False
+    async with SESSIONS_LOCK:
+        exp = SESSIONS.get(token)
+        if exp is None or exp < time.time():
+            SESSIONS.pop(token, None)
+            return False
+        return True
+
+async def destroy_session(token: str | None):
+    if token:
+        async with SESSIONS_LOCK:
+            SESSIONS.pop(token, None)
+
+# ─── Auth Dependencies ──────────────────────────────────────────────────────
+
+async def require_super_admin(req: Request):
+    """فقط Super Admin"""
+    token = req.cookies.get(SESSION_COOKIE)
+    if not await is_valid_session(token):
+        raise HTTPException(401, "unauthorized")
+    session_data = SESSIONS.get(token, {})
+    if session_data.get("user_type") != "super_admin":
+        raise HTTPException(403, "دسترسی محدود به Super Admin")
+    return token
+
+async def require_workspace_admin(req: Request):
+    """ادمین یک Workspace"""
+    token = req.cookies.get(SESSION_COOKIE)
+    if not await is_valid_session(token):
+        raise HTTPException(401, "unauthorized")
+    session_data = SESSIONS.get(token, {})
+    if session_data.get("user_type") != "workspace_admin":
+        raise HTTPException(403, "دسترسی محدود به ادمین Workspace")
+    workspace_id = session_data.get("workspace_id")
+    if not workspace_id or workspace_id not in WORKSPACES:
+        raise HTTPException(404, "Workspace یافت نشد")
+    return workspace_id
 
 # ─── Telegram Functions ──────────────────────────────────────────────────────
 
@@ -210,16 +392,6 @@ async def tg_doc(chat_id, content, filename):
     except:
         return False
 
-async def tg_answer(cb_id):
-    token = SETTINGS.get("telegram_bot_token", "")
-    if not token:
-        return
-    try:
-        async with httpx.AsyncClient(timeout=1.5) as client:
-            await client.post(f"https://api.telegram.org/bot{token}/answerCallbackQuery", json={"callback_query_id": cb_id})
-    except:
-        pass
-
 async def setup_webhook():
     token = SETTINGS.get("telegram_bot_token", "")
     if not token:
@@ -232,191 +404,283 @@ async def setup_webhook():
     except:
         pass
 
-# ─── Session ──────────────────────────────────────────────────────────────────
-
-async def create_session() -> str:
-    token = secrets.token_urlsafe(32)
-    async with SESSIONS_LOCK:
-        SESSIONS[token] = time.time() + SESSION_TTL
-    return token
-
-async def is_valid_session(token: str | None) -> bool:
-    if not token:
-        return False
-    async with SESSIONS_LOCK:
-        exp = SESSIONS.get(token)
-        if exp is None or exp < time.time():
-            SESSIONS.pop(token, None)
-            return False
-        return True
-
-async def destroy_session(token: str | None):
-    if token:
-        async with SESSIONS_LOCK:
-            SESSIONS.pop(token, None)
-
-async def require_auth(request: Request):
-    if not await is_valid_session(request.cookies.get(SESSION_COOKIE)):
-        raise HTTPException(status_code=401, detail="unauthorized")
-    return request.cookies.get(SESSION_COOKIE)
-
-# ─── State ────────────────────────────────────────────────────────────────────
-
-async def load_state():
-    global LINKS, SUBS, AUTH, SETTINGS
-    try:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        if DATA_FILE.exists():
-            async with aiofiles.open(DATA_FILE, "r") as f:
-                data = json.loads(await f.read())
-            LINKS.update(data.get("links", {}))
-            SUBS.update(data.get("subs", {}))
-            AUTH["password_hash"] = data.get("password_hash", AUTH["password_hash"])
-            SETTINGS.update(data.get("settings", {}))
-            daily_traffic.update(data.get("daily_traffic", {}))
-            logger.info(f"📂 Loaded: {len(LINKS)} links")
-    except Exception as e:
-        logger.warning(f"Load state error: {e}")
-
-async def save_state():
-    async with SAVE_LOCK:
-        try:
-            DATA_DIR.mkdir(parents=True, exist_ok=True)
-            data = {"links": dict(LINKS), "subs": dict(SUBS), "password_hash": AUTH["password_hash"],
-                    "settings": SETTINGS, "daily_traffic": dict(daily_traffic), "saved_at": datetime.now().isoformat()}
-            async with aiofiles.open(DATA_FILE, "w") as f:
-                await f.write(json.dumps(data, ensure_ascii=False, indent=2))
-        except Exception as e:
-            logger.warning(f"Save error: {e}")
-
 # ─── Startup ─────────────────────────────────────────────────────────────────
 
 @app.on_event("startup")
 async def startup():
     global http_client
     http_client = httpx.AsyncClient(timeout=10.0)
-    await load_state()
+    await load_workspaces()
     await setup_webhook()
+    asyncio.create_task(auto_backup())
     logger.info(f"🪐 Eagle Gateway started on port {CONFIG['port']}")
 
 @app.on_event("shutdown")
 async def shutdown():
-    await save_state()
+    await save_workspaces()
     if http_client:
         await http_client.aclose()
 
-# ─── API ENDPOINTS (خلاصه) ──────────────────────────────────────────────────
+# ─── Auto Backup ─────────────────────────────────────────────────────────────
 
-@app.post("/api/settings/language")
-async def set_language(req: Request, _=Depends(require_auth)):
+async def auto_backup():
+    while True:
+        try:
+            await asyncio.sleep(SETTINGS.get("backup_interval", 6) * 3600)
+            await save_workspaces()
+            chat_id = SETTINGS.get("telegram_chat_id")
+            token = SETTINGS.get("telegram_bot_token")
+            if chat_id and token:
+                async with aiofiles.open(DATA_FILE, "r") as f:
+                    content = await f.read()
+                await tg_doc(chat_id, content, f"backup_{now_ir().strftime('%Y-%m-%d_%H-%M')}.json")
+            logger.info("✅ Auto backup completed")
+        except Exception as e:
+            logger.error(f"Auto backup error: {e}")
+            await asyncio.sleep(300)
+
+# ─── ===== API: Login ===== ──────────────────────────────────────────────────
+
+@app.post("/api/login")
+async def api_login(req: Request):
     body = await req.json()
-    lang = body.get("language", "fa")
-    if lang in ["fa", "en"]:
-        SETTINGS["language"] = lang
-        await save_state()
-        return {"ok": True}
-    raise HTTPException(400, "زبان نامعتبر")
+    username = body.get("username", "").strip()
+    password = body.get("password", "").strip()
+    workspace_id = body.get("workspace_id", "").strip()
+    
+    # ===== Super Admin =====
+    if username == SUPER_ADMIN["username"] and hash_password(password) == SUPER_ADMIN["password_hash"]:
+        token = await create_session()
+        async with SESSIONS_LOCK:
+            SESSIONS[token] = {"user_type": "super_admin", "workspace_id": None}
+        resp = JSONResponse({"ok": True, "user_type": "super_admin", "is_super_admin": True})
+        resp.set_cookie(SESSION_COOKIE, token, max_age=SESSION_TTL if body.get("remember") else None, httponly=True, samesite="lax", path="/")
+        return resp
+    
+    # ===== Workspace Admin =====
+    if workspace_id and workspace_id in WORKSPACES:
+        ws = WORKSPACES[workspace_id]
+        if ws.get("admin_username") == username and hash_password(password) == ws.get("admin_password_hash"):
+            # بررسی سهمیه
+            limit = ws.get("quota_limit_bytes", 0)
+            used = ws.get("quota_used_bytes", 0)
+            if limit > 0 and used >= limit:
+                return JSONResponse({"ok": False, "error": "سهمیه این Workspace تمام شده است!"}, status_code=403)
+            
+            token = await create_session()
+            async with SESSIONS_LOCK:
+                SESSIONS[token] = {"user_type": "workspace_admin", "workspace_id": workspace_id}
+            resp = JSONResponse({"ok": True, "user_type": "workspace_admin", "workspace_name": ws.get("name")})
+            resp.set_cookie(SESSION_COOKIE, token, max_age=SESSION_TTL if body.get("remember") else None, httponly=True, samesite="lax", path="/")
+            resp.set_cookie("eagle_workspace", workspace_id, max_age=SESSION_TTL if body.get("remember") else None, httponly=True, samesite="lax", path="/")
+            return resp
+    
+    raise HTTPException(401, "نام کاربری یا رمز عبور اشتباه است")
 
-@app.get("/api/language")
-async def get_language():
-    return {"language": SETTINGS.get("language", "fa")}
+@app.post("/api/logout")
+async def api_logout(req: Request):
+    await destroy_session(req.cookies.get(SESSION_COOKIE))
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(SESSION_COOKIE, path="/")
+    resp.delete_cookie("eagle_workspace", path="/")
+    return resp
 
-@app.post("/api/settings/theme")
-async def set_theme(req: Request, _=Depends(require_auth)):
-    body = await req.json()
-    theme = body.get("theme", "dark")
-    if theme in ["dark", "light"]:
-        SETTINGS["theme"] = theme
-        await save_state()
-        return {"ok": True}
-    raise HTTPException(400, "تم نامعتبر")
-
-@app.post("/api/change-password")
-async def change_password(req: Request, _=Depends(require_auth)):
-    body = await req.json()
-    old, new = body.get("old_password", "").strip(), body.get("new_password", "").strip()
-    if not old or not new or len(new) < 4:
-        raise HTTPException(400, "رمز جدید حداقل 4 کاراکتر")
-    if hash_password(old) != AUTH["password_hash"]:
-        raise HTTPException(403, "رمز فعلی اشتباه")
-    AUTH["password_hash"] = hash_password(new)
-    CONFIG["admin_password"] = new
-    os.environ["ADMIN_PASSWORD"] = new
-    await save_state()
-    return {"ok": True}
-
-@app.get("/api/settings")
-async def get_settings(_=Depends(require_auth)):
-    return SETTINGS
-
-@app.post("/api/settings/rgb")
-async def toggle_rgb(req: Request, _=Depends(require_auth)):
-    body = await req.json()
-    SETTINGS["rgb_mode"] = bool(body.get("enabled", False))
-    await save_state()
-    return {"rgb_mode": SETTINGS["rgb_mode"]}
-
-@app.post("/api/settings/telegram")
-async def set_telegram(req: Request, _=Depends(require_auth)):
-    body = await req.json()
-    if body.get("token"):
-        SETTINGS["telegram_bot_token"] = body["token"].strip()
-    if body.get("chat_id"):
-        SETTINGS["telegram_chat_id"] = body["chat_id"].strip()
-    await save_state()
-    await setup_webhook()
-    return {"ok": True}
-
-@app.post("/api/telegram/test")
-async def test_telegram(_=Depends(require_auth)):
-    chat_id = SETTINGS.get("telegram_chat_id")
-    if not chat_id:
-        return {"ok": False, "message": "Chat ID تنظیم نشده"}
-    result = await tg_send(chat_id, "✅ تست اتصال موفق!")
-    return {"ok": result, "message": "ارسال شد" if result else "خطا"}
-
-@app.get("/api/telegram/status")
-async def get_telegram_status(_=Depends(require_auth)):
-    token, chat_id = SETTINGS.get("telegram_bot_token", ""), SETTINGS.get("telegram_chat_id", "")
-    return {"active": bool(token and chat_id), "has_token": bool(token), "has_chat_id": bool(chat_id),
-            "token_preview": token[:10] + "..." if len(token) > 10 else token, "chat_id": chat_id}
-
-@app.get("/api/dashboard/stats")
-async def dashboard_stats(_=Depends(require_auth)):
-    disk = psutil.disk_usage('/')
-    speed = 0
-    if len(hourly_traffic) > 0:
-        speed = sum(list(hourly_traffic.values())[-6:]) / 21600
-    today = daily_traffic.get(now_ir().strftime("%Y-%m-%d"), 0)
+@app.get("/api/me")
+async def api_me(req: Request):
+    token = req.cookies.get(SESSION_COOKIE)
+    is_auth = await is_valid_session(token)
+    session_data = SESSIONS.get(token, {}) if token else {}
+    user_type = session_data.get("user_type")
+    workspace_id = session_data.get("workspace_id")
+    
     return {
-        "traffic": {"total": stats["total_bytes"], "total_fmt": fmt_bytes(stats["total_bytes"]),
-                    "today": today, "today_fmt": fmt_bytes(today)},
-        "requests": stats["total_requests"], "uptime": uptime(),
-        "disk": {"total": disk.total, "used": disk.used, "free": disk.free,
-                 "total_fmt": fmt_bytes(disk.total), "used_fmt": fmt_bytes(disk.used), "free_fmt": fmt_bytes(disk.free),
-                 "percent": disk.percent},
-        "connections": len(connections),
-        "speed": {"download": speed, "download_fmt": fmt_bytes(speed) + "/s" if speed > 0 else "0 B/s"},
-        "links_count": len(LINKS), "active_links": sum(1 for l in LINKS.values() if is_link_allowed(l))
+        "authenticated": is_auth,
+        "user_type": user_type,
+        "workspace_id": workspace_id,
+        "is_super_admin": user_type == "super_admin",
     }
 
-@app.get("/api/inbound")
-async def get_inbound(_=Depends(require_auth)):
-    return {"port": SETTINGS.get("inbound_port", 443), "protocol": SETTINGS.get("default_protocol", "vless"),
-            "host": get_host(), "is_active": True}
+# ─── ===== API: Workspace Management (Super Admin) ===== ────────────────────
 
-@app.post("/api/inbound")
-async def update_inbound(req: Request, _=Depends(require_auth)):
+@app.get("/api/admin/workspaces")
+async def admin_list_workspaces(_=Depends(require_super_admin)):
+    """لیست همه Workspace ها"""
+    result = []
+    for wid, ws in WORKSPACES.items():
+        limit = ws.get("quota_limit_bytes", 0)
+        used = ws.get("quota_used_bytes", 0)
+        result.append({
+            "id": wid,
+            "name": ws.get("name"),
+            "admin_username": ws.get("admin_username"),
+            "created_at": ws.get("created_at"),
+            "links_count": len(ws.get("links", {})),
+            "active": ws.get("active", True),
+            "quota_limit_gb": round(limit / (1024**3), 2) if limit > 0 else 0,
+            "quota_used_gb": round(used / (1024**3), 2),
+            "quota_percent": round((used / limit) * 100, 1) if limit > 0 else 0,
+            "is_quota_exceeded": ws.get("is_quota_exceeded", False),
+            "quota_reset_date": ws.get("quota_reset_date"),
+        })
+    return {"workspaces": result}
+
+@app.post("/api/admin/workspaces")
+async def admin_create_workspace(req: Request, _=Depends(require_super_admin)):
+    """ساخت Workspace جدید"""
     body = await req.json()
-    port = body.get("port", 443)
-    if port < 1 or port > 65535:
-        raise HTTPException(400, "پورت نامعتبر")
-    SETTINGS["inbound_port"] = port
-    await save_state()
+    name = body.get("name", "").strip()
+    admin_username = body.get("admin_username", "").strip()
+    admin_password = body.get("admin_password", "").strip()
+    quota_gb = float(body.get("quota_gb", 0))
+    
+    if not name or not admin_username or not admin_password:
+        raise HTTPException(400, "نام، نام کاربری و رمز عبور الزامی است")
+    
+    if len(admin_password) < 4:
+        raise HTTPException(400, "رمز عبور حداقل 4 کاراکتر")
+    
+    # بررسی تکراری نبودن
+    for wid, ws in WORKSPACES.items():
+        if ws.get("admin_username") == admin_username:
+            raise HTTPException(400, "این نام کاربری قبلاً استفاده شده است")
+    
+    workspace_id = f"ws_{secrets.token_hex(8)}"
+    async with WORKSPACES_LOCK:
+        WORKSPACES[workspace_id] = {
+            "name": name,
+            "admin_username": admin_username,
+            "admin_password_hash": hash_password(admin_password),
+            "created_at": datetime.now().isoformat(),
+            "active": True,
+            "quota_limit_bytes": int(quota_gb * 1024**3) if quota_gb > 0 else 0,
+            "quota_used_bytes": 0,
+            "quota_reset_date": None,
+            "is_quota_exceeded": False,
+            "settings": DEFAULT_SETTINGS.copy(),
+            "links": {},
+            "daily_traffic": {},
+            "activity_logs": [],
+            "stats": {"total_bytes": 0, "total_requests": 0, "total_errors": 0},
+        }
+    
+    await save_workspaces()
+    log_activity("workspace", f"Workspace {name} ساخته شد", "ok")
+    return {"ok": True, "workspace_id": workspace_id}
+
+@app.delete("/api/admin/workspaces/{workspace_id}")
+async def admin_delete_workspace(workspace_id: str, _=Depends(require_super_admin)):
+    """حذف Workspace"""
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        name = WORKSPACES[workspace_id].get("name", "بدون نام")
+        del WORKSPACES[workspace_id]
+    
+    await save_workspaces()
+    log_activity("workspace", f"Workspace {name} حذف شد", "err")
     return {"ok": True}
 
-@app.post("/api/links")
-async def create_link(req: Request, _=Depends(require_auth)):
+@app.post("/api/admin/workspaces/{workspace_id}/quota")
+async def admin_set_quota(workspace_id: str, req: Request, _=Depends(require_super_admin)):
+    """تنظیم سهمیه Workspace"""
+    body = await req.json()
+    quota_gb = float(body.get("quota_gb", 0))
+    reset_date = body.get("reset_date")
+    
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        ws = WORKSPACES[workspace_id]
+        ws["quota_limit_bytes"] = int(quota_gb * 1024**3) if quota_gb > 0 else 0
+        if reset_date:
+            ws["quota_reset_date"] = reset_date
+        ws["is_quota_exceeded"] = False
+    
+    await save_workspaces()
+    log_activity("quota", f"سهمیه {WORKSPACES[workspace_id].get('name')} به {quota_gb}GB تغییر کرد", "ok")
+    return {"ok": True}
+
+@app.post("/api/admin/workspaces/{workspace_id}/quota/reset")
+async def admin_reset_quota(workspace_id: str, _=Depends(require_super_admin)):
+    """ریست مصرف Workspace"""
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        ws = WORKSPACES[workspace_id]
+        ws["quota_used_bytes"] = 0
+        ws["is_quota_exceeded"] = False
+        # ریست مصرف کاربران هم
+        for uid, link in ws.get("links", {}).items():
+            link["used_bytes"] = 0
+    
+    await save_workspaces()
+    log_activity("quota", f"مصرف {WORKSPACES[workspace_id].get('name')} ریست شد", "ok")
+    return {"ok": True}
+
+# ─── ===== API: Workspace (برای ادمین Workspace) ===== ──────────────────────
+
+@app.get("/api/workspace/info")
+async def workspace_get_info(workspace_id=Depends(require_workspace_admin)):
+    """دریافت اطلاعات Workspace جاری"""
+    ws = WORKSPACES.get(workspace_id, {})
+    limit = ws.get("quota_limit_bytes", 0)
+    used = ws.get("quota_used_bytes", 0)
+    return {
+        "id": workspace_id,
+        "name": ws.get("name"),
+        "created_at": ws.get("created_at"),
+        "links_count": len(ws.get("links", {})),
+        "settings": ws.get("settings", {}),
+        "quota": {
+            "limit_gb": round(limit / (1024**3), 2) if limit > 0 else 0,
+            "used_gb": round(used / (1024**3), 2),
+            "percent": round((used / limit) * 100, 1) if limit > 0 else 0,
+            "is_exceeded": ws.get("is_quota_exceeded", False),
+            "reset_date": ws.get("quota_reset_date"),
+        }
+    }
+
+# ─── ===== API: Workspace Links ===== ────────────────────────────────────────
+
+@app.get("/api/workspace/links")
+async def workspace_list_links(req: Request, workspace_id=Depends(require_workspace_admin)):
+    """لیست کاربران در Workspace جاری"""
+    ws = WORKSPACES.get(workspace_id, {})
+    links = ws.get("links", {})
+    host = get_host()
+    
+    result = []
+    for uid, d in links.items():
+        ports = d.get("ports", [443])
+        first_port = ports[0] if ports else 443
+        active = d.get("active", True) and not is_link_expired(d)
+        label = d.get("label", "کاربر")
+        clean_ip = d.get("clean_ip")
+        
+        result.append({
+            "uuid": uid,
+            **d,
+            "ports": ports,
+            "expired": is_link_expired(d),
+            "has_password": d.get("password_hash") is not None,
+            "vless_link": generate_vless_link(uid, host, remark=f"عقاب-{label}",
+                protocol=d.get("protocol", DEFAULT_PROTOCOL),
+                fingerprint=d.get("fingerprint", "chrome"),
+                port=first_port, clean_ip=clean_ip),
+            "sub_url": f"https://{host}/sub/{uid}"
+        })
+    
+    result.sort(key=lambda x: x["created_at"], reverse=True)
+    return {"links": result}
+
+@app.post("/api/workspace/links")
+async def workspace_create_link(req: Request, workspace_id=Depends(require_workspace_admin)):
+    """ساخت کاربر جدید در Workspace جاری"""
+    # بررسی سهمیه Workspace
+    can_use, msg = await check_workspace_quota(workspace_id)
+    if not can_use:
+        raise HTTPException(403, f"سهمیه Workspace تمام شده! {msg}")
+    
     body = await req.json()
     label = (body.get("label") or "کاربر").strip()[:60]
     quota = float(body.get("limit_value") or 0)
@@ -431,55 +695,55 @@ async def create_link(req: Request, _=Depends(require_auth)):
     if fingerprint not in FINGERPRINTS:
         fingerprint = "chrome"
     password_hash = hash_password(body.get("password", "").strip()) if body.get("password") else None
+    clean_ip = body.get("clean_ip") or None
     ports = body.get("ports", [443])
     if not isinstance(ports, list) or not ports:
         ports = [443]
     ports = [p for p in ports if isinstance(p, int) and 1 <= p <= 65535] or [443]
 
     uid = generate_uuid()
-    async with LINKS_LOCK:
-        LINKS[uid] = {"label": label, "limit_bytes": limit_bytes, "used_bytes": 0,
-                      "created_at": datetime.now().isoformat(), "active": True,
-                      "expires_at": expires_at, "note": "", "is_default": False, "sub_id": None,
-                      "protocol": protocol, "max_devices": max_devices, "fingerprint": fingerprint,
-                      "password_hash": password_hash, "ports": ports}
-    asyncio.create_task(save_state())
-    log_activity("link", f"کانفیگ «{label}» ساخته شد", "ok")
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        WORKSPACES[workspace_id]["links"][uid] = {
+            "label": label,
+            "limit_bytes": limit_bytes,
+            "used_bytes": 0,
+            "created_at": datetime.now().isoformat(),
+            "active": True,
+            "expires_at": expires_at,
+            "note": "",
+            "is_default": False,
+            "sub_id": None,
+            "protocol": protocol,
+            "max_devices": max_devices,
+            "fingerprint": fingerprint,
+            "password_hash": password_hash,
+            "ports": ports,
+            "clean_ip": clean_ip,
+        }
+    
+    await save_workspaces()
+    log_activity("link", f"کانفیگ «{label}» در {WORKSPACES[workspace_id].get('name')} ساخته شد", "ok", workspace_id)
+    
     host = get_host()
-    main_link = generate_vless_link(uid, host, remark=f"عقاب-{label}", protocol=protocol, fingerprint=fingerprint, port=ports[0])
-    return {"uuid": uid, **LINKS[uid], "has_password": password_hash is not None,
+    main_link = generate_vless_link(uid, host, remark=f"عقاب-{label}", protocol=protocol,
+                                    fingerprint=fingerprint, port=ports[0], clean_ip=clean_ip)
+    return {"uuid": uid, **WORKSPACES[workspace_id]["links"][uid], "has_password": password_hash is not None,
             "vless_link": main_link, "sub_url": f"https://{host}/sub/{uid}"}
 
-@app.get("/api/links")
-async def list_links(_=Depends(require_auth)):
-    host = get_host()
-    async with LINKS_LOCK:
-        result = []
-        for uid, d in LINKS.items():
-            ports = d.get("ports", [443])
-            first_port = ports[0] if ports else 443
-            active = d.get("active", True) and not is_link_expired(d)
-            last_connected = None
-            for c in connections.values():
-                if c.get("uuid") == uid and (not last_connected or c.get("connected_at") > last_connected):
-                    last_connected = c.get("connected_at")
-            result.append({"uuid": uid, **d, "ports": ports, "expired": is_link_expired(d),
-                           "has_password": d.get("password_hash") is not None,
-                           "last_connected_at": last_connected, "vless_link": generate_vless_link(
-                               uid, host, remark=f"عقاب-{d.get('label','کاربر')}",
-                               protocol=d.get("protocol", DEFAULT_PROTOCOL),
-                               fingerprint=d.get("fingerprint", "chrome"), port=first_port),
-                           "sub_url": f"https://{host}/sub/{uid}"})
-        result.sort(key=lambda x: x["created_at"], reverse=True)
-        return {"links": result}
-
-@app.patch("/api/links/{uid}")
-async def update_link(uid: str, req: Request, _=Depends(require_auth)):
+@app.patch("/api/workspace/links/{uid}")
+async def workspace_update_link(uid: str, req: Request, workspace_id=Depends(require_workspace_admin)):
+    """ویرایش کاربر در Workspace جاری"""
     body = await req.json()
-    async with LINKS_LOCK:
-        if uid not in LINKS:
-            raise HTTPException(404, "link not found")
-        link = LINKS[uid]
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        ws = WORKSPACES[workspace_id]
+        if uid not in ws.get("links", {}):
+            raise HTTPException(404, "کاربر یافت نشد")
+        link = ws["links"][uid]
+        
         if link.get("password_hash"):
             pw = body.get("password", "").strip()
             if not pw or hash_password(pw) != link["password_hash"]:
@@ -496,6 +760,8 @@ async def update_link(uid: str, req: Request, _=Depends(require_auth)):
             link["max_devices"] = int(body["max_devices"])
         if "fingerprint" in body and body["fingerprint"] in FINGERPRINTS:
             link["fingerprint"] = body["fingerprint"]
+        if "clean_ip" in body:
+            link["clean_ip"] = body["clean_ip"] or None
         if "active" in body:
             link["active"] = bool(body["active"])
         if "reset_usage" in body and body["reset_usage"]:
@@ -504,109 +770,276 @@ async def update_link(uid: str, req: Request, _=Depends(require_auth)):
             ports = [p for p in body["ports"] if isinstance(p, int) and 1 <= p <= 65535]
             if ports:
                 link["ports"] = ports
-    asyncio.create_task(save_state())
+    
+    await save_workspaces()
     return {"ok": True}
 
-@app.delete("/api/links/{uid}")
-async def delete_link(uid: str, req: Request, _=Depends(require_auth)):
+@app.delete("/api/workspace/links/{uid}")
+async def workspace_delete_link(uid: str, req: Request, workspace_id=Depends(require_workspace_admin)):
+    """حذف کاربر از Workspace جاری"""
     body = await req.json()
-    async with LINKS_LOCK:
-        if uid not in LINKS:
-            raise HTTPException(404, "link not found")
-        link = LINKS[uid]
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        ws = WORKSPACES[workspace_id]
+        if uid not in ws.get("links", {}):
+            raise HTTPException(404, "کاربر یافت نشد")
+        link = ws["links"][uid]
         if link.get("password_hash"):
             pw = body.get("password", "").strip()
             if not pw or hash_password(pw) != link["password_hash"]:
                 raise HTTPException(403, "رمز کانفیگ اشتباه است")
         label = link.get("label", uid)
-        del LINKS[uid]
-    asyncio.create_task(save_state())
-    log_activity("link", f"کانفیگ «{label}» حذف شد", "err")
+        del ws["links"][uid]
+    
+    await save_workspaces()
+    log_activity("link", f"کانفیگ «{label}» از {WORKSPACES[workspace_id].get('name')} حذف شد", "err", workspace_id)
     return {"ok": True}
 
-@app.get("/stats")
-async def get_stats(_=Depends(require_auth)):
-    async with LINKS_LOCK:
-        return {"active_connections": len(connections), "total_traffic_mb": round(stats["total_bytes"] / (1024**2), 2),
-                "total_requests": stats["total_requests"], "total_errors": stats["total_errors"],
-                "uptime": uptime(), "links_count": len(LINKS),
-                "active_links": sum(1 for l in LINKS.values() if is_link_allowed(l))}
+# ─── ===== API: Workspace Settings ===== ──────────────────────────────────────
 
-@app.get("/api/connections")
-async def get_connections(_=Depends(require_auth)):
-    async with LINKS_LOCK:
-        snap = dict(LINKS)
-    grouped = {}
-    for c in connections.values():
-        ip = c.get("ip", "نامشخص")
-        link = snap.get(c.get("uuid"))
-        label = link.get("label") if link else "نامشخص"
-        if ip not in grouped:
-            grouped[ip] = {"ip": ip, "sessions": 0, "bytes": 0, "labels": set(), "first_connected_at": c.get("connected_at"),
-                           "last_connected_at": c.get("connected_at")}
-        g = grouped[ip]
-        g["sessions"] += 1
-        g["bytes"] += c.get("bytes", 0)
-        g["labels"].add(label)
-        if c.get("connected_at"):
-            if not g["first_connected_at"] or c["connected_at"] < g["first_connected_at"]:
-                g["first_connected_at"] = c["connected_at"]
-            if not g["last_connected_at"] or c["connected_at"] > g["last_connected_at"]:
-                g["last_connected_at"] = c["connected_at"]
-    result = [{"ip": ip, "sessions": g["sessions"], "labels": sorted(g["labels"]),
-               "label": " · ".join(sorted(g["labels"])) if g["labels"] else "نامشخص",
-               "bytes": g["bytes"], "bytes_fmt": fmt_bytes(g["bytes"]),
-               "connected_at": g["first_connected_at"], "last_connected_at": g["last_connected_at"]}
-              for ip, g in grouped.items()]
-    result.sort(key=lambda x: x.get("last_connected_at") or "", reverse=True)
-    return {"connections": result, "count": len(result)}
+@app.get("/api/workspace/settings")
+async def workspace_get_settings(workspace_id=Depends(require_workspace_admin)):
+    """دریافت تنظیمات Workspace جاری"""
+    ws = WORKSPACES.get(workspace_id, {})
+    return ws.get("settings", DEFAULT_SETTINGS.copy())
 
-@app.post("/api/login")
-async def api_login(req: Request):
+@app.post("/api/workspace/settings")
+async def workspace_update_settings(req: Request, workspace_id=Depends(require_workspace_admin)):
+    """به‌روزرسانی تنظیمات Workspace جاری"""
     body = await req.json()
-    if hash_password(str(body.get("password", ""))) != AUTH["password_hash"]:
-        raise HTTPException(401, "رمز عبور اشتباه است")
-    token = await create_session()
-    resp = JSONResponse({"ok": True})
-    resp.set_cookie(SESSION_COOKIE, token, max_age=SESSION_TTL if body.get("remember") else None, httponly=True, samesite="lax", path="/")
-    return resp
-
-@app.post("/api/logout")
-async def api_logout(req: Request):
-    await destroy_session(req.cookies.get(SESSION_COOKIE))
-    resp = JSONResponse({"ok": True})
-    resp.delete_cookie(SESSION_COOKIE, path="/")
-    return resp
-
-@app.get("/api/me")
-async def api_me(req: Request):
-    return {"authenticated": await is_valid_session(req.cookies.get(SESSION_COOKIE))}
-
-@app.get("/api/activity")
-async def get_activity(_=Depends(require_auth)):
-    return {"logs": list(activity_logs)[-100:]}
-
-@app.get("/api/backup")
-async def get_backup(_=Depends(require_auth)):
-    async with LINKS_LOCK:
-        return {"links": dict(LINKS), "subs": dict(SUBS), "password_hash": AUTH["password_hash"],
-                "settings": SETTINGS, "daily_traffic": dict(daily_traffic), "version": "10.0"}
-
-@app.post("/api/backup/restore")
-async def restore_backup(req: Request, _=Depends(require_auth)):
-    body = await req.json()
-    if "links" in body:
-        async with LINKS_LOCK:
-            LINKS.clear()
-            for uid, data in body["links"].items():
-                if isinstance(data, dict):
-                    LINKS[uid] = data
-    if "settings" in body:
-        SETTINGS.update(body["settings"])
-    await save_state()
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        for key, value in body.items():
+            if key in DEFAULT_SETTINGS:
+                WORKSPACES[workspace_id]["settings"][key] = value
+    
+    await save_workspaces()
     return {"ok": True}
 
-# ─── WebSocket Tunnel ──────────────────────────────────────────────────────
+# ─── ===== API: Workspace Stats ===== ────────────────────────────────────────
+
+@app.get("/api/workspace/stats")
+async def workspace_stats(workspace_id=Depends(require_workspace_admin)):
+    """آمار Workspace جاری"""
+    ws = WORKSPACES.get(workspace_id, {})
+    links = ws.get("links", {})
+    stats_data = ws.get("stats", {})
+    daily = ws.get("daily_traffic", {})
+    today = now_ir().strftime("%Y-%m-%d")
+    
+    active_links = sum(1 for l in links.values() if l.get("active", True) and not is_link_expired(l))
+    total_used = sum(l.get("used_bytes", 0) for l in links.values())
+    today_traffic = daily.get(today, 0)
+    
+    return {
+        "links_count": len(links),
+        "active_links": active_links,
+        "total_used": total_used,
+        "total_used_fmt": fmt_bytes(total_used),
+        "today_traffic": today_traffic,
+        "today_traffic_fmt": fmt_bytes(today_traffic),
+        "total_requests": stats_data.get("total_requests", 0),
+        "total_errors": stats_data.get("total_errors", 0),
+        "connections": len(connections),
+    }
+
+# ─── ===== API: Workspace Clean IP ===== ─────────────────────────────────────
+
+@app.get("/api/workspace/clean-ips")
+async def workspace_get_clean_ips(workspace_id=Depends(require_workspace_admin)):
+    """دریافت لیست IP‌های تمیز Workspace"""
+    ws = WORKSPACES.get(workspace_id, {})
+    return {"clean_ips": ws.get("settings", {}).get("clean_ips", [])}
+
+@app.post("/api/workspace/clean-ips")
+async def workspace_add_clean_ip(req: Request, workspace_id=Depends(require_workspace_admin)):
+    """افزودن IP تمیز به Workspace"""
+    body = await req.json()
+    ip = body.get("ip", "").strip()
+    provider = body.get("provider", "Unknown")
+    
+    if not ip:
+        raise HTTPException(400, "IP نمی‌تواند خالی باشد")
+    
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        clean_ips = WORKSPACES[workspace_id]["settings"].get("clean_ips", [])
+        for item in clean_ips:
+            if item.get("ip") == ip:
+                raise HTTPException(400, "این IP قبلاً اضافه شده است")
+        clean_ips.append({"ip": ip, "provider": provider, "active": True})
+        WORKSPACES[workspace_id]["settings"]["clean_ips"] = clean_ips
+    
+    await save_workspaces()
+    return {"ok": True}
+
+@app.delete("/api/workspace/clean-ips/{ip}")
+async def workspace_delete_clean_ip(ip: str, workspace_id=Depends(require_workspace_admin)):
+    """حذف IP تمیز از Workspace"""
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        clean_ips = WORKSPACES[workspace_id]["settings"].get("clean_ips", [])
+        WORKSPACES[workspace_id]["settings"]["clean_ips"] = [item for item in clean_ips if item.get("ip") != ip]
+    
+    await save_workspaces()
+    return {"ok": True}
+
+# ─── ===== API: Workspace Filters ===== ─────────────────────────────────────
+
+@app.get("/api/workspace/filters")
+async def workspace_get_filters(workspace_id=Depends(require_workspace_admin)):
+    """دریافت وضعیت فیلترها"""
+    ws = WORKSPACES.get(workspace_id, {})
+    settings = ws.get("settings", {})
+    return {
+        "ad_filter_enabled": settings.get("ad_filter_enabled", True),
+        "porn_filter_enabled": settings.get("porn_filter_enabled", True),
+        "malware_filter_enabled": settings.get("malware_filter_enabled", True),
+    }
+
+@app.post("/api/workspace/filters")
+async def workspace_update_filters(req: Request, workspace_id=Depends(require_workspace_admin)):
+    """به‌روزرسانی وضعیت فیلترها"""
+    body = await req.json()
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        settings = WORKSPACES[workspace_id]["settings"]
+        if "ad_filter_enabled" in body:
+            settings["ad_filter_enabled"] = bool(body["ad_filter_enabled"])
+        if "porn_filter_enabled" in body:
+            settings["porn_filter_enabled"] = bool(body["porn_filter_enabled"])
+        if "malware_filter_enabled" in body:
+            settings["malware_filter_enabled"] = bool(body["malware_filter_enabled"])
+    
+    await save_workspaces()
+    return {"ok": True}
+
+# ─── ===== API: Workspace Routes ===== ───────────────────────────────────────
+
+@app.get("/api/workspace/routes")
+async def workspace_get_routes(workspace_id=Depends(require_workspace_admin)):
+    """دریافت لیست مسیرها"""
+    ws = WORKSPACES.get(workspace_id, {})
+    return {"routes": ws.get("settings", {}).get("routes", [])}
+
+@app.post("/api/workspace/routes")
+async def workspace_add_route(req: Request, workspace_id=Depends(require_workspace_admin)):
+    """افزودن مسیر جدید"""
+    body = await req.json()
+    domain = body.get("domain", "").strip()
+    route_type = body.get("type", "direct")
+    target = body.get("target", "")
+    
+    if not domain:
+        raise HTTPException(400, "دامنه نمی‌تواند خالی باشد")
+    
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        routes = WORKSPACES[workspace_id]["settings"].get("routes", [])
+        routes.append({"domain": domain, "type": route_type, "target": target, "active": True})
+        WORKSPACES[workspace_id]["settings"]["routes"] = routes
+    
+    await save_workspaces()
+    return {"ok": True}
+
+@app.delete("/api/workspace/routes/{domain}")
+async def workspace_delete_route(domain: str, workspace_id=Depends(require_workspace_admin)):
+    """حذف مسیر"""
+    async with WORKSPACES_LOCK:
+        if workspace_id not in WORKSPACES:
+            raise HTTPException(404, "Workspace یافت نشد")
+        routes = WORKSPACES[workspace_id]["settings"].get("routes", [])
+        WORKSPACES[workspace_id]["settings"]["routes"] = [r for r in routes if r.get("domain") != domain]
+    
+    await save_workspaces()
+    return {"ok": True}
+
+# ─── ===== API: Workspace Export ===== ───────────────────────────────────────
+
+@app.get("/api/workspace/export/excel")
+async def workspace_export_excel(workspace_id=Depends(require_workspace_admin)):
+    """خروجی Excel از کاربران Workspace"""
+    ws = WORKSPACES.get(workspace_id, {})
+    links = ws.get("links", {})
+    
+    wb = Workbook()
+    ws_excel = wb.active
+    ws_excel.title = "کاربران"
+    
+    headers = ["نام", "UUID", "مصرف", "سهمیه", "وضعیت", "انقضا", "دستگاه‌ها", "فینگرپرینت"]
+    ws_excel.append(headers)
+    
+    header_fill = PatternFill(start_color="7C6BFF", end_color="7C6BFF", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    for col, _ in enumerate(headers, 1):
+        cell = ws_excel.cell(row=1, column=col)
+        cell.fill = header_fill
+        cell.font = header_font
+        cell.alignment = Alignment(horizontal="center")
+    
+    for uid, link in links.items():
+        used = link.get("used_bytes", 0)
+        limit = link.get("limit_bytes", 0)
+        active = link.get("active", True) and not is_link_expired(link)
+        status = "فعال" if active else ("منقضی" if is_link_expired(link) else "غیرفعال")
+        expires_at = link.get("expires_at", "نامحدود")
+        if expires_at and expires_at != "نامحدود":
+            try:
+                expires_at = datetime.fromisoformat(expires_at).strftime("%Y-%m-%d")
+            except:
+                pass
+        
+        ws_excel.append([
+            link.get("label", "بدون نام"),
+            uid[:8] + "..." + uid[-8:],
+            fmt_bytes(used),
+            fmt_bytes(limit) if limit > 0 else "نامحدود",
+            status,
+            expires_at,
+            link.get("max_devices", 0),
+            link.get("fingerprint", "chrome"),
+        ])
+    
+    for col in range(1, len(headers) + 1):
+        ws_excel.column_dimensions[chr(64 + col)].width = 20
+    
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    return StreamingResponse(
+        output,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename=users_{now_ir().strftime('%Y-%m-%d')}.xlsx"}
+    )
+
+# ─── ===== API: Workspace Activity Logs ===== ────────────────────────────────
+
+@app.get("/api/workspace/logs")
+async def workspace_get_logs(req: Request, workspace_id=Depends(require_workspace_admin)):
+    """دریافت لاگ‌های Workspace"""
+    ws = WORKSPACES.get(workspace_id, {})
+    logs = ws.get("activity_logs", [])
+    limit = int(req.query_params.get("limit", 50))
+    level = req.query_params.get("level", "")
+    search = req.query_params.get("search", "").lower()
+    
+    result = list(logs)[-limit:]
+    
+    if level:
+        result = [l for l in result if l.get("level") == level]
+    if search:
+        result = [l for l in result if search in l.get("message", "").lower()]
+    
+    return {"logs": result}
+
+# ─── ===== WebSocket Tunnel ===== ─────────────────────────────────────────────
 
 RELAY_BUF = 512 * 1024
 
@@ -614,12 +1047,13 @@ def _ws_ip(ws):
     fwd = ws.headers.get("x-forwarded-for")
     return fwd.split(",")[0].strip() if fwd else ws.client.host if ws.client else "نامشخص"
 
-async def check_device_limit(uuid: str, client_ip: str) -> bool:
-    async with LINKS_LOCK:
-        link = LINKS.get(uuid)
-        if not link or link.get("max_devices", 0) == 0:
-            return True
-        max_devices = link["max_devices"]
+async def check_device_limit(uuid: str, client_ip: str, workspace_id: str = None) -> bool:
+    ws = WORKSPACES.get(workspace_id, {})
+    links = ws.get("links", {})
+    link = links.get(uuid)
+    if not link or link.get("max_devices", 0) == 0:
+        return True
+    max_devices = link["max_devices"]
     async with DEVICE_CONNECTIONS_LOCK:
         current = device_connections.get(uuid, [])
         if client_ip in current:
@@ -657,26 +1091,44 @@ async def parse_vless_header(chunk: bytes):
         raise ValueError(f"unknown addr type: {addr_type}")
     return command, address, port, chunk[pos:]
 
-async def check_and_use(uid: str, n: int) -> bool:
-    async with LINKS_LOCK:
-        link = LINKS.get(uid)
-        if not link or not is_link_allowed(link):
-            return False
-        link["used_bytes"] = link.get("used_bytes", 0) + n
-        stats["total_bytes"] = stats.get("total_bytes", 0) + n
-        hourly_traffic[now_ir().strftime("%H:00")] = hourly_traffic.get(now_ir().strftime("%H:00"), 0) + n
-        daily_traffic[now_ir().strftime("%Y-%m-%d")] = daily_traffic.get(now_ir().strftime("%Y-%m-%d"), 0) + n
-        limit = link.get("limit_bytes", 0)
-        used = link.get("used_bytes", 0)
-        if limit > 0 and used / limit > 0.8 and not link.get("alert_80"):
-            link["alert_80"] = True
-            log_activity("warning", f"⚠️ مصرف {link.get('label')} به 80% رسید", "warn")
-            chat_id = SETTINGS.get("telegram_chat_id")
-            if chat_id:
-                await tg_send(chat_id, f"⚠️ هشدار مصرف!\nکاربر: {link.get('label')}\nمصرف: {fmt_bytes(used)} / {fmt_bytes(limit)}")
-        return True
+async def check_and_use(uid: str, n: int, workspace_id: str) -> bool:
+    ws = WORKSPACES.get(workspace_id, {})
+    links = ws.get("links", {})
+    link = links.get(uid)
+    if not link or not is_link_allowed(link):
+        return False
+    
+    # بروزرسانی مصرف کاربر
+    link["used_bytes"] = link.get("used_bytes", 0) + n
+    
+    # بروزرسانی مصرف Workspace
+    ws["quota_used_bytes"] = ws.get("quota_used_bytes", 0) + n
+    
+    # بروزرسانی آمار روزانه
+    today = now_ir().strftime("%Y-%m-%d")
+    daily = ws.get("daily_traffic", {})
+    daily[today] = daily.get(today, 0) + n
+    ws["daily_traffic"] = daily
+    
+    # بررسی سهمیه Workspace
+    limit = ws.get("quota_limit_bytes", 0)
+    used = ws.get("quota_used_bytes", 0)
+    if limit > 0 and used >= limit:
+        ws["is_quota_exceeded"] = True
+        await save_workspaces()
+        return False
+    
+    # هشدار 80%
+    if limit > 0 and used / limit > 0.8 and not link.get("alert_80"):
+        link["alert_80"] = True
+        log_activity("warning", f"⚠️ مصرف {link.get('label')} به 80% رسید", "warn", workspace_id)
+        chat_id = SETTINGS.get("telegram_chat_id")
+        if chat_id:
+            await tg_send(chat_id, f"⚠️ هشدار مصرف!\nکاربر: {link.get('label')}\nمصرف: {fmt_bytes(used)} / {fmt_bytes(limit)}")
+    
+    return True
 
-async def relay_ws_to_tcp(ws, writer, conn_id, uid):
+async def relay_ws_to_tcp(ws, writer, conn_id, uid, workspace_id):
     try:
         while True:
             msg = await ws.receive()
@@ -685,10 +1137,9 @@ async def relay_ws_to_tcp(ws, writer, conn_id, uid):
             data = msg.get("bytes") or (msg.get("text") or "").encode()
             if not data:
                 continue
-            if not await check_and_use(uid, len(data)):
+            if not await check_and_use(uid, len(data), workspace_id):
                 await ws.close(code=1008, reason="quota/disabled")
                 break
-            stats["total_requests"] = stats.get("total_requests", 0) + 1
             if conn_id in connections:
                 connections[conn_id]["bytes"] = connections[conn_id].get("bytes", 0) + len(data)
             writer.write(data)
@@ -702,14 +1153,14 @@ async def relay_ws_to_tcp(ws, writer, conn_id, uid):
         except:
             pass
 
-async def relay_tcp_to_ws(ws, reader, conn_id, uid):
+async def relay_tcp_to_ws(ws, reader, conn_id, uid, workspace_id):
     first = True
     try:
         while True:
             data = await reader.read(RELAY_BUF)
             if not data:
                 break
-            if not await check_and_use(uid, len(data)):
+            if not await check_and_use(uid, len(data), workspace_id):
                 await ws.close(code=1008, reason="quota/disabled")
                 break
             if conn_id in connections:
@@ -723,16 +1174,40 @@ async def relay_tcp_to_ws(ws, reader, conn_id, uid):
 @app.websocket("/ws/{uuid}")
 async def websocket_tunnel(ws: WebSocket, uuid: str):
     await ws.accept()
+    
+    # تشخیص Workspace از هدر یا کوکی
+    workspace_id = ws.headers.get("X-Workspace-ID")
+    if not workspace_id:
+        cookie_header = ws.headers.get("cookie", "")
+        for cookie in cookie_header.split(";"):
+            if "eagle_workspace=" in cookie:
+                workspace_id = cookie.split("eagle_workspace=")[1].strip()
+                break
+    
+    if not workspace_id or workspace_id not in WORKSPACES:
+        await ws.close(code=1008, reason="workspace not found")
+        return
+    
     client_ip = _ws_ip(ws)
-    async with LINKS_LOCK:
-        link = LINKS.get(uuid)
+    ws_data = WORKSPACES.get(workspace_id, {})
+    links = ws_data.get("links", {})
+    link = links.get(uuid)
+    
     if not link:
         await ws.close(code=1008, reason="user not found")
         return
+    
     if not is_link_allowed(link):
         await ws.close(code=1008, reason="not authorized")
         return
-    if link.get("max_devices", 0) > 0 and not await check_device_limit(uuid, client_ip):
+    
+    # بررسی سهمیه Workspace
+    can_use, msg = await check_workspace_quota(workspace_id)
+    if not can_use:
+        await ws.close(code=1008, reason=f"quota exceeded: {msg}")
+        return
+    
+    if link.get("max_devices", 0) > 0 and not await check_device_limit(uuid, client_ip, workspace_id):
         await ws.close(code=1008, reason="device limit exceeded")
         return
 
@@ -749,10 +1224,11 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         if not first_chunk:
             return
         command, address, port, payload = await parse_vless_header(first_chunk)
-        if not await check_and_use(uuid, len(first_chunk)):
+        
+        if not await check_and_use(uuid, len(first_chunk), workspace_id):
             await ws.close(code=1008, reason="quota/disabled")
             return
-        stats["total_requests"] = stats.get("total_requests", 0) + 1
+        
         if conn_id in connections:
             connections[conn_id]["bytes"] = connections[conn_id].get("bytes", 0) + len(first_chunk)
 
@@ -766,8 +1242,8 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
             await writer.drain()
 
         done, pending = await asyncio.wait(
-            {asyncio.create_task(relay_ws_to_tcp(ws, writer, conn_id, uuid)),
-             asyncio.create_task(relay_tcp_to_ws(ws, reader, conn_id, uuid))},
+            {asyncio.create_task(relay_ws_to_tcp(ws, writer, conn_id, uuid, workspace_id)),
+             asyncio.create_task(relay_tcp_to_ws(ws, reader, conn_id, uuid, workspace_id))},
             return_when=asyncio.FIRST_COMPLETED
         )
         for t in pending:
@@ -776,7 +1252,7 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
                 await t
             except:
                 pass
-        asyncio.create_task(save_state())
+        await save_workspaces()
     except:
         pass
     finally:
@@ -789,31 +1265,53 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         connections.pop(conn_id, None)
         await remove_device_connection(uuid, client_ip)
 
-# ─── Subscriptions ─────────────────────────────────────────────────────────
+# ─── ===== Subscriptions ===== ────────────────────────────────────────────────
 
 @app.get("/sub/{uuid}")
 async def subscription_single(req: Request, uuid: str):
     import base64
+    
+    # تشخیص Workspace از هدر یا کوکی
+    workspace_id = req.headers.get("X-Workspace-ID")
+    if not workspace_id:
+        cookie_header = req.headers.get("cookie", "")
+        for cookie in cookie_header.split(";"):
+            if "eagle_workspace=" in cookie:
+                workspace_id = cookie.split("eagle_workspace=")[1].strip()
+                break
+    
+    if not workspace_id or workspace_id not in WORKSPACES:
+        return HTMLResponse("""<html><body><h1>Workspace یافت نشد</h1></body></html>""", status_code=404)
+    
     ua = req.headers.get("user-agent", "").lower()
     is_browser = any(b in ua for b in ["chrome", "firefox", "safari", "edge", "opera", "brave", "msie", "trident"])
-    async with LINKS_LOCK:
-        link = LINKS.get(uuid)
+    
+    ws = WORKSPACES.get(workspace_id, {})
+    links = ws.get("links", {})
+    link = links.get(uuid)
+    
     if not link:
         if is_browser:
             return HTMLResponse("""<html><body><h1>کاربر یافت نشد</h1></body></html>""", status_code=404)
         raise HTTPException(404, "user not found")
+    
     if not is_link_allowed(link):
         if is_browser:
             return HTMLResponse("""<html><body><h1>کاربر غیرفعال</h1></body></html>""", status_code=403)
         raise HTTPException(403, "user disabled or expired")
+    
     host = get_host()
     ports = link.get("ports", [443])
+    clean_ip = link.get("clean_ip")
     vless_links = []
+    
     for port in ports:
         remark = f"{link.get('label','کاربر')}-p{port}" if len(ports) > 1 else link.get('label', 'کاربر')
         vless_links.append(generate_vless_link(uuid, host, remark=remark,
                                                protocol=link.get("protocol", DEFAULT_PROTOCOL),
-                                               fingerprint=link.get("fingerprint", "chrome"), port=port))
+                                               fingerprint=link.get("fingerprint", "chrome"),
+                                               port=port, clean_ip=clean_ip))
+    
     if not is_browser:
         userinfo = f"upload=0&download={link.get('used_bytes',0)}&total={link.get('limit_bytes',0)}"
         try:
@@ -827,6 +1325,7 @@ async def subscription_single(req: Request, uuid: str):
                         headers={"Subscription-Userinfo": userinfo,
                                  "profile-title": quote(link.get("label", "کاربر")),
                                  "profile-update-interval": "12"})
+    
     from pages import get_sub_page_html
     active_conns = [c for c in connections.values() if c.get("uuid") == uuid]
     link_data = {**link, "expired": is_link_expired(link), "active_connections": len(active_conns),
@@ -834,470 +1333,7 @@ async def subscription_single(req: Request, uuid: str):
                  "vless_link": vless_links[0] if vless_links else "", "sub_url": f"https://{host}/sub/{uuid}"}
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
 
-@app.get("/sub-all")
-async def subscription_all(_=Depends(require_auth)):
-    import base64
-    host = get_host()
-    async with LINKS_LOCK:
-        lines = []
-        for uid, d in LINKS.items():
-            if is_link_allowed(d):
-                for port in d.get("ports", [443]):
-                    lines.append(generate_vless_link(uid, host,
-                                 remark=f"عقاب-{d.get('label','کاربر')}",
-                                 protocol=d.get("protocol", DEFAULT_PROTOCOL),
-                                 fingerprint=d.get("fingerprint", "chrome"), port=port))
-    return Response(content=base64.b64encode("\n".join(lines).encode()).decode(), media_type="text/plain")
-
-@app.get("/info/{uuid}")
-async def info_page(uuid: str, req: Request):
-    from pages import get_sub_page_html
-    async with LINKS_LOCK:
-        link = LINKS.get(uuid)
-    if not link:
-        return HTMLResponse("""<html><body><h1>کاربر یافت نشد</h1></body></html>""", status_code=404)
-    if not is_link_allowed(link):
-        return HTMLResponse("""<html><body><h1>کاربر غیرفعال</h1></body></html>""", status_code=403)
-    host = get_host()
-    ports = link.get("ports", [443])
-    vless_links = [generate_vless_link(uuid, host, remark=f"{link.get('label','کاربر')}-p{port}" if len(ports) > 1 else link.get('label','کاربر'),
-                                       protocol=link.get("protocol", DEFAULT_PROTOCOL),
-                                       fingerprint=link.get("fingerprint", "chrome"), port=port) for port in ports]
-    active_conns = [c for c in connections.values() if c.get("uuid") == uuid]
-    link_data = {**link, "expired": is_link_expired(link), "active_connections": len(active_conns),
-                 "active_connections_list": active_conns, "vless_links": vless_links,
-                 "vless_link": vless_links[0] if vless_links else "", "sub_url": f"https://{host}/sub/{uuid}"}
-    return HTMLResponse(content=get_sub_page_html(uuid, link_data))
-
-# ─── ===== BAT TELEGRAM (نسخه نهایی تست شده) ===== ─────────────────────────
-
-@app.post("/webhook/telegram")
-async def telegram_webhook(req: Request):
-    token = SETTINGS.get("telegram_bot_token", "")
-    if not token:
-        return {"ok": False}
-    try:
-        body = await req.json()
-        logger.info(f"📩 Webhook received")
-    except Exception as e:
-        logger.error(f"Webhook parse error: {e}")
-        return {"ok": False}
-    
-    asyncio.create_task(process_tg_update(body))
-    return {"ok": True}
-
-async def process_tg_update(body: dict):
-    try:
-        msg = body.get("message")
-        cb = body.get("callback_query")
-        
-        if msg:
-            chat_id = msg.get("chat", {}).get("id")
-            text = msg.get("text", "").strip()
-            username = msg.get("from", {}).get("username", "کاربر")
-            
-            logger.info(f"📨 Message from {chat_id}: {text}")
-            
-            if text.startswith("/"):
-                if text == "/start":
-                    await send_main_menu(chat_id, username)
-                elif text == "/new":
-                    await start_new_user(chat_id)
-                elif text == "/list":
-                    await send_user_list(chat_id)
-                elif text == "/edit":
-                    await show_user_list_for_edit(chat_id)
-                elif text.startswith("/config"):
-                    parts = text.split()
-                    if len(parts) > 1:
-                        await send_user_config(chat_id, parts[1])
-                    else:
-                        await tg_send(chat_id, "❌ UUID را وارد کنید: /config UUID")
-                elif text.startswith("/renew"):
-                    parts = text.split()
-                    if len(parts) > 1:
-                        await renew_user(chat_id, parts[1])
-                    else:
-                        await tg_send(chat_id, "❌ UUID را وارد کنید: /renew UUID")
-                elif text.startswith("/delete"):
-                    parts = text.split()
-                    if len(parts) > 1:
-                        await delete_user(chat_id, parts[1])
-                    else:
-                        await tg_send(chat_id, "❌ UUID را وارد کنید: /delete UUID")
-                else:
-                    await tg_send(chat_id, "❌ دستور نامعتبر!", [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
-            else:
-                # پیام متنی - بررسی سشن
-                await handle_text_msg(chat_id, text, username)
-                
-        elif cb:
-            chat_id = cb.get("message", {}).get("chat", {}).get("id")
-            data = cb.get("data", "")
-            username = cb.get("from", {}).get("username", "کاربر")
-            cb_id = cb.get("id")
-            
-            logger.info(f"🔘 Callback from {chat_id}: {data}")
-            
-            await tg_answer(cb_id)
-            await handle_callback(chat_id, data, username)
-            
-    except Exception as e:
-        logger.error(f"TG process error: {e}")
-
-async def send_main_menu(chat_id, username):
-    clear_session(chat_id)
-    kb = [
-        [{"text": "📝 ساخت کاربر جدید", "callback_data": "new_user"}],
-        [{"text": "📊 لیست کاربران", "callback_data": "list_users"}],
-        [{"text": "✏️ ویرایش کاربر", "callback_data": "edit_user"}],
-        [{"text": "📥 دریافت کانفیگ", "callback_data": "get_config"}],
-        [{"text": "🔄 تمدید کاربر", "callback_data": "renew_user"}],
-        [{"text": "❌ حذف کاربر", "callback_data": "delete_user"}]
-    ]
-    await tg_send(chat_id, f"🪐 <b>پنل عقاب</b>\n👤 {username}\n📅 {now_ir().strftime('%Y-%m-%d %H:%M')}", kb)
-
-def clear_session(chat_id):
-    async def _clear():
-        async with TELEGRAM_SESSIONS_LOCK:
-            if str(chat_id) in TELEGRAM_SESSIONS:
-                del TELEGRAM_SESSIONS[str(chat_id)]
-                logger.info(f"🧹 Session cleared for {chat_id}")
-    asyncio.create_task(_clear())
-
-async def handle_text_msg(chat_id, text, username):
-    """پردازش پیام متنی کاربر"""
-    async with TELEGRAM_SESSIONS_LOCK:
-        session = TELEGRAM_SESSIONS.get(str(chat_id))
-        logger.info(f"📋 Session for {chat_id}: {session}")
-    
-    if session and session.get("action") in ["creating_user", "editing_user"]:
-        await handle_user_step(chat_id, text, session)
-    else:
-        await tg_send(chat_id, "❌ لطفاً از /new برای ساخت کاربر استفاده کنید.", 
-                      [[{"text": "📝 ساخت کاربر", "callback_data": "new_user"}]])
-
-async def handle_user_step(chat_id, text, session):
-    action = session.get("action")
-    step = session.get("step", "label")
-    data = session.get("data", {})
-    
-    logger.info(f"🔄 Step: {step}, Action: {action}, Data: {data}")
-
-    if step == "label":
-        if len(text) < 2:
-            await tg_send(chat_id, "❌ نام باید حداقل ۲ کاراکتر باشد.")
-            return
-        
-        data["label"] = text.strip()
-        async with TELEGRAM_SESSIONS_LOCK:
-            TELEGRAM_SESSIONS[str(chat_id)]["step"] = "quota"
-            TELEGRAM_SESSIONS[str(chat_id)]["data"] = data
-        
-        kb = [
-            [{"text": "1GB", "callback_data": "quota_1"}, {"text": "2GB", "callback_data": "quota_2"}, {"text": "5GB", "callback_data": "quota_5"}],
-            [{"text": "10GB", "callback_data": "quota_10"}, {"text": "20GB", "callback_data": "quota_20"}, {"text": "50GB", "callback_data": "quota_50"}],
-            [{"text": "♾️ نامحدود", "callback_data": "quota_0"}, {"text": "✏️ عدد دلخواه", "callback_data": "quota_custom"}],
-            [{"text": "❌ انصراف", "callback_data": "main_menu"}]
-        ]
-        await tg_send(chat_id, f"✅ نام <b>{data['label']}</b> ذخیره شد!\n📊 حجم را انتخاب کنید:", kb)
-
-    elif step == "quota":
-        try:
-            quota = float(text.replace(",", "."))
-            if quota < 0:
-                await tg_send(chat_id, "❌ عدد منفی مجاز نیست.")
-                return
-            data["quota"] = quota
-            async with TELEGRAM_SESSIONS_LOCK:
-                TELEGRAM_SESSIONS[str(chat_id)]["step"] = "days"
-            await tg_send(chat_id, f"✅ {quota}GB\n📅 تعداد روز انقضا را وارد کنید:")
-        except ValueError:
-            await tg_send(chat_id, "❌ عدد معتبر وارد کنید (مثلاً 15)")
-
-    elif step == "days":
-        try:
-            days = int(text)
-            if days <= 0:
-                await tg_send(chat_id, "❌ روز باید بیشتر از 0 باشد.")
-                return
-            data["days"] = days
-            async with TELEGRAM_SESSIONS_LOCK:
-                TELEGRAM_SESSIONS[str(chat_id)]["step"] = "fingerprint"
-            
-            kb = [
-                [{"text": "🌐 Chrome", "callback_data": "fp_chrome"}, {"text": "🦊 Firefox", "callback_data": "fp_firefox"}],
-                [{"text": "🧭 Safari", "callback_data": "fp_safari"}, {"text": "📱 iOS", "callback_data": "fp_ios"}],
-                [{"text": "🤖 Android", "callback_data": "fp_android"}, {"text": "🎲 Random", "callback_data": "fp_random"}],
-                [{"text": "🚫 None", "callback_data": "fp_none"}]
-            ]
-            await tg_send(chat_id, f"✅ {days} روز\n🖐️ فینگرپرینت را انتخاب کنید:", kb)
-        except ValueError:
-            await tg_send(chat_id, "❌ عدد روز معتبر وارد کنید (مثلاً 30)")
-
-async def finish_create_user(chat_id, data):
-    try:
-        label = data.get("label", "کاربر")
-        quota = data.get("quota", 2)
-        days = data.get("days", 30)
-        fp = data.get("fingerprint", "chrome")
-
-        uid = generate_uuid()
-        async with LINKS_LOCK:
-            LINKS[uid] = {
-                "label": label,
-                "limit_bytes": int(quota * 1024**3) if quota > 0 else 0,
-                "used_bytes": 0,
-                "created_at": datetime.now().isoformat(),
-                "active": True,
-                "expires_at": (datetime.now() + timedelta(days=days)).isoformat(),
-                "note": "ساخته شده از بات",
-                "is_default": False,
-                "sub_id": None,
-                "protocol": DEFAULT_PROTOCOL,
-                "max_devices": 1,
-                "fingerprint": fp,
-                "password_hash": None,
-                "ports": [443]
-            }
-
-        await save_state()
-        log_activity("link", f"کاربر {label} از بات ساخته شد", "ok")
-
-        host = get_host()
-        sub_url = f"https://{host}/sub/{uid}"
-        vless_link = generate_vless_link(uid, host, remark=f"عقاب-{label}", fingerprint=fp, port=443)
-
-        clear_session(chat_id)
-
-        kb = [[{"text": "📝 کاربر دیگر", "callback_data": "new_user"}, {"text": "🏠 منو", "callback_data": "main_menu"}]]
-        await tg_send(chat_id,
-            f"✅ <b>کاربر {label} ساخته شد!</b>\n\n"
-            f"📊 حجم: {fmt_bytes(int(quota * 1024**3)) if quota > 0 else 'نامحدود'}\n"
-            f"📅 انقضا: {days} روز\n"
-            f"🖐️ FP: {fp}\n"
-            f"🔗 ساب: <code>{sub_url}</code>\n"
-            f"🔗 کانفیگ: <code>{vless_link}</code>", kb)
-            
-    except Exception as e:
-        logger.error(f"Finish create error: {e}")
-        await tg_send(chat_id, "❌ خطا در ساخت کاربر! لطفاً دوباره /new را بزنید.")
-        clear_session(chat_id)
-
-async def finish_edit_user(chat_id, data):
-    try:
-        uid = data.get("uid")
-        label = data.get("label")
-        quota = data.get("quota")
-        days = data.get("days")
-        fp = data.get("fingerprint")
-
-        async with LINKS_LOCK:
-            if uid not in LINKS:
-                await tg_send(chat_id, "❌ کاربر یافت نشد!")
-                return
-            link = LINKS[uid]
-            link["label"] = label
-            link["limit_bytes"] = int(quota * 1024**3) if quota > 0 else 0
-            link["expires_at"] = (datetime.now() + timedelta(days=days)).isoformat()
-            link["fingerprint"] = fp
-            link["active"] = True
-
-        await save_state()
-        log_activity("link", f"کاربر {label} ویرایش شد", "ok")
-
-        clear_session(chat_id)
-
-        await tg_send(chat_id, f"✅ <b>کاربر {label} ویرایش شد!</b>",
-                      [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
-    except Exception as e:
-        logger.error(f"Finish edit error: {e}")
-        await tg_send(chat_id, "❌ خطا در ویرایش کاربر!")
-        clear_session(chat_id)
-
-async def handle_callback(chat_id, data, username):
-    if data == "main_menu":
-        await send_main_menu(chat_id, username)
-
-    elif data == "new_user":
-        await start_new_user(chat_id)
-
-    elif data == "list_users":
-        await send_user_list(chat_id)
-
-    elif data == "edit_user":
-        await show_user_list_for_edit(chat_id)
-
-    elif data == "get_config":
-        await show_user_list_for_config(chat_id)
-
-    elif data == "renew_user":
-        await show_user_list_for_renew(chat_id)
-
-    elif data == "delete_user":
-        await show_user_list_for_delete(chat_id)
-
-    elif data == "quota_custom":
-        async with TELEGRAM_SESSIONS_LOCK:
-            session = TELEGRAM_SESSIONS.get(str(chat_id))
-            if session:
-                session["step"] = "quota"
-        await tg_send(chat_id, "✏️ عدد حجم را به <b>GB</b> وارد کنید:", [])
-
-    elif data.startswith("quota_"):
-        val = data.replace("quota_", "")
-        quota = float(val)
-        async with TELEGRAM_SESSIONS_LOCK:
-            session = TELEGRAM_SESSIONS.get(str(chat_id))
-            if session:
-                session["data"]["quota"] = quota
-                session["step"] = "days"
-        await tg_send(chat_id, f"✅ {quota}GB\n📅 تعداد روز انقضا را وارد کنید:")
-
-    elif data.startswith("fp_"):
-        fp = data.replace("fp_", "")
-        async with TELEGRAM_SESSIONS_LOCK:
-            session = TELEGRAM_SESSIONS.get(str(chat_id))
-            if session:
-                session["data"]["fingerprint"] = fp
-                if session.get("action") == "editing_user":
-                    await finish_edit_user(chat_id, session["data"])
-                else:
-                    await finish_create_user(chat_id, session["data"])
-
-    elif data.startswith("select_edit_"):
-        uid = data.replace("select_edit_", "")
-        clear_session(chat_id)
-        async with TELEGRAM_SESSIONS_LOCK:
-            TELEGRAM_SESSIONS[str(chat_id)] = {"action": "editing_user", "step": "label", "data": {"uid": uid}}
-        await tg_send(chat_id, "✏️ نام جدید را وارد کنید:", [[{"text": "❌ انصراف", "callback_data": "main_menu"}]])
-
-    elif data.startswith("select_config_"):
-        await send_user_config(chat_id, data.replace("select_config_", ""))
-
-    elif data.startswith("select_renew_"):
-        await renew_user(chat_id, data.replace("select_renew_", ""))
-
-    elif data.startswith("select_delete_"):
-        await delete_user(chat_id, data.replace("select_delete_", ""))
-
-    elif data.startswith("list_page_"):
-        await send_user_list(chat_id, int(data.replace("list_page_", "")))
-
-    else:
-        await tg_send(chat_id, "❌ گزینه نامعتبر!")
-
-async def start_new_user(chat_id):
-    clear_session(chat_id)
-    async with TELEGRAM_SESSIONS_LOCK:
-        TELEGRAM_SESSIONS[str(chat_id)] = {"action": "creating_user", "step": "label", "data": {}}
-        logger.info(f"✅ Session created for {chat_id}")
-    await tg_send(chat_id, "📝 نام کاربری را وارد کنید:", [[{"text": "❌ انصراف", "callback_data": "main_menu"}]])
-
-async def get_cached_users():
-    if time.time() - CACHE_USERS["timestamp"] < CACHE_USERS["ttl"]:
-        return CACHE_USERS["data"]
-    async with LINKS_LOCK:
-        users = list(LINKS.items())
-    CACHE_USERS["data"] = users
-    CACHE_USERS["timestamp"] = time.time()
-    return users
-
-async def send_user_list(chat_id, page=0):
-    users = await get_cached_users()
-    if not users:
-        await tg_send(chat_id, "📭 کاربری وجود ندارد!")
-        return
-    per_page, total = 5, (len(users) + 4) // 5
-    start, end = page * per_page, min(start + per_page, len(users))
-    msg = f"📊 کاربران ({page+1}/{total})\n\n"
-    for uid, link in users[start:end]:
-        label = link.get("label", "بدون نام")
-        used, limit = link.get("used_bytes", 0), link.get("limit_bytes", 0)
-        active = link.get("active", True) and not is_link_expired(link)
-        msg += f"• <b>{label}</b>\n  مصرف: {fmt_bytes(used)} / {fmt_bytes(limit) if limit > 0 else '∞'}\n  وضعیت: {'🟢' if active else '🔴'}\n  UUID: <code>{uid[:8]}...</code>\n\n"
-    kb = []
-    nav = []
-    if page > 0:
-        nav.append({"text": "⬅️", "callback_data": f"list_page_{page-1}"})
-    if page < total - 1:
-        nav.append({"text": "➡️", "callback_data": f"list_page_{page+1}"})
-    if nav:
-        kb.append(nav)
-    kb.append([{"text": "🏠 منو", "callback_data": "main_menu"}])
-    await tg_send(chat_id, msg, kb)
-
-async def show_user_list_for_config(chat_id):
-    users = await get_cached_users()
-    if not users:
-        await tg_send(chat_id, "📭 کاربری وجود ندارد!")
-        return
-    kb = [[{"text": f"📥 {link.get('label','بدون نام')}", "callback_data": f"select_config_{uid}"}] for uid, link in users[:10]]
-    kb.append([{"text": "🏠 منو", "callback_data": "main_menu"}])
-    await tg_send(chat_id, "📥 کاربر را انتخاب کنید:", kb)
-
-async def show_user_list_for_edit(chat_id):
-    users = await get_cached_users()
-    if not users:
-        await tg_send(chat_id, "📭 کاربری وجود ندارد!")
-        return
-    kb = [[{"text": f"✏️ {link.get('label','بدون نام')}", "callback_data": f"select_edit_{uid}"}] for uid, link in users[:10]]
-    kb.append([{"text": "🏠 منو", "callback_data": "main_menu"}])
-    await tg_send(chat_id, "✏️ کاربر را برای ویرایش انتخاب کنید:", kb)
-
-async def show_user_list_for_renew(chat_id):
-    users = await get_cached_users()
-    if not users:
-        await tg_send(chat_id, "📭 کاربری وجود ندارد!")
-        return
-    kb = [[{"text": f"🔄 {link.get('label','بدون نام')}", "callback_data": f"select_renew_{uid}"}] for uid, link in users[:10]]
-    kb.append([{"text": "🏠 منو", "callback_data": "main_menu"}])
-    await tg_send(chat_id, "🔄 کاربر را برای تمدید انتخاب کنید:", kb)
-
-async def show_user_list_for_delete(chat_id):
-    users = await get_cached_users()
-    if not users:
-        await tg_send(chat_id, "📭 کاربری وجود ندارد!")
-        return
-    kb = [[{"text": f"❌ {link.get('label','بدون نام')}", "callback_data": f"select_delete_{uid}"}] for uid, link in users[:10]]
-    kb.append([{"text": "🏠 منو", "callback_data": "main_menu"}])
-    await tg_send(chat_id, "❌ کاربر را برای حذف انتخاب کنید:", kb)
-
-async def send_user_config(chat_id, uuid):
-    async with LINKS_LOCK:
-        link = LINKS.get(uuid)
-    if not link:
-        await tg_send(chat_id, "❌ کاربر یافت نشد!")
-        return
-    host, label = get_host(), link.get("label", "کاربر")
-    vless_links = [generate_vless_link(uuid, host, remark=label, fingerprint=link.get("fingerprint", "chrome"), port=port) for port in link.get("ports", [443])]
-    await tg_doc(chat_id, "\n\n".join(vless_links), f"config_{uuid[:8]}.txt")
-    await tg_send(chat_id, f"🔗 ساب: <code>https://{host}/sub/{uuid}</code>", [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
-
-async def renew_user(chat_id, uuid):
-    async with LINKS_LOCK:
-        link = LINKS.get(uuid)
-    if not link:
-        await tg_send(chat_id, "❌ کاربر یافت نشد!")
-        return
-    link["expires_at"] = (datetime.now() + timedelta(days=30)).isoformat()
-    if link.get("limit_bytes", 0) > 0:
-        link["limit_bytes"] += 5 * 1024**3
-    link["active"] = True
-    await save_state()
-    await tg_send(chat_id, f"✅ {link.get('label')} تمدید شد!", [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
-
-async def delete_user(chat_id, uuid):
-    async with LINKS_LOCK:
-        if uuid not in LINKS:
-            await tg_send(chat_id, "❌ کاربر یافت نشد!")
-            return
-        label = LINKS[uuid].get("label", "بدون نام")
-        del LINKS[uuid]
-    await save_state()
-    await tg_send(chat_id, f"✅ {label} حذف شد!", [[{"text": "🏠 منو", "callback_data": "main_menu"}]])
-
-# ─── HTML Pages ─────────────────────────────────────────────────────────────
+# ─── ===== HTML Pages ===== ──────────────────────────────────────────────────
 
 from pages import LOGIN_HTML, DASHBOARD_HTML
 
@@ -1309,9 +1345,18 @@ async def login_page(req: Request):
 
 @app.get("/dashboard")
 async def dashboard(req: Request):
-    if not await is_valid_session(req.cookies.get(SESSION_COOKIE)):
+    token = req.cookies.get(SESSION_COOKIE)
+    if not await is_valid_session(token):
         return RedirectResponse(url="/login")
-    return HTMLResponse(content=DASHBOARD_HTML)
+    
+    session_data = SESSIONS.get(token, {})
+    if session_data.get("user_type") == "super_admin":
+        # Super Admin به صفحه مدیریت Workspace ها میره
+        return HTMLResponse(content=DASHBOARD_HTML)
+    elif session_data.get("user_type") == "workspace_admin":
+        return HTMLResponse(content=DASHBOARD_HTML)
+    
+    return RedirectResponse(url="/login")
 
 @app.get("/")
 async def root():
