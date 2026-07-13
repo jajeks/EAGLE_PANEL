@@ -12,74 +12,91 @@ from urllib.parse import quote
 from collections import deque, defaultdict
 from pathlib import Path
 import socket
-import base64
-from io import BytesIO
-import httpx
 
 from fastapi import FastAPI, Request, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response, HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import httpx
 import logging
 
 # ─── تنظیمات ──────────────────────────────────────────────────────────────────
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler()]
+)
 logger = logging.getLogger("Eagle-Gateway")
 
 IRAN_TZ = ZoneInfo("Asia/Tehran")
 
+# ─── کانفیگ ──────────────────────────────────────────────────────────────────
 CONFIG = {
     "port": int(os.environ.get("PORT", 8000)),
     "secret": os.environ.get("SECRET_KEY", secrets.token_urlsafe(32)),
     "host": os.environ.get("RAILWAY_PUBLIC_DOMAIN", os.environ.get("RENDER_EXTERNAL_URL", "localhost")),
+    "admin_password": os.environ.get("ADMIN_PASSWORD", "123456"),
 }
 
+# ─── App ──────────────────────────────────────────────────────────────────────
 app = FastAPI(title="🪐 Eagle Gateway v10 Pro", docs_url=None, redoc_url=None)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ─── State ────────────────────────────────────────────────────────────────────
 DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
 DATA_FILE = DATA_DIR / "eagle_state.json"
 SAVE_LOCK = asyncio.Lock()
 
-# ─── Auth ──────────────────────────────────────────────────────────────────────
-SESSION_COOKIE = "eagle_session"
-SESSION_TTL = 60 * 60 * 24 * 7
-
-MAIN_ADMIN = {
-    "username": "admin",
-    "password_hash": hashlib.sha256(f"123456{CONFIG['secret']}".encode()).hexdigest(),
-}
-
-SESSIONS: dict = {}
-SESSIONS_LOCK = asyncio.Lock()
-
-# ─── Workspace ─────────────────────────────────────────────────────────────────
-WORKSPACES: dict = {}
-WORKSPACES_LOCK = asyncio.Lock()
-
 # ─── In-Memory State ─────────────────────────────────────────────────────────
+LINKS: dict = {}
+LINKS_LOCK = asyncio.Lock()
+SUBS: dict = {}
+SUBS_LOCK = asyncio.Lock()
 connections: dict = {}
-stats = {"total_bytes": 0, "total_requests": 0, "total_errors": 0, "start_time": time.time()}
+stats = {
+    "total_bytes": 0,
+    "total_requests": 0,
+    "total_errors": 0,
+    "start_time": time.time(),
+}
+error_logs: deque = deque(maxlen=50)
 activity_logs: deque = deque(maxlen=200)
-daily_traffic: dict = defaultdict(int)
+hourly_traffic: dict = defaultdict(int)
 device_connections: dict = {}
 DEVICE_CONNECTIONS_LOCK = asyncio.Lock()
 http_client: httpx.AsyncClient | None = None
 
-# ─── Settings ─────────────────────────────────────────────────────────────────
-DEFAULT_SETTINGS = {
-    "clean_ips": [],
-    "routes": [],
-    "ad_filter_enabled": True,
-    "porn_filter_enabled": True,
-    "malware_filter_enabled": True,
+# ─── Auth ──────────────────────────────────────────────────────────────────────
+SESSION_COOKIE = "eagle_session"
+SESSION_TTL = 60 * 60 * 24 * 7
+AUTH = {"password_hash": hashlib.sha256(f"{CONFIG['admin_password']}{CONFIG['secret']}".encode()).hexdigest()}
+SESSIONS: dict = {}
+SESSIONS_LOCK = asyncio.Lock()
+
+# ─── Settings ──────────────────────────────────────────────────────────────────
+SETTINGS: dict = {
+    "rgb_mode": False,
+    "default_protocol": "vless-ws",
+    "default_port": 443,
+    "inbound_port": 443,
+    "language": "fa",
+    "theme": "dark",
 }
 
-PROTOCOLS = ("vless-ws",)
+PROTOCOLS = ("vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one")
 DEFAULT_PROTOCOL = "vless-ws"
+
+# ─── لیست پورت‌های پیشفرض ──────────────────────────────────────────────────
 DEFAULT_PORTS = [443, 8443, 2053, 2096, 2087, 2083, 8080]
 
+# ─── لیست فینگرپرینت‌ها ─────────────────────────────────────────────────────
 FINGERPRINTS = {
     "chrome": "🌐 Chrome",
     "firefox": "🦊 Firefox",
@@ -87,13 +104,12 @@ FINGERPRINTS = {
     "edge": "🌊 Edge",
     "ios": "📱 iOS",
     "android": "🤖 Android",
+    "safari_ios": "🍏 Safari iOS",
     "random": "🎲 Random",
-    "none": "🚫 None",
+    "none": "🚫 None"
 }
 
-# ─────────────────────────────────────────────────────────────────────────────
-# ===== Functions =====
-# ─────────────────────────────────────────────────────────────────────────────
+# ─── Functions ─────────────────────────────────────────────────────────────────
 
 def now_ir() -> datetime:
     return datetime.now(IRAN_TZ)
@@ -123,11 +139,17 @@ def fmt_bytes(b: int) -> str:
 
 def client_ip(request: Request) -> str:
     fwd = request.headers.get("x-forwarded-for")
-    return fwd.split(",")[0].strip() if fwd else request.client.host if request.client else "نامشخص"
+    if fwd:
+        return fwd.split(",")[0].strip()
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+    return request.client.host if request.client else "نامشخص"
 
 def uptime() -> str:
     secs = int(time.time() - stats["start_time"])
-    return f"{secs//3600:02d}:{(secs%3600)//60:02d}:{secs%60:02d}"
+    h, m, s = secs // 3600, (secs % 3600) // 60, secs % 60
+    return f"{h:02d}:{m:02d}:{s:02d}"
 
 def parse_size_to_bytes(value: float, unit: str) -> int:
     unit = unit.upper()
@@ -135,6 +157,8 @@ def parse_size_to_bytes(value: float, unit: str) -> int:
         return int(value * 1024 ** 3)
     if unit == "MB":
         return int(value * 1024 ** 2)
+    if unit == "KB":
+        return int(value * 1024)
     return int(value)
 
 def is_link_expired(link: dict) -> bool:
@@ -143,7 +167,7 @@ def is_link_expired(link: dict) -> bool:
         return False
     try:
         return datetime.now() > datetime.fromisoformat(exp)
-    except:
+    except Exception:
         return False
 
 def is_link_allowed(link: dict | None) -> bool:
@@ -158,20 +182,41 @@ def is_link_allowed(link: dict | None) -> bool:
         return False
     return True
 
-def generate_vless_link(uuid: str, host: str, remark: str = "", fingerprint: str = "chrome", port: int = 443) -> str:
+def generate_vless_link(uuid: str, host: str, remark: str = "", protocol: str = DEFAULT_PROTOCOL, 
+                        fingerprint: str = "chrome", port: int = 443, 
+                        sni: str = None) -> str:
     if not remark:
         remark = "عقاب"
-    path = f"/ws/{uuid}"
-    params = {
-        "encryption": "none",
-        "security": "tls",
-        "type": "ws",
-        "host": host,
-        "path": path,
-        "sni": host,
-        "fp": fingerprint,
-        "alpn": "h2,http/1.1",
-    }
+    
+    if not sni:
+        sni = host
+    
+    if protocol == "vless-ws":
+        path = f"/ws/{uuid}"
+        params = {
+            "encryption": "none",
+            "security": "tls",
+            "type": "ws",
+            "host": host,
+            "path": path,
+            "sni": sni,
+            "fp": fingerprint,
+            "alpn": "h2,http/1.1",
+        }
+    else:
+        mode = protocol.replace("xhttp-", "")
+        path = f"/xhttp-siz10/{mode}/{uuid}"
+        params = {
+            "encryption": "none",
+            "security": "tls",
+            "type": "xhttp",
+            "mode": mode,
+            "host": host,
+            "path": path,
+            "sni": sni,
+            "fp": fingerprint,
+            "alpn": "h2,http/1.1",
+        }
     query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
     return f"vless://{uuid}@{host}:{port}?{query}#{quote(remark)}"
 
@@ -183,38 +228,13 @@ def log_activity(kind: str, message: str, level: str = "info"):
         "time": datetime.now().isoformat(),
     })
 
-# ─── State Functions ──────────────────────────────────────────────────────────
-
-async def load_state():
-    global WORKSPACES, MAIN_ADMIN
-    try:
-        DATA_DIR.mkdir(parents=True, exist_ok=True)
-        if DATA_FILE.exists():
-            async with aiofiles.open(DATA_FILE, "r") as f:
-                data = json.loads(await f.read())
-                WORKSPACES = data.get("workspaces", {})
-                if "main_admin" in data:
-                    MAIN_ADMIN["username"] = data["main_admin"].get("username", "admin")
-                    MAIN_ADMIN["password_hash"] = data["main_admin"].get("password_hash", MAIN_ADMIN["password_hash"])
-                logger.info(f"📂 Loaded {len(WORKSPACES)} workspaces")
-    except Exception as e:
-        logger.warning(f"Load state error: {e}")
-
-async def save_state():
-    async with SAVE_LOCK:
-        try:
-            data = {
-                "workspaces": WORKSPACES,
-                "main_admin": {
-                    "username": MAIN_ADMIN["username"],
-                    "password_hash": MAIN_ADMIN["password_hash"],
-                },
-                "saved_at": datetime.now().isoformat()
-            }
-            async with aiofiles.open(DATA_FILE, "w") as f:
-                await f.write(json.dumps(data, ensure_ascii=False, indent=2))
-        except Exception as e:
-            logger.warning(f"Save error: {e}")
+async def remove_device_connection(uuid: str, client_ip: str):
+    async with DEVICE_CONNECTIONS_LOCK:
+        if uuid in device_connections:
+            if client_ip in device_connections[uuid]:
+                device_connections[uuid].remove(client_ip)
+                if not device_connections[uuid]:
+                    del device_connections[uuid]
 
 # ─── Session Functions ──────────────────────────────────────────────────────
 
@@ -229,47 +249,75 @@ async def is_valid_session(token: str | None) -> bool:
         return False
     async with SESSIONS_LOCK:
         exp = SESSIONS.get(token)
-        if exp is None or exp < time.time():
+        if exp is None:
+            return False
+        if exp < time.time():
             SESSIONS.pop(token, None)
             return False
         return True
 
 async def destroy_session(token: str | None):
-    if token:
-        async with SESSIONS_LOCK:
-            SESSIONS.pop(token, None)
+    if not token:
+        return
+    async with SESSIONS_LOCK:
+        SESSIONS.pop(token, None)
 
-# ─── Auth Dependencies ──────────────────────────────────────────────────────
-
-async def require_main_admin(req: Request):
-    token = req.cookies.get(SESSION_COOKIE)
+async def require_auth(request: Request):
+    token = request.cookies.get(SESSION_COOKIE)
     if not await is_valid_session(token):
-        raise HTTPException(401, "unauthorized")
-    session_data = SESSIONS.get(token, {})
-    if session_data.get("user_type") != "main_admin":
-        raise HTTPException(403, "دسترسی محدود به ادمین اصلی")
+        raise HTTPException(status_code=401, detail="unauthorized")
     return token
 
-async def require_workspace_admin(req: Request):
-    token = req.cookies.get(SESSION_COOKIE)
-    if not await is_valid_session(token):
-        raise HTTPException(401, "unauthorized")
-    session_data = SESSIONS.get(token, {})
-    if session_data.get("user_type") != "workspace_admin":
-        raise HTTPException(403, "دسترسی محدود به ادمین Workspace")
-    workspace_id = session_data.get("workspace_id")
-    if not workspace_id or workspace_id not in WORKSPACES:
-        raise HTTPException(404, "Workspace یافت نشد")
-    return workspace_id
+# ─── State Persistence ──────────────────────────────────────────────────────
 
-# ─── Startup ─────────────────────────────────────────────────────────────────
+async def load_state():
+    global LINKS, SUBS, AUTH, SETTINGS
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        if DATA_FILE.exists():
+            async with aiofiles.open(DATA_FILE, "r", encoding="utf-8") as f:
+                raw = await f.read()
+            data = json.loads(raw)
+            LINKS.update(data.get("links", {}))
+            SUBS.update(data.get("subs", {}))
+            if "password_hash" in data:
+                AUTH["password_hash"] = data["password_hash"]
+            if "settings" in data:
+                SETTINGS.update(data["settings"])
+            logger.info(f"📂 State loaded: {len(LINKS)} links, {len(SUBS)} subs")
+    except Exception as e:
+        logger.warning(f"Could not load state: {e}")
+
+async def save_state():
+    async with SAVE_LOCK:
+        try:
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            data = {
+                "links": dict(LINKS),
+                "subs": dict(SUBS),
+                "password_hash": AUTH["password_hash"],
+                "settings": SETTINGS,
+                "saved_at": datetime.now().isoformat(),
+            }
+            tmp = DATA_FILE.with_suffix(".tmp")
+            async with aiofiles.open(tmp, "w", encoding="utf-8") as f:
+                await f.write(json.dumps(data, ensure_ascii=False, indent=2))
+            tmp.replace(DATA_FILE)
+        except Exception as e:
+            logger.warning(f"Could not save state: {e}")
+
+# ─── Startup / Shutdown ─────────────────────────────────────────────────────
 
 @app.on_event("startup")
 async def startup():
     global http_client
-    http_client = httpx.AsyncClient(timeout=10.0)
+    limits = httpx.Limits(max_connections=500, max_keepalive_connections=100)
+    timeout = httpx.Timeout(30.0, connect=10.0)
+    http_client = httpx.AsyncClient(limits=limits, timeout=timeout, follow_redirects=True)
     await load_state()
-    logger.info(f"🪐 Eagle Gateway started on port {CONFIG['port']}")
+    
+    log_activity("system", "🪐 Eagle Gateway v10 Pro راه‌اندازی شد", "ok")
+    logger.info(f"🪐 Eagle Gateway v10 Pro started on port {CONFIG['port']}")
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -277,284 +325,273 @@ async def shutdown():
     if http_client:
         await http_client.aclose()
 
-# ─── ===== API: Login ===== ──────────────────────────────────────────────────
+# ─── API: Settings ─────────────────────────────────────────────────────────
 
-@app.post("/api/login")
-async def api_login(req: Request):
-    body = await req.json()
-    username = body.get("username", "").strip()
-    password = body.get("password", "").strip()
-    workspace_id = body.get("workspace_id", "").strip()
-    
-    if username == MAIN_ADMIN["username"] and hash_password(password) == MAIN_ADMIN["password_hash"]:
-        token = await create_session()
-        async with SESSIONS_LOCK:
-            SESSIONS[token] = {"user_type": "main_admin", "workspace_id": None}
-        resp = JSONResponse({"ok": True, "is_main_admin": True})
-        resp.set_cookie(SESSION_COOKIE, token, max_age=SESSION_TTL if body.get("remember") else None, httponly=True, samesite="lax", path="/")
-        return resp
-    
-    if workspace_id and workspace_id in WORKSPACES:
-        ws = WORKSPACES[workspace_id]
-        if ws.get("admin_username") == username and hash_password(password) == ws.get("admin_password_hash"):
-            token = await create_session()
-            async with SESSIONS_LOCK:
-                SESSIONS[token] = {"user_type": "workspace_admin", "workspace_id": workspace_id}
-            resp = JSONResponse({"ok": True, "workspace_name": ws.get("name")})
-            resp.set_cookie(SESSION_COOKIE, token, max_age=SESSION_TTL if body.get("remember") else None, httponly=True, samesite="lax", path="/")
-            resp.set_cookie("eagle_workspace", workspace_id, max_age=SESSION_TTL if body.get("remember") else None, httponly=True, samesite="lax", path="/")
-            return resp
-    
-    raise HTTPException(401, "نام کاربری یا رمز عبور اشتباه است")
+@app.post("/api/settings/language")
+async def set_language(request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    lang = body.get("language", "fa")
+    if lang in ["fa", "en"]:
+        SETTINGS["language"] = lang
+        await save_state()
+        return {"ok": True, "language": lang}
+    raise HTTPException(status_code=400, detail="زبان نامعتبر")
 
-@app.post("/api/logout")
-async def api_logout(req: Request):
-    await destroy_session(req.cookies.get(SESSION_COOKIE))
-    resp = JSONResponse({"ok": True})
-    resp.delete_cookie(SESSION_COOKIE, path="/")
-    resp.delete_cookie("eagle_workspace", path="/")
-    return resp
+@app.get("/api/language")
+async def get_language():
+    return {"language": SETTINGS.get("language", "fa")}
 
-@app.get("/api/me")
-async def api_me(req: Request):
-    token = req.cookies.get(SESSION_COOKIE)
-    is_auth = await is_valid_session(token)
-    session_data = SESSIONS.get(token, {}) if token else {}
-    return {
-        "authenticated": is_auth,
-        "user_type": session_data.get("user_type"),
-        "workspace_id": session_data.get("workspace_id"),
-        "is_main_admin": session_data.get("user_type") == "main_admin",
-    }
+@app.post("/api/settings/theme")
+async def set_theme(request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    theme = body.get("theme", "dark")
+    if theme in ["dark", "light"]:
+        SETTINGS["theme"] = theme
+        await save_state()
+        return {"ok": True, "theme": theme}
+    raise HTTPException(status_code=400, detail="تم نامعتبر")
 
-# ─── ===== API: Workspace Management (ادمین اصلی) ===== ────────────────────
-
-@app.get("/api/admin/workspaces")
-async def admin_list_workspaces(_=Depends(require_main_admin)):
-    result = []
-    for wid, ws in WORKSPACES.items():
-        limit = ws.get("quota_limit_bytes", 0)
-        used = ws.get("quota_used_bytes", 0)
-        result.append({
-            "id": wid,
-            "name": ws.get("name"),
-            "admin_username": ws.get("admin_username"),
-            "created_at": ws.get("created_at"),
-            "links_count": len(ws.get("links", {})),
-            "quota_limit_gb": round(limit / (1024**3), 2) if limit > 0 else 0,
-            "quota_used_gb": round(used / (1024**3), 2),
-            "quota_percent": round((used / limit) * 100, 1) if limit > 0 else 0,
-            "is_quota_exceeded": ws.get("is_quota_exceeded", False),
-        })
-    return {"workspaces": result}
-
-@app.post("/api/admin/workspaces")
-async def admin_create_workspace(req: Request, _=Depends(require_main_admin)):
-    body = await req.json()
-    name = body.get("name", "").strip()
-    admin_username = body.get("admin_username", "").strip()
-    admin_password = body.get("admin_password", "").strip()
-    quota_gb = float(body.get("quota_gb", 0))
-    
-    if not name or not admin_username or not admin_password:
-        raise HTTPException(400, "نام، نام کاربری و رمز عبور الزامی است")
-    if len(admin_password) < 4:
-        raise HTTPException(400, "رمز عبور حداقل 4 کاراکتر")
-    
-    for wid, ws in WORKSPACES.items():
-        if ws.get("admin_username") == admin_username:
-            raise HTTPException(400, "این نام کاربری قبلاً استفاده شده است")
-    
-    workspace_id = f"ws_{secrets.token_hex(8)}"
-    async with WORKSPACES_LOCK:
-        WORKSPACES[workspace_id] = {
-            "name": name,
-            "admin_username": admin_username,
-            "admin_password_hash": hash_password(admin_password),
-            "created_at": datetime.now().isoformat(),
-            "active": True,
-            "quota_limit_bytes": int(quota_gb * 1024**3) if quota_gb > 0 else 0,
-            "quota_used_bytes": 0,
-            "is_quota_exceeded": False,
-            "settings": DEFAULT_SETTINGS.copy(),
-            "links": {},
-            "daily_traffic": {},
-            "activity_logs": [],
-            "stats": {"total_bytes": 0, "total_requests": 0, "total_errors": 0},
-        }
-    
-    await save_state()
-    return {"ok": True, "workspace_id": workspace_id}
-
-@app.delete("/api/admin/workspaces/{workspace_id}")
-async def admin_delete_workspace(workspace_id: str, _=Depends(require_main_admin)):
-    async with WORKSPACES_LOCK:
-        if workspace_id not in WORKSPACES:
-            raise HTTPException(404, "Workspace یافت نشد")
-        del WORKSPACES[workspace_id]
-    await save_state()
-    return {"ok": True}
-
-@app.post("/api/admin/workspaces/{workspace_id}/quota")
-async def admin_set_quota(workspace_id: str, req: Request, _=Depends(require_main_admin)):
-    body = await req.json()
-    quota_gb = float(body.get("quota_gb", 0))
-    async with WORKSPACES_LOCK:
-        if workspace_id not in WORKSPACES:
-            raise HTTPException(404, "Workspace یافت نشد")
-        WORKSPACES[workspace_id]["quota_limit_bytes"] = int(quota_gb * 1024**3) if quota_gb > 0 else 0
-        WORKSPACES[workspace_id]["is_quota_exceeded"] = False
-    await save_state()
-    return {"ok": True}
-
-@app.post("/api/admin/workspaces/{workspace_id}/quota/reset")
-async def admin_reset_quota(workspace_id: str, _=Depends(require_main_admin)):
-    async with WORKSPACES_LOCK:
-        if workspace_id not in WORKSPACES:
-            raise HTTPException(404, "Workspace یافت نشد")
-        ws = WORKSPACES[workspace_id]
-        ws["quota_used_bytes"] = 0
-        ws["is_quota_exceeded"] = False
-        for link in ws.get("links", {}).values():
-            link["used_bytes"] = 0
-    await save_state()
-    return {"ok": True}
-
-# ─── ===== API: Workspace (برای ادمین) ===== ─────────────────────────────────
-
-@app.get("/api/workspace/info")
-async def workspace_get_info(workspace_id=Depends(require_workspace_admin)):
-    ws = WORKSPACES.get(workspace_id, {})
-    limit = ws.get("quota_limit_bytes", 0)
-    used = ws.get("quota_used_bytes", 0)
-    return {
-        "id": workspace_id,
-        "name": ws.get("name"),
-        "links_count": len(ws.get("links", {})),
-        "quota": {
-            "limit_gb": round(limit / (1024**3), 2) if limit > 0 else 0,
-            "used_gb": round(used / (1024**3), 2),
-            "percent": round((used / limit) * 100, 1) if limit > 0 else 0,
-            "is_exceeded": ws.get("is_quota_exceeded", False),
-        },
-        "admin_username": ws.get("admin_username"),
-    }
-
-@app.post("/api/workspace/change-password")
-async def workspace_change_password(req: Request, workspace_id=Depends(require_workspace_admin)):
-    body = await req.json()
+@app.post("/api/change-password")
+async def change_password(request: Request, _=Depends(require_auth)):
+    body = await request.json()
     old = body.get("old_password", "").strip()
     new = body.get("new_password", "").strip()
+    
     if not old or not new or len(new) < 4:
         raise HTTPException(400, "رمز جدید حداقل 4 کاراکتر")
-    async with WORKSPACES_LOCK:
-        ws = WORKSPACES.get(workspace_id)
-        if not ws:
-            raise HTTPException(404, "Workspace یافت نشد")
-        if hash_password(old) != ws.get("admin_password_hash"):
-            raise HTTPException(403, "رمز فعلی اشتباه است")
-        ws["admin_password_hash"] = hash_password(new)
+    
+    if hash_password(old) != AUTH["password_hash"]:
+        raise HTTPException(403, "رمز فعلی اشتباه")
+    
+    AUTH["password_hash"] = hash_password(new)
+    CONFIG["admin_password"] = new
+    os.environ["ADMIN_PASSWORD"] = new
+    
     await save_state()
-    return {"ok": True, "message": "رمز عبور تغییر کرد"}
+    log_activity("settings", "رمز پنل تغییر کرد", "ok")
+    
+    return {"ok": True}
 
-@app.post("/api/workspace/change-username")
-async def workspace_change_username(req: Request, workspace_id=Depends(require_workspace_admin)):
-    body = await req.json()
-    new_username = body.get("new_username", "").strip()
-    if not new_username or len(new_username) < 3:
-        raise HTTPException(400, "نام کاربری جدید حداقل 3 کاراکتر باشد")
-    async with WORKSPACES_LOCK:
-        ws = WORKSPACES.get(workspace_id)
-        if not ws:
-            raise HTTPException(404, "Workspace یافت نشد")
-        ws["admin_username"] = new_username
+@app.get("/api/settings")
+async def get_settings(_=Depends(require_auth)):
+    return SETTINGS
+
+@app.post("/api/settings/rgb")
+async def toggle_rgb(request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    SETTINGS["rgb_mode"] = bool(body.get("enabled", False))
     await save_state()
-    return {"ok": True, "message": "نام کاربری تغییر کرد"}
+    return {"rgb_mode": SETTINGS["rgb_mode"]}
 
-# ─── ===== API: Workspace Links ===== ────────────────────────────────────────
+# ─── API: Dashboard Stats ──────────────────────────────────────────────────
 
-@app.get("/api/workspace/links")
-async def workspace_list_links(req: Request, workspace_id=Depends(require_workspace_admin)):
-    ws = WORKSPACES.get(workspace_id, {})
-    links = ws.get("links", {})
-    host = get_host()
-    result = []
-    for uid, d in links.items():
-        ports = d.get("ports", [443])
-        first_port = ports[0] if ports else 443
-        label = d.get("label", "کاربر")
-        clean_ip = d.get("clean_ip")
-        result.append({
-            "uuid": uid,
-            **d,
-            "ports": ports,
-            "expired": is_link_expired(d),
-            "has_password": d.get("password_hash") is not None,
-            "vless_link": generate_vless_link(uid, host, remark=f"عقاب-{label}",
-                fingerprint=d.get("fingerprint", "chrome"), port=first_port),
-            "sub_url": f"https://{host}/sub/{uid}"
-        })
-    result.sort(key=lambda x: x["created_at"], reverse=True)
-    return {"links": result}
+@app.get("/api/dashboard/stats")
+async def dashboard_stats(_=Depends(require_auth)):
+    disk_usage = psutil.disk_usage('/')
+    
+    if len(hourly_traffic) > 0:
+        last_hour = sum(list(hourly_traffic.values())[-6:])
+        speed = last_hour / 21600
+    else:
+        speed = 0
+    
+    return {
+        "traffic": {
+            "total": stats["total_bytes"],
+            "total_fmt": fmt_bytes(stats["total_bytes"]),
+            "today": sum(hourly_traffic.values()),
+            "today_fmt": fmt_bytes(sum(hourly_traffic.values()))
+        },
+        "requests": stats["total_requests"],
+        "uptime": uptime(),
+        "disk": {
+            "total": disk_usage.total,
+            "used": disk_usage.used,
+            "free": disk_usage.free,
+            "total_fmt": fmt_bytes(disk_usage.total),
+            "used_fmt": fmt_bytes(disk_usage.used),
+            "free_fmt": fmt_bytes(disk_usage.free),
+            "percent": disk_usage.percent
+        },
+        "connections": len(connections),
+        "speed": {
+            "download": speed,
+            "download_fmt": fmt_bytes(speed) + "/s" if speed > 0 else "0 B/s"
+        },
+        "links_count": len(LINKS),
+        "active_links": sum(1 for l in LINKS.values() if is_link_allowed(l))
+    }
 
-@app.post("/api/workspace/links")
-async def workspace_create_link(req: Request, workspace_id=Depends(require_workspace_admin)):
-    body = await req.json()
-    label = (body.get("label") or "کاربر").strip()[:60]
-    quota = float(body.get("limit_value") or 0)
-    limit_bytes = 0 if quota <= 0 else parse_size_to_bytes(quota, "GB")
-    exp_days = int(body.get("expires_days") or 30)
+# ─── API: Inbound ────────────────────────────────────────────────────────────
+
+@app.get("/api/inbound")
+async def get_inbound(_=Depends(require_auth)):
+    return {
+        "port": SETTINGS.get("inbound_port", 443),
+        "protocol": SETTINGS.get("default_protocol", "vless"),
+        "host": get_host(),
+        "is_active": True
+    }
+
+@app.post("/api/inbound")
+async def update_inbound(request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    port = body.get("port", 443)
+    if port < 1 or port > 65535:
+        raise HTTPException(status_code=400, detail="پورت نامعتبر")
+    SETTINGS["inbound_port"] = port
+    await save_state()
+    return {"ok": True, "port": port}
+
+# ─── API: Links ─────────────────────────────────────────────────────────────
+
+@app.post("/api/links")
+async def create_link(request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    label = (body.get("label") or "لینک جدید").strip()[:60]
+    lv = float(body.get("limit_value") or 0)
+    lu = body.get("limit_unit") or "GB"
+    limit_bytes = 0 if lv <= 0 else parse_size_to_bytes(lv, lu)
+    exp_days = int(body.get("expires_days") or 0)
     expires_at = (datetime.now() + timedelta(days=exp_days)).isoformat() if exp_days > 0 else None
+    note = (body.get("note") or "").strip()[:200]
+    sub_id = body.get("sub_id") or None
+    protocol = body.get("protocol") or DEFAULT_PROTOCOL
+    if protocol not in PROTOCOLS:
+        protocol = DEFAULT_PROTOCOL
     max_devices = int(body.get("max_devices", 0))
     fingerprint = body.get("fingerprint", "chrome")
     if fingerprint not in FINGERPRINTS:
         fingerprint = "chrome"
-    password_hash = hash_password(body.get("password", "").strip()) if body.get("password") else None
-    clean_ip = body.get("clean_ip") or None
+    config_password = body.get("password", "").strip()
+    password_hash = hash_password(config_password) if config_password else None
+    
+    # ===== پورت‌ها =====
     ports = body.get("ports", [443])
-    if not isinstance(ports, list) or not ports:
+    if isinstance(ports, list) and len(ports) > 0:
+        # فیلتر پورت‌های معتبر
+        ports = [p for p in ports if isinstance(p, int) and 1 <= p <= 65535]
+    else:
         ports = [443]
-    ports = [p for p in ports if isinstance(p, int) and 1 <= p <= 65535] or [443]
+    if not ports:
+        ports = [443]
 
     uid = generate_uuid()
-    async with WORKSPACES_LOCK:
-        if workspace_id not in WORKSPACES:
-            raise HTTPException(404, "Workspace یافت نشد")
-        WORKSPACES[workspace_id]["links"][uid] = {
-            "label": label, "limit_bytes": limit_bytes, "used_bytes": 0,
-            "created_at": datetime.now().isoformat(), "active": True,
-            "expires_at": expires_at, "protocol": "vless-ws",
-            "max_devices": max_devices, "fingerprint": fingerprint,
-            "password_hash": password_hash, "ports": ports, "clean_ip": clean_ip,
+    async with LINKS_LOCK:
+        LINKS[uid] = {
+            "label": label,
+            "limit_bytes": limit_bytes,
+            "used_bytes": 0,
+            "created_at": datetime.now().isoformat(),
+            "active": True,
+            "expires_at": expires_at,
+            "note": note,
+            "is_default": False,
+            "sub_id": sub_id,
+            "protocol": protocol,
+            "max_devices": max_devices,
+            "fingerprint": fingerprint,
+            "password_hash": password_hash,
+            "ports": ports,  # لیست پورت‌ها
         }
-    
-    await save_state()
-    host = get_host()
-    main_link = generate_vless_link(uid, host, remark=f"عقاب-{label}",
-                                    fingerprint=fingerprint, port=ports[0])
-    return {"uuid": uid, **WORKSPACES[workspace_id]["links"][uid], "has_password": password_hash is not None,
-            "vless_link": main_link, "sub_url": f"https://{host}/sub/{uid}"}
 
-@app.patch("/api/workspace/links/{uid}")
-async def workspace_update_link(uid: str, req: Request, workspace_id=Depends(require_workspace_admin)):
-    body = await req.json()
-    async with WORKSPACES_LOCK:
-        if workspace_id not in WORKSPACES:
-            raise HTTPException(404, "Workspace یافت نشد")
-        ws = WORKSPACES[workspace_id]
-        if uid not in ws.get("links", {}):
-            raise HTTPException(404, "کاربر یافت نشد")
-        link = ws["links"][uid]
+    if sub_id:
+        async with SUBS_LOCK:
+            if sub_id in SUBS:
+                ids = SUBS[sub_id].setdefault("link_ids", [])
+                if uid not in ids:
+                    ids.append(uid)
+
+    asyncio.create_task(save_state())
+    log_activity("link", f"کانفیگ «{label}» ساخته شد با {len(ports)} پورت", "ok")
+    host = get_host()
+    
+    remark = f"عقاب-{label}"
+    # لینک اصلی با اولین پورت
+    main_link = generate_vless_link(uid, host, remark=remark, protocol=protocol, fingerprint=fingerprint, port=ports[0])
+    
+    link_data = {
+        "uuid": uid,
+        **LINKS[uid],
+        "has_password": password_hash is not None,
+        "vless_link": main_link,
+        "sub_url": f"https://{host}/sub/{uid}",
+        "warning_config": "",
+    }
+    
+    return link_data
+
+@app.get("/api/links")
+async def list_links(_=Depends(require_auth)):
+    host = get_host()
+    async with LINKS_LOCK:
+        snap = dict(LINKS)
+    
+    result = []
+    for uid, d in snap.items():
+        proto = d.get("protocol", DEFAULT_PROTOCOL)
+        fp = d.get("fingerprint", "chrome")
+        ports = d.get("ports", [443])
+        first_port = ports[0] if ports else 443
+        label = d.get("label", "کاربر")
+        remark = f"عقاب-{label}"
+        
+        last_connected = None
+        for c in connections.values():
+            if c.get("uuid") == uid:
+                if not last_connected or c.get("connected_at") > last_connected:
+                    last_connected = c.get("connected_at")
+        
+        active = d.get("active", True) and not is_link_expired(d)
+        
+        result.append({
+            "uuid": uid,
+            **d,
+            "protocol": proto,
+            "fingerprint": fp,
+            "ports": ports,
+            "max_devices": d.get("max_devices", 0),
+            "expired": is_link_expired(d),
+            "has_password": d.get("password_hash") is not None,
+            "port": first_port,
+            "last_connected_at": last_connected,
+            "vless_link": generate_vless_link(uid, host, remark=remark, protocol=proto, fingerprint=fp, port=first_port),
+            "sub_url": f"https://{host}/sub/{uid}",
+            "warning_config": "",
+        })
+    result.sort(key=lambda x: x["created_at"], reverse=True)
+    return {"links": result}
+
+@app.patch("/api/links/{uid}")
+async def update_link(uid: str, request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    
+    async with LINKS_LOCK:
+        if uid not in LINKS:
+            raise HTTPException(status_code=404, detail="link not found")
+        link = LINKS[uid]
         
         if link.get("password_hash"):
-            pw = body.get("password", "").strip()
-            if not pw or hash_password(pw) != link["password_hash"]:
-                raise HTTPException(403, "رمز کانفیگ اشتباه است")
+            password = body.get("password", "").strip()
+            if not password:
+                raise HTTPException(status_code=403, detail="برای ویرایش این کانفیگ رمز آن را وارد کنید")
+            if hash_password(password) != link["password_hash"]:
+                raise HTTPException(status_code=403, detail="رمز کانفیگ اشتباه است")
+        
+        old_sub = link.get("sub_id")
+        
+        if "active" in body:
+            link["active"] = bool(body["active"])
         if "label" in body:
             link["label"] = str(body["label"])[:60]
+        if "note" in body:
+            link["note"] = str(body["note"])[:200]
+        if "reset_usage" in body and body["reset_usage"]:
+            link["used_bytes"] = 0
         if "limit_value" in body:
-            lv = float(body["limit_value"] or 0)
-            link["limit_bytes"] = 0 if lv <= 0 else parse_size_to_bytes(lv, "GB")
+            lv = float(body.get("limit_value") or 0)
+            lu = body.get("limit_unit") or "GB"
+            link["limit_bytes"] = 0 if lv <= 0 else parse_size_to_bytes(lv, lu)
         if "expires_days" in body:
             ed = int(body["expires_days"] or 0)
             link["expires_at"] = (datetime.now() + timedelta(days=ed)).isoformat() if ed > 0 else None
@@ -562,197 +599,282 @@ async def workspace_update_link(uid: str, req: Request, workspace_id=Depends(req
             link["max_devices"] = int(body["max_devices"])
         if "fingerprint" in body and body["fingerprint"] in FINGERPRINTS:
             link["fingerprint"] = body["fingerprint"]
-        if "clean_ip" in body:
-            link["clean_ip"] = body["clean_ip"] or None
-        if "active" in body:
-            link["active"] = bool(body["active"])
-        if "reset_usage" in body and body["reset_usage"]:
-            link["used_bytes"] = 0
+        if "protocol" in body and body["protocol"] in PROTOCOLS:
+            link["protocol"] = body["protocol"]
         if "ports" in body and isinstance(body["ports"], list):
             ports = [p for p in body["ports"] if isinstance(p, int) and 1 <= p <= 65535]
             if ports:
                 link["ports"] = ports
-    
-    await save_state()
+        new_sub = body.get("sub_id", "UNCHANGED")
+        if new_sub != "UNCHANGED":
+            link["sub_id"] = new_sub or None
+
+    if new_sub != "UNCHANGED":
+        async with SUBS_LOCK:
+            if old_sub and old_sub in SUBS:
+                ids = SUBS[old_sub].get("link_ids", [])
+                if uid in ids:
+                    ids.remove(uid)
+            if new_sub and new_sub in SUBS:
+                ids = SUBS[new_sub].setdefault("link_ids", [])
+                if uid not in ids:
+                    ids.append(uid)
+
+    asyncio.create_task(save_state())
+    log_activity("link", f"کانفیگ «{link['label']}» ویرایش شد", "info")
     return {"ok": True}
 
-@app.delete("/api/workspace/links/{uid}")
-async def workspace_delete_link(uid: str, req: Request, workspace_id=Depends(require_workspace_admin)):
-    body = await req.json()
-    async with WORKSPACES_LOCK:
-        if workspace_id not in WORKSPACES:
-            raise HTTPException(404, "Workspace یافت نشد")
-        ws = WORKSPACES[workspace_id]
-        if uid not in ws.get("links", {}):
-            raise HTTPException(404, "کاربر یافت نشد")
-        link = ws["links"][uid]
+@app.delete("/api/links/{uid}")
+async def delete_link(uid: str, request: Request, _=Depends(require_auth)):
+    body = await request.json()
+    password = body.get("password", "").strip()
+    
+    async with LINKS_LOCK:
+        if uid not in LINKS:
+            raise HTTPException(status_code=404, detail="link not found")
+        link = LINKS[uid]
+        
         if link.get("password_hash"):
-            pw = body.get("password", "").strip()
-            if not pw or hash_password(pw) != link["password_hash"]:
-                raise HTTPException(403, "رمز کانفیگ اشتباه است")
-        del ws["links"][uid]
+            if not password:
+                raise HTTPException(status_code=403, detail="برای حذف این کانفیگ رمز آن را وارد کنید")
+            if hash_password(password) != link["password_hash"]:
+                raise HTTPException(status_code=403, detail="رمز کانفیگ اشتباه است")
+        
+        label = link.get("label", uid)
+        sub_id = link.get("sub_id")
+        del LINKS[uid]
     
-    await save_state()
-    return {"ok": True}
+    if sub_id:
+        async with SUBS_LOCK:
+            if sub_id in SUBS:
+                ids = SUBS[sub_id].get("link_ids", [])
+                if uid in ids:
+                    ids.remove(uid)
+    
+    asyncio.create_task(save_state())
+    log_activity("link", f"کانفیگ «{label}» حذف شد", "err")
+    
+    return {"ok": True, "deleted": uid}
 
-# ─── ===== API: Workspace Settings ===== ──────────────────────────────────────
+# ─── API: Stats & Connections ──────────────────────────────────────────────
 
-@app.get("/api/workspace/settings")
-async def workspace_get_settings(workspace_id=Depends(require_workspace_admin)):
-    ws = WORKSPACES.get(workspace_id, {})
-    return ws.get("settings", DEFAULT_SETTINGS.copy())
-
-@app.post("/api/workspace/settings")
-async def workspace_update_settings(req: Request, workspace_id=Depends(require_workspace_admin)):
-    body = await req.json()
-    async with WORKSPACES_LOCK:
-        if workspace_id not in WORKSPACES:
-            raise HTTPException(404, "Workspace یافت نشد")
-        for key, value in body.items():
-            if key in DEFAULT_SETTINGS:
-                WORKSPACES[workspace_id]["settings"][key] = value
-    await save_state()
-    return {"ok": True}
-
-@app.get("/api/workspace/clean-ips")
-async def workspace_get_clean_ips(workspace_id=Depends(require_workspace_admin)):
-    ws = WORKSPACES.get(workspace_id, {})
-    return {"clean_ips": ws.get("settings", {}).get("clean_ips", [])}
-
-@app.post("/api/workspace/clean-ips")
-async def workspace_add_clean_ip(req: Request, workspace_id=Depends(require_workspace_admin)):
-    body = await req.json()
-    ip = body.get("ip", "").strip()
-    provider = body.get("provider", "Unknown")
-    if not ip:
-        raise HTTPException(400, "IP نمی‌تواند خالی باشد")
-    async with WORKSPACES_LOCK:
-        clean_ips = WORKSPACES[workspace_id]["settings"].get("clean_ips", [])
-        for item in clean_ips:
-            if item.get("ip") == ip:
-                raise HTTPException(400, "این IP قبلاً اضافه شده است")
-        clean_ips.append({"ip": ip, "provider": provider, "active": True})
-        WORKSPACES[workspace_id]["settings"]["clean_ips"] = clean_ips
-    await save_state()
-    return {"ok": True}
-
-@app.delete("/api/workspace/clean-ips/{ip}")
-async def workspace_delete_clean_ip(ip: str, workspace_id=Depends(require_workspace_admin)):
-    async with WORKSPACES_LOCK:
-        clean_ips = WORKSPACES[workspace_id]["settings"].get("clean_ips", [])
-        WORKSPACES[workspace_id]["settings"]["clean_ips"] = [item for item in clean_ips if item.get("ip") != ip]
-    await save_state()
-    return {"ok": True}
-
-@app.get("/api/workspace/routes")
-async def workspace_get_routes(workspace_id=Depends(require_workspace_admin)):
-    ws = WORKSPACES.get(workspace_id, {})
-    return {"routes": ws.get("settings", {}).get("routes", [])}
-
-@app.post("/api/workspace/routes")
-async def workspace_add_route(req: Request, workspace_id=Depends(require_workspace_admin)):
-    body = await req.json()
-    domain = body.get("domain", "").strip()
-    route_type = body.get("type", "direct")
-    if not domain:
-        raise HTTPException(400, "دامنه نمی‌تواند خالی باشد")
-    async with WORKSPACES_LOCK:
-        routes = WORKSPACES[workspace_id]["settings"].get("routes", [])
-        routes.append({"domain": domain, "type": route_type, "active": True})
-        WORKSPACES[workspace_id]["settings"]["routes"] = routes
-    await save_state()
-    return {"ok": True}
-
-@app.delete("/api/workspace/routes/{domain}")
-async def workspace_delete_route(domain: str, workspace_id=Depends(require_workspace_admin)):
-    async with WORKSPACES_LOCK:
-        routes = WORKSPACES[workspace_id]["settings"].get("routes", [])
-        WORKSPACES[workspace_id]["settings"]["routes"] = [r for r in routes if r.get("domain") != domain]
-    await save_state()
-    return {"ok": True}
-
-@app.get("/api/workspace/filters")
-async def workspace_get_filters(workspace_id=Depends(require_workspace_admin)):
-    ws = WORKSPACES.get(workspace_id, {})
-    settings = ws.get("settings", {})
+@app.get("/stats")
+async def get_stats(_=Depends(require_auth)):
+    async with LINKS_LOCK:
+        snap = dict(LINKS)
+    
+    top_user = None
+    top_usage = 0
+    for uid, link in snap.items():
+        used = link.get("used_bytes", 0)
+        if used > top_usage:
+            top_usage = used
+            top_user = {
+                "uuid": uid,
+                "label": link.get("label", "نامشخص"),
+                "used_bytes": used,
+                "used_fmt": fmt_bytes(used)
+            }
+    
     return {
-        "ad_filter_enabled": settings.get("ad_filter_enabled", True),
-        "porn_filter_enabled": settings.get("porn_filter_enabled", True),
-        "malware_filter_enabled": settings.get("malware_filter_enabled", True),
-    }
-
-@app.post("/api/workspace/filters")
-async def workspace_update_filters(req: Request, workspace_id=Depends(require_workspace_admin)):
-    body = await req.json()
-    async with WORKSPACES_LOCK:
-        settings = WORKSPACES[workspace_id]["settings"]
-        if "ad_filter_enabled" in body:
-            settings["ad_filter_enabled"] = bool(body["ad_filter_enabled"])
-        if "porn_filter_enabled" in body:
-            settings["porn_filter_enabled"] = bool(body["porn_filter_enabled"])
-        if "malware_filter_enabled" in body:
-            settings["malware_filter_enabled"] = bool(body["malware_filter_enabled"])
-    await save_state()
-    return {"ok": True}
-
-@app.get("/api/workspace/stats")
-async def workspace_stats(workspace_id=Depends(require_workspace_admin)):
-    ws = WORKSPACES.get(workspace_id, {})
-    links = ws.get("links", {})
-    return {
-        "links_count": len(links),
-        "active_links": sum(1 for l in links.values() if l.get("active", True) and not is_link_expired(l)),
-        "total_used": sum(l.get("used_bytes", 0) for l in links.values()),
-        "total_used_fmt": fmt_bytes(sum(l.get("used_bytes", 0) for l in links.values())),
-        "connections": len(connections),
-    }
-
-@app.get("/api/workspace/logs")
-async def workspace_get_logs(req: Request, workspace_id=Depends(require_workspace_admin)):
-    ws = WORKSPACES.get(workspace_id, {})
-    logs = ws.get("activity_logs", [])
-    return {"logs": list(logs)[-50:]}
-
-# ─── ===== API: Dashboard ===== ─────────────────────────────────────────────
-
-@app.get("/api/dashboard/stats")
-async def dashboard_stats(req: Request):
-    disk = psutil.disk_usage('/')
-    return {
-        "traffic": {"total": stats["total_bytes"], "total_fmt": fmt_bytes(stats["total_bytes"])},
-        "requests": stats["total_requests"],
+        "active_connections": len(connections),
+        "total_traffic_mb": round(stats["total_bytes"] / (1024 ** 2), 2),
+        "total_requests": stats["total_requests"],
+        "total_errors": stats["total_errors"],
         "uptime": uptime(),
-        "disk": {"total_fmt": fmt_bytes(disk.total), "used_fmt": fmt_bytes(disk.used), "free_fmt": fmt_bytes(disk.free)},
-        "connections": len(connections),
-        "speed": {"download_fmt": "0 B/s"},
-        "links_count": 0,
-        "active_links": 0,
+        "timestamp": datetime.now().isoformat(),
+        "hourly": dict(hourly_traffic),
+        "recent_errors": list(error_logs)[-10:],
+        "links_count": len(snap),
+        "active_links": sum(1 for l in snap.values() if is_link_allowed(l)),
+        "expired_links": sum(1 for l in snap.values() if is_link_expired(l)),
+        "subs_count": len(SUBS),
+        "top_user": top_user,
     }
 
 @app.get("/api/connections")
-async def get_connections():
-    result = []
-    for c in connections.values():
-        result.append({
-            "ip": c.get("ip", "نامشخص"),
-            "bytes": c.get("bytes", 0),
-            "bytes_fmt": fmt_bytes(c.get("bytes", 0)),
-            "connected_at": c.get("connected_at"),
-        })
-    return {"connections": result, "count": len(result)}
+async def get_connections(_=Depends(require_auth)):
+    async with LINKS_LOCK:
+        snap = dict(LINKS)
 
-# ─── ===== WebSocket Tunnel ===== ─────────────────────────────────────────────
+    grouped: dict[str, dict] = {}
+    for conn_id, c in connections.items():
+        ip = c.get("ip", "نامشخص")
+        link = snap.get(c.get("uuid"))
+        label = link.get("label") if link else "نامشخص"
+        g = grouped.get(ip)
+        if g is None:
+            g = {
+                "ip": ip,
+                "sessions": 0,
+                "bytes": 0,
+                "labels": set(),
+                "transports": set(),
+                "first_connected_at": c.get("connected_at"),
+                "last_connected_at": c.get("connected_at"),
+            }
+            grouped[ip] = g
+        g["sessions"] += 1
+        g["bytes"] += c.get("bytes", 0)
+        g["labels"].add(label)
+        g["transports"].add(c.get("transport", "vless-ws"))
+        ca = c.get("connected_at")
+        if ca:
+            if not g["first_connected_at"] or ca < g["first_connected_at"]:
+                g["first_connected_at"] = ca
+            if not g["last_connected_at"] or ca > g["last_connected_at"]:
+                g["last_connected_at"] = ca
+
+    result = []
+    for ip, g in grouped.items():
+        result.append({
+            "ip": ip,
+            "sessions": g["sessions"],
+            "labels": sorted(g["labels"]),
+            "label": " · ".join(sorted(g["labels"])) if g["labels"] else "نامشخص",
+            "transports": sorted(g["transports"]),
+            "bytes": g["bytes"],
+            "bytes_fmt": fmt_bytes(g["bytes"]),
+            "connected_at": g["first_connected_at"],
+            "last_connected_at": g["last_connected_at"],
+        })
+    result.sort(key=lambda x: x.get("last_connected_at") or "", reverse=True)
+
+    return {
+        "connections": result,
+        "count": len(result),
+        "raw_count": len(connections),
+    }
+
+# ─── Auth Endpoints ────────────────────────────────────────────────────────
+
+@app.post("/api/login")
+async def api_login(request: Request):
+    body = await request.json()
+    ip = client_ip(request)
+    password = body.get("password", "")
+    remember = body.get("remember", False)
+    
+    if hash_password(str(password)) != AUTH["password_hash"]:
+        log_activity("auth", f"تلاش ورود ناموفق از {ip}", "err")
+        raise HTTPException(status_code=401, detail="رمز عبور اشتباه است")
+    
+    token = await create_session()
+    log_activity("auth", f"ورود موفق به پنل از {ip}", "ok")
+    
+    max_age = SESSION_TTL if remember else None
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie(SESSION_COOKIE, token, max_age=max_age, httponly=True, samesite="lax", path="/")
+    return resp
+
+@app.post("/api/logout")
+async def api_logout(request: Request):
+    await destroy_session(request.cookies.get(SESSION_COOKIE))
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(SESSION_COOKIE, path="/")
+    return resp
+
+@app.get("/api/me")
+async def api_me(request: Request):
+    return {"authenticated": await is_valid_session(request.cookies.get(SESSION_COOKIE))}
+
+# ─── API: Activity Logs ───────────────────────────────────────────────────────
+
+@app.get("/api/activity")
+async def get_activity_logs(_=Depends(require_auth)):
+    limit = 100
+    logs = list(activity_logs)[-limit:]
+    return {"logs": logs}
+
+# ─── Backup ────────────────────────────────────────────────────────────────────
+
+@app.get("/api/backup")
+async def get_backup(_=Depends(require_auth)):
+    async with LINKS_LOCK:
+        links = dict(LINKS)
+    async with SUBS_LOCK:
+        subs = dict(SUBS)
+    return {
+        "links": links,
+        "subs": subs,
+        "password_hash": AUTH["password_hash"],
+        "settings": SETTINGS,
+        "exported_at": datetime.now().isoformat(),
+        "version": "10.0"
+    }
+
+@app.post("/api/backup/restore")
+async def restore_backup(request: Request, _=Depends(require_auth)):
+    try:
+        body = await request.json()
+        
+        if "links" in body and isinstance(body["links"], dict):
+            async with LINKS_LOCK:
+                LINKS.clear()
+                for uid, link_data in body["links"].items():
+                    if not isinstance(link_data, dict):
+                        continue
+                    LINKS[uid] = link_data
+        
+        if "subs" in body and isinstance(body["subs"], dict):
+            async with SUBS_LOCK:
+                SUBS.clear()
+                for sid, sub_data in body["subs"].items():
+                    if not isinstance(sub_data, dict):
+                        continue
+                    SUBS[sid] = sub_data
+        
+        if "password_hash" in body:
+            AUTH["password_hash"] = body["password_hash"]
+        
+        if "settings" in body and isinstance(body["settings"], dict):
+            SETTINGS.update(body["settings"])
+        
+        await save_state()
+        log_activity("backup", "بکاپ بازیابی شد", "ok")
+        return {"ok": True, "message": "بکاپ با موفقیت بازیابی شد"}
+    except Exception as e:
+        logger.error(f"Backup restore error: {e}")
+        raise HTTPException(status_code=400, detail=f"خطا در بازیابی بکاپ: {str(e)}")
+
+# ─── VLESS WebSocket Tunnel ────────────────────────────────────────────────
 
 RELAY_BUF = 512 * 1024
 
-def _ws_ip(ws):
+def _ws_client_ip(ws: WebSocket) -> str:
     fwd = ws.headers.get("x-forwarded-for")
-    return fwd.split(",")[0].strip() if fwd else ws.client.host if ws.client else "نامشخص"
+    if fwd:
+        return fwd.split(",")[0].strip()
+    real_ip = ws.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+    return ws.client.host if ws.client else "نامشخص"
+
+async def check_device_limit(uuid: str, client_ip: str) -> bool:
+    async with LINKS_LOCK:
+        link = LINKS.get(uuid)
+        if not link:
+            return False
+        max_devices = link.get("max_devices", 0)
+        if max_devices == 0:
+            return True
+    
+    async with DEVICE_CONNECTIONS_LOCK:
+        current_ips = device_connections.get(uuid, [])
+        if client_ip in current_ips:
+            return True
+        if len(current_ips) >= max_devices:
+            return False
+        if uuid not in device_connections:
+            device_connections[uuid] = []
+        device_connections[uuid].append(client_ip)
+        return True
 
 async def parse_vless_header(chunk: bytes):
     if len(chunk) < 24:
         raise ValueError("chunk too small")
-    pos = 1 + 16
+    pos = 1
+    pos += 16
     addon_len = chunk[pos]
     pos += 1 + addon_len
     command = chunk[pos]
@@ -777,17 +899,26 @@ async def parse_vless_header(chunk: bytes):
         raise ValueError(f"unknown addr type: {addr_type}")
     return command, address, port, chunk[pos:]
 
-async def check_and_use(uid: str, n: int, workspace_id: str) -> bool:
-    ws = WORKSPACES.get(workspace_id, {})
-    links = ws.get("links", {})
-    link = links.get(uid)
-    if not link or not is_link_allowed(link):
-        return False
-    link["used_bytes"] = link.get("used_bytes", 0) + n
-    ws["quota_used_bytes"] = ws.get("quota_used_bytes", 0) + n
-    return True
+async def check_and_use(uid: str, n: int) -> bool:
+    async with LINKS_LOCK:
+        link = LINKS.get(uid)
+        if link is None:
+            return False
+        if not is_link_allowed(link):
+            return False
+        link["used_bytes"] = link.get("used_bytes", 0) + n
+        stats["total_bytes"] = stats.get("total_bytes", 0) + n
+        hourly_traffic[now_ir().strftime("%H:00")] = hourly_traffic.get(now_ir().strftime("%H:00"), 0) + n
+        
+        limit = link.get("limit_bytes", 0)
+        used = link.get("used_bytes", 0)
+        if limit > 0 and used / limit > 0.8 and not link.get("alert_80"):
+            link["alert_80"] = True
+            log_activity("warning", f"⚠️ مصرف کانفیگ {link.get('label')} به 80% رسید", "warn")
+        
+        return True
 
-async def relay_ws_to_tcp(ws, writer, conn_id, uid, workspace_id):
+async def relay_ws_to_tcp(ws: WebSocket, writer: asyncio.StreamWriter, conn_id: str, uid: str):
     try:
         while True:
             msg = await ws.receive()
@@ -796,69 +927,79 @@ async def relay_ws_to_tcp(ws, writer, conn_id, uid, workspace_id):
             data = msg.get("bytes") or (msg.get("text") or "").encode()
             if not data:
                 continue
-            if not await check_and_use(uid, len(data), workspace_id):
-                await ws.close(code=1008, reason="quota/disabled")
+            if not await check_and_use(uid, len(data)):
+                await ws.close(code=1008, reason="quota/disabled/unknown")
                 break
+            stats["total_requests"] = stats.get("total_requests", 0) + 1
             if conn_id in connections:
                 connections[conn_id]["bytes"] = connections[conn_id].get("bytes", 0) + len(data)
             writer.write(data)
             if writer.transport.get_write_buffer_size() > RELAY_BUF:
                 await writer.drain()
-    except:
+    except (WebSocketDisconnect, Exception):
         pass
     finally:
         try:
             writer.write_eof()
-        except:
+        except Exception:
             pass
 
-async def relay_tcp_to_ws(ws, reader, conn_id, uid, workspace_id):
+async def relay_tcp_to_ws(ws: WebSocket, reader: asyncio.StreamReader, conn_id: str, uid: str):
     first = True
     try:
         while True:
             data = await reader.read(RELAY_BUF)
             if not data:
                 break
-            if not await check_and_use(uid, len(data), workspace_id):
-                await ws.close(code=1008, reason="quota/disabled")
+            if not await check_and_use(uid, len(data)):
+                await ws.close(code=1008, reason="quota/disabled/unknown")
                 break
             if conn_id in connections:
                 connections[conn_id]["bytes"] = connections[conn_id].get("bytes", 0) + len(data)
             payload = (b"\x00\x00" + data) if first else data
             first = False
             await ws.send_bytes(payload)
-    except:
+    except Exception:
         pass
 
 @app.websocket("/ws/{uuid}")
 async def websocket_tunnel(ws: WebSocket, uuid: str):
     await ws.accept()
-    workspace_id = ws.headers.get("X-Workspace-ID")
-    if not workspace_id:
-        cookie_header = ws.headers.get("cookie", "")
-        for cookie in cookie_header.split(";"):
-            if "eagle_workspace=" in cookie:
-                workspace_id = cookie.split("eagle_workspace=")[1].strip()
-                break
+
+    client_ip = _ws_client_ip(ws)
     
-    if not workspace_id or workspace_id not in WORKSPACES:
-        await ws.close(code=1008, reason="workspace not found")
-        return
-    
-    client_ip = _ws_ip(ws)
-    ws_data = WORKSPACES.get(workspace_id, {})
-    links = ws_data.get("links", {})
-    link = links.get(uuid)
+    async with LINKS_LOCK:
+        link = LINKS.get(uuid)
+
     if not link:
+        logger.warning(f"🚫 WS rejected uuid={uuid[:8]}… (user not found)")
         await ws.close(code=1008, reason="user not found")
         return
+
     if not is_link_allowed(link):
+        logger.warning(f"🚫 WS rejected uuid={uuid[:8]}… (not allowed)")
         await ws.close(code=1008, reason="not authorized")
         return
 
+    max_devices = link.get("max_devices", 0)
+    if max_devices > 0:
+        if not await check_device_limit(uuid, client_ip):
+            logger.warning(f"🚫 Device limit exceeded for {uuid[:8]}… (max: {max_devices})")
+            await ws.close(code=1008, reason="device limit exceeded")
+            return
+
     conn_id = secrets.token_urlsafe(6)
-    connections[conn_id] = {"uuid": uuid, "ip": client_ip, "transport": "vless-ws",
-                            "connected_at": datetime.now().isoformat(), "bytes": 0}
+    connections[conn_id] = {
+        "uuid": uuid,
+        "ip": client_ip,
+        "transport": "vless-ws",
+        "connected_at": datetime.now().isoformat(),
+        "bytes": 0,
+    }
+    
+    logger.info(f"✅ WS [{conn_id}] uuid={uuid[:8]}… ip={client_ip} total={len(connections)}")
+    log_activity("connection", f"اتصال جدید از {client_ip} (کانفیگ {link.get('label','?')})", "info")
+    
     writer = None
 
     try:
@@ -868,123 +1009,307 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         first_chunk = first_msg.get("bytes") or (first_msg.get("text") or "").encode()
         if not first_chunk:
             return
+
         command, address, port, payload = await parse_vless_header(first_chunk)
-        if not await check_and_use(uuid, len(first_chunk), workspace_id):
+
+        if not await check_and_use(uuid, len(first_chunk)):
             await ws.close(code=1008, reason="quota/disabled")
             return
-        
+
+        stats["total_requests"] = stats.get("total_requests", 0) + 1
         if conn_id in connections:
             connections[conn_id]["bytes"] = connections[conn_id].get("bytes", 0) + len(first_chunk)
+        logger.info(f"➡️  [{conn_id}] → {address}:{port}")
 
-        reader, writer = await asyncio.wait_for(asyncio.open_connection(address, port), timeout=10.0)
-        if writer:
-            sock = writer.transport.get_extra_info('socket')
-            if sock:
-                sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+        reader, writer = await asyncio.wait_for(
+            asyncio.open_connection(address, port),
+            timeout=10.0
+        )
+        sock = writer.transport.get_extra_info('socket')
+        if sock:
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024*1024)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024*1024)
+
         if payload:
             writer.write(payload)
             await writer.drain()
 
         done, pending = await asyncio.wait(
-            {asyncio.create_task(relay_ws_to_tcp(ws, writer, conn_id, uuid, workspace_id)),
-             asyncio.create_task(relay_tcp_to_ws(ws, reader, conn_id, uuid, workspace_id))},
-            return_when=asyncio.FIRST_COMPLETED
+            {
+                asyncio.create_task(relay_ws_to_tcp(ws, writer, conn_id, uuid)),
+                asyncio.create_task(relay_tcp_to_ws(ws, reader, conn_id, uuid)),
+            },
+            return_when=asyncio.FIRST_COMPLETED,
         )
         for t in pending:
             t.cancel()
             try:
                 await t
-            except:
+            except asyncio.CancelledError:
                 pass
-        await save_state()
-    except:
+
+        asyncio.create_task(save_state())
+
+    except WebSocketDisconnect:
         pass
+    except asyncio.TimeoutError:
+        stats["total_errors"] = stats.get("total_errors", 0) + 1
+        error_logs.append({"error": "connection timeout", "time": datetime.now().isoformat()})
+    except Exception as exc:
+        stats["total_errors"] = stats.get("total_errors", 0) + 1
+        error_logs.append({"error": str(exc), "time": datetime.now().isoformat()})
+        logger.error(f"WS error [{conn_id}]: {exc}")
     finally:
         if writer:
             try:
                 writer.close()
                 await writer.wait_closed()
-            except:
+            except Exception:
                 pass
         connections.pop(conn_id, None)
+        await remove_device_connection(uuid, client_ip)
+        logger.info(f"🔌 WS closed [{conn_id}] total={len(connections)}")
 
-# ─── ===== Subscriptions ===== ────────────────────────────────────────────────
+# ─── Subscriptions ─────────────────────────────────────────────────────────
 
 @app.get("/sub/{uuid}")
-async def subscription_single(req: Request, uuid: str):
+async def subscription_single(request: Request, uuid: str):
+    """ساب‌لینک با چند کانفیگ (بر اساس پورت‌های انتخاب شده)"""
     import base64
-    workspace_id = req.headers.get("X-Workspace-ID")
-    if not workspace_id:
-        cookie_header = req.headers.get("cookie", "")
-        for cookie in cookie_header.split(";"):
-            if "eagle_workspace=" in cookie:
-                workspace_id = cookie.split("eagle_workspace=")[1].strip()
-                break
     
-    if not workspace_id or workspace_id not in WORKSPACES:
-        return HTMLResponse("""<html><body><h1>Workspace یافت نشد</h1></body></html>""", status_code=404)
+    # تشخیص User-Agent
+    user_agent = request.headers.get("user-agent", "").lower()
+    is_browser = any(b in user_agent for b in [
+        "chrome", "firefox", "safari", "edge", "opera", "brave",
+        "msie", "trident"
+    ])
     
-    ua = req.headers.get("user-agent", "").lower()
-    is_browser = any(b in ua for b in ["chrome", "firefox", "safari", "edge", "opera", "brave", "msie", "trident"])
-    
-    ws = WORKSPACES.get(workspace_id, {})
-    links = ws.get("links", {})
-    link = links.get(uuid)
+    async with LINKS_LOCK:
+        link = LINKS.get(uuid)
     
     if not link:
         if is_browser:
-            return HTMLResponse("""<html><body><h1>کاربر یافت نشد</h1></body></html>""", status_code=404)
-        raise HTTPException(404, "user not found")
+            return HTMLResponse("""
+            <!DOCTYPE html>
+            <html lang="fa" dir="rtl">
+            <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>🦅 کاربر یافت نشد</title>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;800&display=swap" rel="stylesheet">
+            <style>
+            *{margin:0;padding:0;box-sizing:border-box}
+            body{font-family:'Vazirmatn',sans-serif;background:#0a0a0f;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#F0F0FF}
+            .card{background:rgba(15,15,30,0.85);backdrop-filter:blur(30px);border:1px solid rgba(59,130,246,0.12);border-radius:28px;padding:40px;max-width:420px;text-align:center}
+            .icon{font-size:64px;margin-bottom:16px}
+            h2{font-size:22px;font-weight:800;margin-bottom:8px}
+            p{color:#6A6A8A;font-size:13px;line-height:1.8}
+            </style>
+            </head>
+            <body>
+            <div class="card">
+                <div class="icon">🦅</div>
+                <h2>کاربر یافت نشد</h2>
+                <p>لینک ساب‌لینک معتبر نیست یا کاربر حذف شده است.</p>
+            </div>
+            </body>
+            </html>
+            """, status_code=404)
+        else:
+            raise HTTPException(status_code=404, detail="user not found")
+    
     if not is_link_allowed(link):
         if is_browser:
-            return HTMLResponse("""<html><body><h1>کاربر غیرفعال</h1></body></html>""", status_code=403)
-        raise HTTPException(403, "user disabled or expired")
+            return HTMLResponse("""
+            <!DOCTYPE html>
+            <html lang="fa" dir="rtl">
+            <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>⛔ کاربر غیرفعال</title>
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;700;800&display=swap" rel="stylesheet">
+            <style>
+            *{margin:0;padding:0;box-sizing:border-box}
+            body{font-family:'Vazirmatn',sans-serif;background:#0a0a0f;min-height:100vh;display:flex;align-items:center;justify-content:center;color:#F0F0FF}
+            .card{background:rgba(15,15,30,0.85);backdrop-filter:blur(30px);border:1px solid rgba(239,68,68,0.12);border-radius:28px;padding:40px;max-width:420px;text-align:center}
+            .icon{font-size:64px;margin-bottom:16px}
+            h2{font-size:22px;font-weight:800;margin-bottom:8px}
+            p{color:#6A6A8A;font-size:13px;line-height:1.8}
+            .status{color:#F87171}
+            </style>
+            </head>
+            <body>
+            <div class="card">
+                <div class="icon">⛔</div>
+                <h2>کاربر غیرفعال یا منقضی</h2>
+                <p class="status">این کانفیگ فعال نیست یا تاریخ انقضای آن گذشته است.</p>
+            </div>
+            </body>
+            </html>
+            """, status_code=403)
+        else:
+            raise HTTPException(status_code=403, detail="user disabled or expired")
     
     host = get_host()
+    label = link.get("label", "کاربر")
+    protocol = link.get("protocol", DEFAULT_PROTOCOL)
+    fingerprint = link.get("fingerprint", "chrome")
     ports = link.get("ports", [443])
+    remark_base = f"عقاب-{label}"
+    
+    # ===== ساخت چند کانفیگ با پورت‌های مختلف =====
     vless_links = []
-    for port in ports:
-        vless_links.append(generate_vless_link(uuid, host, remark=link.get("label", "کاربر"),
-                                               fingerprint=link.get("fingerprint", "chrome"), port=port))
+    for i, port in enumerate(ports):
+        remark = f"{remark_base}-p{port}" if len(ports) > 1 else remark_base
+        vless_links.append(generate_vless_link(
+            uuid, 
+            host, 
+            remark=remark,
+            protocol=protocol,
+            fingerprint=fingerprint,
+            port=port
+        ))
     
+    # ===== اگر کلاینت باشد → ساب‌لینک با چند کانفیگ =====
     if not is_browser:
-        userinfo = f"upload=0&download={link.get('used_bytes',0)}&total={link.get('limit_bytes',0)}"
         content = base64.b64encode("\n".join(vless_links).encode()).decode()
-        return Response(content=content, media_type="text/plain",
-                        headers={"Subscription-Userinfo": userinfo,
-                                 "profile-title": quote(link.get("label", "کاربر"))})
+        return Response(
+            content=content,
+            media_type="text/plain",
+            headers={
+                "Content-Disposition": f"attachment; filename=config_{uuid[:8]}.txt",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+                "profile-title": quote(label),
+                "profile-update-interval": "12",
+            }
+        )
     
+    # ===== اگر مرورگر باشد → صفحه اطلاعات با چند کانفیگ =====
     from pages import get_sub_page_html
-    active_conns = [c for c in connections.values() if c.get("uuid") == uuid]
-    link_data = {**link, "expired": is_link_expired(link), "active_connections": len(active_conns),
-                 "active_connections_list": active_conns, "vless_links": vless_links,
-                 "vless_link": vless_links[0] if vless_links else "", "sub_url": f"https://{host}/sub/{uuid}"}
+    
+    active_connections_list = []
+    for c in connections.values():
+        if c.get("uuid") == uuid:
+            active_connections_list.append(c)
+    
+    active_connections_count = len(active_connections_list)
+    
+    last_connected = None
+    for c in connections.values():
+        if c.get("uuid") == uuid:
+            if not last_connected or c.get("connected_at") > last_connected:
+                last_connected = c.get("connected_at")
+    
+    link_data = {
+        **link,
+        "expired": is_link_expired(link),
+        "active_connections": active_connections_count,
+        "active_connections_list": active_connections_list,
+        "last_connected_at": last_connected,
+        "vless_links": vless_links,  # لیست کانفیگ‌ها
+        "vless_link": vless_links[0] if vless_links else "",  # برای سازگاری
+        "sub_url": f"https://{host}/sub/{uuid}",
+    }
+    
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
 
-# ─── ===== HTML Pages ===== ──────────────────────────────────────────────────
+@app.get("/sub-all")
+async def subscription_all(_=Depends(require_auth)):
+    import base64
+    host = get_host()
+    async with LINKS_LOCK:
+        lines = []
+        for uid, d in LINKS.items():
+            if is_link_allowed(d):
+                fp = d.get("fingerprint", "chrome")
+                ports = d.get("ports", [443])
+                label = d.get("label", "کاربر")
+                remark_base = f"عقاب-{label}"
+                for i, port in enumerate(ports):
+                    remark = f"{remark_base}-p{port}" if len(ports) > 1 else remark_base
+                    lines.append(generate_vless_link(uid, host, remark=remark, protocol=d.get("protocol", DEFAULT_PROTOCOL), fingerprint=fp, port=port))
+    content = base64.b64encode("\n".join(lines).encode()).decode()
+    return Response(content=content, media_type="text/plain")
+
+@app.get("/sub-group/{uuid_key}")
+async def sub_group_subscription(uuid_key: str, request: Request):
+    import base64
+    async with SUBS_LOCK:
+        sub = next((s for s in SUBS.values() if s.get("uuid_key") == uuid_key), None)
+    if not sub:
+        raise HTTPException(status_code=404, detail="not found")
+
+    if sub.get("password_hash"):
+        pw = request.query_params.get("pw", "")
+        if hash_password(pw) != sub["password_hash"]:
+            raise HTTPException(status_code=403, detail="wrong password")
+
+    host = get_host()
+    link_ids = sub.get("link_ids", [])
+    async with LINKS_LOCK:
+        lines = []
+        for lid in link_ids:
+            link = LINKS.get(lid)
+            if link and is_link_allowed(link):
+                fp = link.get("fingerprint", "chrome")
+                ports = link.get("ports", [443])
+                label = link.get("label", "کاربر")
+                remark_base = f"عقاب-{label}"
+                for i, port in enumerate(ports):
+                    remark = f"{remark_base}-p{port}" if len(ports) > 1 else remark_base
+                    lines.append(generate_vless_link(lid, host, remark=remark, protocol=link.get("protocol", DEFAULT_PROTOCOL), fingerprint=fp, port=port))
+
+    content = base64.b64encode("\n".join(lines).encode()).decode()
+    return Response(
+        content=content,
+        media_type="text/plain",
+        headers={
+            "profile-title": quote(sub["name"]),
+            "profile-update-interval": "12",
+        }
+    )
+
+# ─── HTML Pages ─────────────────────────────────────────────────────────────
 
 from pages import LOGIN_HTML, DASHBOARD_HTML
 
-@app.get("/login")
-async def login_page(req: Request):
-    if await is_valid_session(req.cookies.get(SESSION_COOKIE)):
+@app.get("/login", response_class=HTMLResponse)
+async def login_page(request: Request):
+    if await is_valid_session(request.cookies.get(SESSION_COOKIE)):
         return RedirectResponse(url="/dashboard")
     return HTMLResponse(content=LOGIN_HTML)
 
-@app.get("/dashboard")
-async def dashboard(req: Request):
-    token = req.cookies.get(SESSION_COOKIE)
-    if not await is_valid_session(token):
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard(request: Request):
+    if not await is_valid_session(request.cookies.get(SESSION_COOKIE)):
         return RedirectResponse(url="/login")
     return HTMLResponse(content=DASHBOARD_HTML)
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    return HTMLResponse("""<!DOCTYPE html><html><head><meta charset="UTF-8"><title>🪐 Eagle Gateway</title>
-    <style>body{font-family:sans-serif;background:#0a0a0f;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
+    return HTMLResponse("""
+    <!DOCTYPE html>
+    <html>
+    <head><meta charset="UTF-8"><title>🪐 Eagle Gateway</title>
+    <style>
+    body{font-family:sans-serif;background:#0a0a0f;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
     .card{text-align:center;padding:40px;background:rgba(20,20,40,0.7);border-radius:20px;border:1px solid rgba(100,80,255,0.2)}
-    h1{font-size:48px;margin:0}.sub{color:#888}a{color:#7C6BFF;text-decoration:none}</style></head>
-    <body><div class="card"><h1>🪐</h1><h2>Eagle Gateway v10 Pro</h2><p class="sub">پنل مدیریت فیلترشکن</p><a href="/login">ورود →</a></div></body></html>""")
+    h1{font-size:48px;margin:0}
+    .sub{color:#888}
+    a{color:#7C6BFF;text-decoration:none;font-weight:bold}
+    </style>
+    </head>
+    <body>
+    <div class="card">
+        <h1>🪐</h1>
+        <h2>Eagle Gateway v10 Pro</h2>
+        <p class="sub">پنل مدیریت فیلترشکن</p>
+        <a href="/login">ورود به پنل →</a>
+    </div>
+    </body>
+    </html>
+    """)
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=CONFIG["port"], log_level="info", workers=1)
