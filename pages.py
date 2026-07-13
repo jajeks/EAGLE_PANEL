@@ -111,12 +111,18 @@ body{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-item
         
         <form id="login-form" onsubmit="handleLogin(event)">
             <div class="field">
-                <label id="label-username">نام کاربری یا ایمیل</label>
+                <label id="label-username">نام کاربری</label>
                 <input type="text" id="username" placeholder="نام کاربری" value="admin" dir="ltr">
             </div>
             <div class="field">
                 <label id="label-password">رمز عبور</label>
                 <input type="password" id="password" placeholder="رمز عبور را وارد کنید" dir="ltr">
+            </div>
+            <div class="field" id="workspace-field" style="display:none;">
+                <label id="label-workspace">فضای کاری (Workspace)</label>
+                <select id="workspace-select" class="fi" style="width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,20,.3);color:var(--t1);font-family:inherit;font-size:14px;outline:none;">
+                    <option value="">انتخاب کنید...</option>
+                </select>
             </div>
             <div class="options">
                 <label><input type="checkbox" id="remember"> <span id="remember-text">مرا به خاطر بسپار</span></label>
@@ -152,8 +158,9 @@ const translations = {
     fa: {
         welcome: "خوش آمدید",
         sub: "وارد حساب کاربری خود شوید",
-        username: "نام کاربری یا ایمیل",
+        username: "نام کاربری",
         password: "رمز عبور",
+        workspace: "فضای کاری (Workspace)",
         remember: "مرا به خاطر بسپار",
         login: "ورود",
         or: "یا",
@@ -174,8 +181,9 @@ const translations = {
     en: {
         welcome: "Welcome Back",
         sub: "Login to your VPN account",
-        username: "Username or Email",
+        username: "Username",
         password: "Password",
+        workspace: "Workspace",
         remember: "Remember me",
         login: "Login",
         or: "OR",
@@ -196,6 +204,7 @@ const translations = {
 };
 
 let currentLang = localStorage.getItem('eagle-lang') || 'fa';
+let isSuperAdmin = false;
 
 function setLang(lang) {
     currentLang = lang;
@@ -210,6 +219,7 @@ function updateTexts() {
     document.getElementById('sub-text').textContent = t.sub;
     document.getElementById('label-username').textContent = t.username;
     document.getElementById('label-password').textContent = t.password;
+    document.getElementById('label-workspace').textContent = t.workspace;
     document.getElementById('remember-text').textContent = t.remember;
     document.getElementById('login-text').textContent = t.login;
     document.getElementById('or-text').textContent = t.or;
@@ -227,6 +237,34 @@ function updateTexts() {
     document.getElementById('info-sub').textContent = t.info_sub;
 }
 
+// بارگذاری Workspace ها
+async function loadWorkspaces() {
+    try {
+        const r = await fetch('/api/admin/workspaces');
+        if (r.ok) {
+            const data = await r.json();
+            const select = document.getElementById('workspace-select');
+            select.innerHTML = '<option value="">انتخاب کنید...</option>';
+            data.workspaces.forEach(ws => {
+                const opt = document.createElement('option');
+                opt.value = ws.id;
+                opt.textContent = `${ws.name} (${ws.admin_username}) - ${ws.quota_used_gb.toFixed(1)}/${ws.quota_limit_gb}GB`;
+                if (ws.is_quota_exceeded) {
+                    opt.textContent += ' ⛔';
+                    opt.style.color = '#F87171';
+                }
+                select.appendChild(opt);
+            });
+            document.getElementById('workspace-field').style.display = 'block';
+            isSuperAdmin = true;
+        }
+    } catch(e) {
+        // ادمین عادی
+        document.getElementById('workspace-field').style.display = 'none';
+        isSuperAdmin = false;
+    }
+}
+
 async function handleLogin(e) {
     e.preventDefault();
     const btn = document.getElementById('login-btn');
@@ -237,26 +275,37 @@ async function handleLogin(e) {
     btn.disabled = true;
     btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال ورود...';
     
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const workspace_id = document.getElementById('workspace-select').value;
+    
     try {
         const r = await fetch('/api/login', {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({
-                password: document.getElementById('password').value,
+                username: username,
+                password: password,
+                workspace_id: workspace_id,
                 remember: document.getElementById('remember').checked
             })
         });
         
+        const data = await r.json();
+        
         if (!r.ok) {
-            const d = await r.json().catch(() => ({}));
-            errText.textContent = d.detail || 'رمز عبور اشتباه است';
+            errText.textContent = data.detail || data.error || 'نام کاربری یا رمز عبور اشتباه است';
             err.classList.add('show');
             btn.disabled = false;
             btn.innerHTML = '<i class="ti ti-login-2"></i> ' + translations[currentLang].login;
             return;
         }
         
-        window.location.href = '/dashboard';
+        if (data.is_super_admin) {
+            window.location.href = '/dashboard';
+        } else {
+            window.location.href = '/dashboard';
+        }
     } catch(e) {
         errText.textContent = 'خطا در ارتباط با سرور';
         err.classList.add('show');
@@ -275,7 +324,19 @@ document.getElementById('password').addEventListener('keydown', (e) => {
     if (e.key === 'Enter') document.getElementById('login-form').dispatchEvent(new Event('submit'));
 });
 
-setLang(currentLang);
+// بارگذاری اولیه
+document.addEventListener('DOMContentLoaded', async () => {
+    setLang(currentLang);
+    await loadWorkspaces();
+    // چک کردن لاگین قبلی
+    try {
+        const r = await fetch('/api/me');
+        const d = await r.json();
+        if (d.authenticated) {
+            window.location.href = '/dashboard';
+        }
+    } catch(e) {}
+});
 </script>
 </body></html>"""
 
@@ -524,7 +585,7 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
 <div class="glow-main glow-left"></div><div class="glow-main glow-right"></div>
 <div class="toast" id="toast"></div>
 
-<!-- ===== مودال ساخت کاربر با انتخاب پورت ===== -->
+<!-- ===== مودال ساخت کاربر ===== -->
 <div class="modal-bg" id="modal-user">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-user')"><i class="ti ti-x"></i></button>
@@ -544,7 +605,7 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
       </select>
     </div>
     <div class="fg">
-      <label><i class="ti ti-plug"></i> پورت‌ها (انتخاب چندگانه)</label>
+      <label><i class="ti ti-plug"></i> پورت‌ها</label>
       <div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0;">
         <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(100,80,255,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="443" checked> 443</label>
         <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(100,80,255,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="8443"> 8443</label>
@@ -553,9 +614,12 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
         <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(100,80,255,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="2087"> 2087</label>
         <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(100,80,255,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="2083"> 2083</label>
         <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(100,80,255,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="8080"> 8080</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(100,80,255,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="80"> 80</label>
       </div>
-      <div style="font-size:7px;color:var(--t3);margin-top:2px;">💡 هر پورت = یک کانفیگ جداگانه در ساب‌لینک</div>
+    </div>
+    <div class="fg">
+      <label><i class="ti ti-server"></i> IP تمیز (اختیاری)</label>
+      <input class="fi" id="user-clean-ip" placeholder="مثلاً: 104.16.5.10" dir="ltr">
+      <div style="font-size:7px;color:var(--t3);margin-top:2px;">💡 برای دور زدن فیلتر</div>
     </div>
     <div class="fg"><label><i class="ti ti-lock"></i> رمز (اختیاری)</label><input class="fi" id="user-password" type="password" placeholder="برای ویرایش/حذف" dir="ltr"></div>
     <div style="display:flex;gap:6px;margin-top:10px">
@@ -587,6 +651,7 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
         <option value="safari_ios">🍏 Safari iOS</option><option value="random">🎲 Random</option><option value="none">🚫 None</option>
       </select>
     </div>
+    <div class="fg"><label><i class="ti ti-server"></i> IP تمیز</label><input class="fi" id="edit-clean-ip" placeholder="مثلاً: 104.16.5.10" dir="ltr"></div>
     <div style="display:flex;gap:6px;margin-top:10px">
       <button class="btn btn-p" onclick="saveEdit()" style="flex:2"><i class="ti ti-check"></i> ذخیره</button>
       <button class="btn btn-o" onclick="closeModal('modal-edit')" style="flex:1">انصراف</button>
@@ -627,6 +692,7 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
     <div class="nav-it" data-pg="settings"><i class="ti ti-settings"></i> تنظیمات</div>
     <div class="nav-it" data-pg="logs"><i class="ti ti-notes"></i> لاگ‌ها</div>
     <div class="nav-it" data-pg="backup"><i class="ti ti-database"></i> بکاپ</div>
+    <div class="nav-it" data-pg="workspace"><i class="ti ti-buildings"></i> Workspace</div>
   </div>
   <div class="sb-foot"><button class="logout-btn" onclick="logout()"><i class="ti ti-logout"></i> خروج</button></div>
 </aside>
@@ -648,6 +714,7 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
     <div><div class="tb-title"><i class="ti ti-layout-dashboard"></i> خانه</div><div class="tb-sub" id="last-update">بروزرسانی: لحظه‌ای</div></div>
     <div class="tb-right">
       <span class="badge bg-fire" id="online-badge"><span class="dot dg"></span> ۰ آنلاین</span>
+      <span class="badge bg-amber" id="quota-badge">📊 سهمیه: ۰%</span>
       <button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> کاربر</button>
     </div>
   </div>
@@ -671,8 +738,19 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
 <!-- ===== کاربران ===== -->
 <section class="pg" id="pg-users">
   <div class="topbar">
-    <div><div class="tb-title"><i class="ti ti-users"></i> کاربران</div><div class="tb-sub">لیست کانفیگ‌ها، سهمیه و انقضا</div></div>
-    <div class="tb-right"><button class="btn btn-o btn-sm" onclick="loadUsers()"><i class="ti ti-refresh"></i></button></div>
+    <div><div class="tb-title"><i class="ti ti-users"></i> کاربران</div><div class="tb-sub" id="users-sub">لیست کانفیگ‌ها، سهمیه و انقضا</div></div>
+    <div class="tb-right">
+      <div style="display:flex;gap:4px;align-items:center;">
+        <input class="fi" id="search-users" placeholder="جستجو..." style="width:150px;padding:4px 8px;font-size:9px;">
+        <select class="fi" id="filter-status" style="width:100px;padding:4px 8px;font-size:9px;">
+          <option value="">همه</option>
+          <option value="active">فعال</option>
+          <option value="expired">منقضی</option>
+          <option value="disabled">غیرفعال</option>
+        </select>
+        <button class="btn btn-o btn-sm" onclick="loadUsers()"><i class="ti ti-refresh"></i></button>
+      </div>
+    </div>
   </div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
     <div class="stat-mini"><span class="stat-mini-icon">👥</span><span class="stat-mini-num" id="users-total">0</span><span class="stat-mini-label">کل کاربران</span></div>
@@ -689,7 +767,11 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
     </div>
     <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--card-b);flex-wrap:wrap;gap:8px;">
       <div style="font-size:9px;color:var(--t3);"><span id="users-count-label">۰ کاربر</span></div>
-      <div style="display:flex;gap:6px;"><button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> افزودن کاربر جدید</button></div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> افزودن کاربر جدید</button>
+        <button class="btn btn-pur btn-sm" onclick="exportUsers('excel')"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+        <button class="btn btn-o btn-sm" onclick="exportUsers('csv')"><i class="ti ti-file-text"></i> CSV</button>
+      </div>
     </div>
   </div>
 </section>
@@ -719,11 +801,24 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
   <div id="conns-grid" class="conn-grid"><div class="empty"><i class="ti ti-plug-off"></i><p>هیچ اتصالی وجود ندارد</p></div></div>
 </section>
 
-<!-- ===== تنظیمات با تلگرام ===== -->
+<!-- ===== تنظیمات ===== -->
 <section class="pg" id="pg-settings">
   <div class="topbar"><div><div class="tb-title"><i class="ti ti-settings"></i> تنظیمات</div><div class="tb-sub">مدیریت پنل</div></div></div>
   
-  <!-- انتخاب تم -->
+  <!-- تنظیمات Workspace (فقط برای ادمین Workspace) -->
+  <div class="settings-card" id="workspace-settings">
+    <div class="title"><i class="ti ti-buildings"></i> اطلاعات Workspace</div>
+    <div id="workspace-info" style="font-size:11px;color:var(--t2);">
+      <div>📛 نام: <span id="ws-name">—</span></div>
+      <div>📊 سهمیه: <span id="ws-quota">—</span></div>
+      <div>📈 درصد: <span id="ws-percent">—</span></div>
+      <div>👥 کاربران: <span id="ws-users">—</span></div>
+    </div>
+    <div style="margin-top:6px;">
+      <button class="btn btn-pur btn-sm" onclick="resetWorkspaceQuota()" style="width:auto;padding:4px 12px;"><i class="ti ti-rotate"></i> ریست مصرف</button>
+    </div>
+  </div>
+  
   <div class="settings-card">
     <div class="title"><i class="ti ti-color-swatch"></i> تم پنل</div>
     <div style="display:flex;gap:8px;margin-top:4px;">
@@ -743,6 +838,14 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
   </div>
   
   <div class="settings-card">
+    <div class="title"><i class="ti ti-user"></i> تغییر نام کاربری</div>
+    <div class="field"><label>نام کاربری فعلی</label><input class="fi" id="current-username" type="text" placeholder="نام کاربری فعلی" dir="ltr"></div>
+    <div class="field"><label>نام کاربری جدید</label><input class="fi" id="new-username" type="text" placeholder="نام کاربری جدید" dir="ltr"></div>
+    <button class="btn btn-p" onclick="changeUsername()"><i class="ti ti-user"></i> تغییر</button>
+    <div id="username-result" style="margin-top:8px;display:none;font-size:11px;"></div>
+  </div>
+  
+  <div class="settings-card">
     <div class="title"><i class="ti ti-key"></i> تغییر رمز</div>
     <div class="field"><label>رمز فعلی</label><input class="fi" id="old-password" type="password" placeholder="رمز فعلی" dir="ltr"></div>
     <div class="field"><label>رمز جدید</label><input class="fi" id="new-password" type="password" placeholder="حداقل ۴ کاراکتر" dir="ltr"></div>
@@ -757,37 +860,6 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
     <button class="btn btn-p" onclick="updateInbound()"><i class="ti ti-check"></i> ذخیره</button>
   </div>
   
-  <!-- ===== تنظیمات تلگرام ===== -->
-  <div class="settings-card">
-    <div class="title"><i class="ti ti-brand-telegram"></i> بات تلگرام</div>
-    
-    <div class="field">
-      <label>توکن بات</label>
-      <input class="fi" id="telegram-token" type="text" placeholder="توکن بات را وارد کنید" dir="ltr">
-      <div style="font-size:7px;color:var(--t3);margin-top:2px;">💡 از @BotFather در تلگرام دریافت کنید</div>
-    </div>
-    
-    <div class="field">
-      <label>شناسه چت (Chat ID)</label>
-      <input class="fi" id="telegram-chat-id" type="text" placeholder="Chat ID را وارد کنید" dir="ltr">
-      <div style="font-size:7px;color:var(--t3);margin-top:2px;">💡 از @userinfobot در تلگرام دریافت کنید</div>
-    </div>
-    
-    <div style="display:flex;gap:6px;margin-top:4px;">
-      <button class="btn btn-p" onclick="saveTelegramSettings()" style="flex:2"><i class="ti ti-device-floppy"></i> ذخیره تنظیمات</button>
-      <button class="btn btn-pur" onclick="testTelegram()" style="flex:1"><i class="ti ti-message"></i> تست</button>
-    </div>
-    
-    <div id="telegram-result" style="margin-top:8px;display:none;font-size:11px;"></div>
-    
-    <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--card-b);">
-      <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--t3);">
-        <span>وضعیت: <span id="telegram-status" style="color:var(--red-t);">❌ غیرفعال</span></span>
-        <span id="telegram-info">توکن: تنظیم نشده</span>
-      </div>
-    </div>
-  </div>
-  
   <div class="settings-card">
     <div class="title"><i class="ti ti-color-swatch"></i> تم RGB</div>
     <div class="toggle-row">
@@ -795,12 +867,88 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
       <div class="switch" id="rgb-switch" onclick="toggleRGB()"><div class="slider"></div></div>
     </div>
   </div>
+  
+  <div class="settings-card">
+    <div class="title"><i class="ti ti-server"></i> IP تمیز (Clean IP)</div>
+    <div id="clean-ips-list" style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px;"></div>
+    <div style="display:flex;gap:6px;">
+      <input class="fi" id="clean-ip-input" placeholder="مثلاً: 104.16.5.10" style="flex:2;">
+      <select class="fi" id="clean-ip-provider" style="flex:1;">
+        <option value="MCI">MCI</option>
+        <option value="Irancell">Irancell</option>
+        <option value="Hamrahe Aval">Hamrahe Aval</option>
+        <option value="Other">سایر</option>
+      </select>
+      <button class="btn btn-p btn-sm" onclick="addCleanIP()"><i class="ti ti-plus"></i></button>
+    </div>
+    <div style="font-size:7px;color:var(--t3);margin-top:4px;">💡 IP تمیز برای دور زدن فیلتر</div>
+  </div>
+  
+  <div class="settings-card">
+    <div class="title"><i class="ti ti-filter"></i> فیلتر محتوا</div>
+    <div class="toggle-row">
+      <div class="toggle-label">🚫 فیلتر تبلیغات</div>
+      <div class="switch" id="ad-filter-switch" onclick="toggleFilter('ad')"><div class="slider"></div></div>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label">🔞 فیلتر محتوای بزرگسالان</div>
+      <div class="switch" id="porn-filter-switch" onclick="toggleFilter('porn')"><div class="slider"></div></div>
+    </div>
+    <div class="toggle-row">
+      <div class="toggle-label">🛡️ فیلتر بدافزار</div>
+      <div class="switch" id="malware-filter-switch" onclick="toggleFilter('malware')"><div class="slider"></div></div>
+    </div>
+  </div>
+  
+  <div class="settings-card">
+    <div class="title"><i class="ti ti-route"></i> مسیرها (Routing)</div>
+    <div id="routes-list" style="margin-bottom:8px;"></div>
+    <div style="display:flex;gap:6px;">
+      <input class="fi" id="route-domain" placeholder="دامنه" style="flex:1;">
+      <select class="fi" id="route-type" style="flex:1;">
+        <option value="direct">مستقیم</option>
+        <option value="proxy">پروکسی</option>
+        <option value="block">بلاک</option>
+      </select>
+      <button class="btn btn-p btn-sm" onclick="addRoute()"><i class="ti ti-plus"></i></button>
+    </div>
+  </div>
+  
+  <div class="settings-card">
+    <div class="title"><i class="ti ti-database"></i> بکاپ خودکار</div>
+    <div class="field">
+      <label>بازه زمانی (ساعت)</label>
+      <input class="fi" id="backup-interval" type="number" min="1" value="6">
+    </div>
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-p" onclick="saveBackupInterval()" style="flex:1;"><i class="ti ti-device-floppy"></i> ذخیره</button>
+      <button class="btn btn-pur" onclick="backupNow()" style="flex:1;"><i class="ti ti-download"></i> بکاپ فوری</button>
+    </div>
+  </div>
+  
+  <div class="settings-card">
+    <div class="title"><i class="ti ti-file-export"></i> خروجی گزارش</div>
+    <div style="display:flex;gap:6px;">
+      <button class="btn btn-p" onclick="exportUsers('excel')" style="flex:1;"><i class="ti ti-file-spreadsheet"></i> Excel</button>
+      <button class="btn btn-pur" onclick="exportUsers('csv')" style="flex:1;"><i class="ti ti-file-text"></i> CSV</button>
+    </div>
+  </div>
 </section>
 
 <!-- ===== لاگ‌ها ===== -->
 <section class="pg" id="pg-logs">
   <div class="topbar"><div><div class="tb-title"><i class="ti ti-notes"></i> لاگ‌ها</div><div class="tb-sub" id="logs-count">۰ لاگ</div></div>
-    <div class="tb-right"><button class="btn btn-sm btn-o" onclick="loadLogs()"><i class="ti ti-refresh"></i></button></div>
+    <div class="tb-right">
+      <select class="fi" id="log-level-filter" style="width:100px;padding:4px 8px;font-size:9px;">
+        <option value="">همه</option>
+        <option value="info">اطلاعات</option>
+        <option value="warn">هشدار</option>
+        <option value="err">خطا</option>
+        <option value="ok">موفق</option>
+      </select>
+      <input class="fi" id="log-search" placeholder="جستجو..." style="width:120px;padding:4px 8px;font-size:9px;">
+      <button class="btn btn-sm btn-o" onclick="loadLogs()"><i class="ti ti-refresh"></i></button>
+    </div>
   </div>
   <div style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:8px 10px;max-height:400px;overflow-y:auto;transition:background .4s">
     <div id="logs-container" style="font-family:monospace;font-size:9px;color:var(--t2);direction:ltr;text-align:left;line-height:1.5"></div>
@@ -820,9 +968,43 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
   </div>
 </section>
 
+<!-- ===== Workspace مدیریت (فقط Super Admin) ===== -->
+<section class="pg" id="pg-workspace">
+  <div class="topbar"><div><div class="tb-title"><i class="ti ti-buildings"></i> مدیریت Workspace</div><div class="tb-sub">مدیریت فضاهای کاری</div></div>
+    <div class="tb-right">
+      <button class="btn btn-p btn-sm" onclick="openModal('modal-workspace')"><i class="ti ti-plus"></i> جدید</button>
+    </div>
+  </div>
+  <div id="workspaces-container" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px;"></div>
+</section>
+
 </main>
 
 <script>
+// ===== توابع کمکی =====
+function toast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function fmtB(b) {
+  if (!b || b === 0) return '0 B';
+  if (b < 1024) return b + ' B';
+  if (b < 1024**2) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1024**3) return (b/1024**2).toFixed(1) + ' MB';
+  if (b < 1024**4) return (b/1024**3).toFixed(2) + ' GB';
+  return (b/1024**4).toFixed(2) + ' TB';
+}
+
+function esc(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
 // ===== مدیریت تم =====
 let currentTheme = localStorage.getItem('eagle-theme') || 'dark';
 
@@ -843,20 +1025,6 @@ function setTheme(theme) {
     fetch('/api/settings/theme', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme:theme})}).catch(()=>{});
 }
 
-async function loadThemeFromServer() {
-    try { const r = await fetch('/api/settings'); const data = await r.json(); if (data.theme) { currentTheme = data.theme; localStorage.setItem('eagle-theme', data.theme); setTheme(data.theme); } else { setTheme(currentTheme); } } catch(e) { setTheme(currentTheme); }
-}
-
-// ===== توابع کمکی =====
-function toast(msg, type='') { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show' + (type ? ' ' + type : ''); setTimeout(() => t.classList.remove('show'), 2500); }
-
-function fmtB(b) { if (!b || b === 0) return '0 B'; if (b < 1024) return b + ' B'; if (b < 1024**2) return (b/1024).toFixed(1) + ' KB'; if (b < 1024**3) return (b/1024**2).toFixed(1) + ' MB'; if (b < 1024**4) return (b/1024**3).toFixed(2) + ' GB'; return (b/1024**4).toFixed(2) + ' TB'; }
-
-function esc(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-function openModal(id) { document.getElementById(id).classList.add('open'); }
-function closeModal(id) { document.getElementById(id).classList.remove('open'); }
-
 // ===== زبان =====
 let currentLang = localStorage.getItem('eagle-lang') || 'fa';
 
@@ -867,7 +1035,11 @@ function setLang(lang) {
     document.getElementById('lang-en-btn').className = 'btn ' + (lang === 'en' ? 'btn-pur' : 'btn-o');
     document.getElementById('current-lang-label').textContent = lang === 'fa' ? 'فارسی' : 'English';
     fetch('/api/settings/language', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language:lang})}).catch(()=>{});
-    if (lang === 'en') {
+    updateLanguage();
+}
+
+function updateLanguage() {
+    if (currentLang === 'en') {
         document.querySelector('.tb-title:first-child').innerHTML = '<i class="ti ti-layout-dashboard"></i> Home';
         document.querySelector('#pg-users .tb-title').innerHTML = '<i class="ti ti-users"></i> Users';
         document.querySelector('#pg-inbound .tb-title').innerHTML = '<i class="ti ti-plug"></i> Inbound';
@@ -875,8 +1047,9 @@ function setLang(lang) {
         document.querySelector('#pg-settings .tb-title').innerHTML = '<i class="ti ti-settings"></i> Settings';
         document.querySelector('#pg-logs .tb-title').innerHTML = '<i class="ti ti-notes"></i> Logs';
         document.querySelector('#pg-backup .tb-title').innerHTML = '<i class="ti ti-database"></i> Backup';
-        document.querySelector('#pg-settings .settings-card:first-child .title').innerHTML = '<i class="ti ti-language"></i> Panel Language';
+        document.querySelector('#pg-workspace .tb-title').innerHTML = '<i class="ti ti-buildings"></i> Workspace';
         document.querySelector('#pg-users .tb-sub').textContent = 'Per-user links, quotas, and expiry';
+        document.querySelector('#pg-workspace .tb-sub').textContent = 'Manage workspaces';
     } else {
         document.querySelector('.tb-title:first-child').innerHTML = '<i class="ti ti-layout-dashboard"></i> خانه';
         document.querySelector('#pg-users .tb-title').innerHTML = '<i class="ti ti-users"></i> کاربران';
@@ -885,27 +1058,45 @@ function setLang(lang) {
         document.querySelector('#pg-settings .tb-title').innerHTML = '<i class="ti ti-settings"></i> تنظیمات';
         document.querySelector('#pg-logs .tb-title').innerHTML = '<i class="ti ti-notes"></i> لاگ‌ها';
         document.querySelector('#pg-backup .tb-title').innerHTML = '<i class="ti ti-database"></i> بکاپ';
-        document.querySelector('#pg-settings .settings-card:first-child .title').innerHTML = '<i class="ti ti-language"></i> زبان پنل';
+        document.querySelector('#pg-workspace .tb-title').innerHTML = '<i class="ti ti-buildings"></i> مدیریت Workspace';
         document.querySelector('#pg-users .tb-sub').textContent = 'لیست کانفیگ‌ها، سهمیه و انقضا';
+        document.querySelector('#pg-workspace .tb-sub').textContent = 'مدیریت فضاهای کاری';
     }
 }
 
 // ===== احراز هویت =====
-async function authF(url, opts={}) { const r = await fetch(url, opts); if (r.status === 401) { location.href = '/login'; throw new Error('unauthorized'); } return r; }
+async function authF(url, opts={}) {
+  const r = await fetch(url, opts);
+  if (r.status === 401) { location.href = '/login'; throw new Error('unauthorized'); }
+  return r;
+}
 
-async function logout() { try { await fetch('/api/logout', {method:'POST'}); } catch(e) {} location.href = '/login'; }
+async function logout() {
+  try { await fetch('/api/logout', {method:'POST'}); } catch(e) {}
+  location.href = '/login';
+}
 
 // ===== ناوبری =====
 function navTo(name) {
-    document.querySelectorAll('.nav-it').forEach(n => n.classList.toggle('on', n.dataset.pg === name));
-    document.querySelectorAll('.pg').forEach(p => p.classList.toggle('on', p.id === 'pg-' + name));
-    document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.toggle('active', n.dataset.pg === name));
-    closeSb();
-    const loaders = { dashboard: loadDashboard, users: loadUsers, inbound: loadInbound, connections: loadConnections, logs: loadLogs, settings: () => {} };
-    if (loaders[name]) loaders[name]();
+  document.querySelectorAll('.nav-it').forEach(n => n.classList.toggle('on', n.dataset.pg === name));
+  document.querySelectorAll('.pg').forEach(p => p.classList.toggle('on', p.id === 'pg-' + name));
+  document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.toggle('active', n.dataset.pg === name));
+  closeSb();
+  const loaders = {
+    dashboard: loadDashboard,
+    users: loadUsers,
+    inbound: loadInbound,
+    connections: loadConnections,
+    settings: loadSettings,
+    logs: loadLogs,
+    workspace: loadWorkspaces
+  };
+  if (loaders[name]) loaders[name]();
 }
 
-document.querySelectorAll('.nav-it, .bottom-nav .nav-item').forEach(el => { el.addEventListener('click', () => navTo(el.dataset.pg)); });
+document.querySelectorAll('.nav-it, .bottom-nav .nav-item').forEach(el => {
+  el.addEventListener('click', () => navTo(el.dataset.pg));
+});
 
 const sb = document.getElementById('sb'), overlay = document.getElementById('overlay');
 function openSb(){ sb.classList.add('open'); overlay.classList.add('show'); }
@@ -913,418 +1104,772 @@ function closeSb(){ sb.classList.remove('open'); overlay.classList.remove('show'
 document.getElementById('open-sb').addEventListener('click', openSb);
 overlay.addEventListener('click', closeSb);
 
+// ===== چک کردن Super Admin =====
+let isSuperAdmin = false;
+let workspaceId = null;
+
+async function checkUserType() {
+    try {
+        const r = await fetch('/api/me');
+        const d = await r.json();
+        isSuperAdmin = d.is_super_admin || false;
+        workspaceId = d.workspace_id;
+        
+        if (isSuperAdmin) {
+            document.querySelector('[data-pg="workspace"]').style.display = 'block';
+        } else {
+            document.querySelector('[data-pg="workspace"]').style.display = 'none';
+        }
+    } catch(e) {}
+}
+
 // ===== داشبورد =====
 async function loadDashboard() {
+  try {
+    const r = await authF('/api/dashboard/stats');
+    const data = await r.json();
+    document.getElementById('stat-traffic').textContent = (data.traffic.total / (1024*1024)).toFixed(1);
+    document.getElementById('stat-requests').textContent = data.requests || 0;
+    document.getElementById('stat-uptime').textContent = data.uptime || '00:00:00';
+    document.getElementById('stat-disk').textContent = data.disk.total_fmt || '0 GB';
+    document.getElementById('stat-disk-used').textContent = 'استفاده: ' + (data.disk.used_fmt || '0');
+    document.getElementById('stat-speed').textContent = data.speed.download_fmt || '0 B/s';
+    document.getElementById('stat-users').textContent = data.links_count || 0;
+    document.getElementById('stat-users-active').textContent = (data.active_links || 0) + ' فعال';
+    document.getElementById('online-badge').innerHTML = '<span class="dot dg"></span> ' + (data.connections || 0) + ' آنلاین';
+    document.getElementById('last-update').textContent = 'بروزرسانی: ' + new Date().toLocaleTimeString('fa-IR');
+    
+    // بارگذاری اطلاعات Workspace
+    await loadWorkspaceInfo();
+    
+    const usersR = await authF('/api/workspace/links');
+    const usersData = await usersR.json();
+    const links = usersData.links || [];
+    const recent = links.slice(0, 4);
+    const grid = document.getElementById('recent-users');
+    if (!recent.length) {
+      grid.innerHTML = '<div class="empty" style="padding:10px"><i class="ti ti-users"></i><p style="font-size:9px">هیچ کاربری وجود ندارد</p></div>';
+    } else {
+      grid.innerHTML = recent.map(l => `
+        <div style="background:rgba(100,80,255,0.02);border-radius:4px;padding:4px 6px;display:flex;justify-content:space-between;align-items:center;transition:transform .3s">
+          <div><div style="font-size:9px;font-weight:600;color:var(--t1)">${esc(l.label)}</div><div style="font-size:7px;color:var(--t3)">${l.active ? '🟢' : '🔴'}</div></div>
+          <div style="font-size:8px;color:var(--t2)">${fmtB(l.used_bytes || 0)}</div>
+        </div>
+      `).join('');
+    }
+  } catch(e) { console.error(e); }
+}
+
+// ===== اطلاعات Workspace =====
+async function loadWorkspaceInfo() {
     try {
-        const r = await authF('/api/dashboard/stats');
+        if (isSuperAdmin) return;
+        const r = await authF('/api/workspace/info');
         const data = await r.json();
-        document.getElementById('stat-traffic').textContent = (data.traffic.total / (1024*1024)).toFixed(1);
-        document.getElementById('stat-requests').textContent = data.requests || 0;
-        document.getElementById('stat-uptime').textContent = data.uptime || '00:00:00';
-        document.getElementById('stat-disk').textContent = data.disk.total_fmt || '0 GB';
-        document.getElementById('stat-disk-used').textContent = 'استفاده: ' + (data.disk.used_fmt || '0');
-        document.getElementById('stat-speed').textContent = data.speed.download_fmt || '0 B/s';
-        document.getElementById('stat-users').textContent = data.links_count || 0;
-        document.getElementById('stat-users-active').textContent = (data.active_links || 0) + ' فعال';
-        document.getElementById('online-badge').innerHTML = '<span class="dot dg"></span> ' + (data.connections || 0) + ' آنلاین';
-        document.getElementById('last-update').textContent = 'بروزرسانی: ' + new Date().toLocaleTimeString('fa-IR');
+        document.getElementById('ws-name').textContent = data.name || '—';
+        document.getElementById('ws-quota').textContent = `${data.quota.used_gb.toFixed(1)} / ${data.quota.limit_gb} GB`;
+        document.getElementById('ws-percent').textContent = data.quota.percent + '%';
+        document.getElementById('ws-users').textContent = data.links_count || 0;
         
-        const usersR = await authF('/api/links');
-        const usersData = await usersR.json();
-        const links = usersData.links || [];
-        const recent = links.slice(0, 4);
-        const grid = document.getElementById('recent-users');
-        if (!recent.length) {
-            grid.innerHTML = '<div class="empty" style="padding:10px"><i class="ti ti-users"></i><p style="font-size:9px">هیچ کاربری وجود ندارد</p></div>';
+        const badge = document.getElementById('quota-badge');
+        if (data.quota.is_exceeded) {
+            badge.innerHTML = '⛔ سهمیه تمام شد!';
+            badge.className = 'badge bg-fire';
         } else {
-            grid.innerHTML = recent.map(l => `
-                <div style="background:rgba(100,80,255,0.02);border-radius:4px;padding:4px 6px;display:flex;justify-content:space-between;align-items:center;transition:transform .3s">
-                    <div><div style="font-size:9px;font-weight:600;color:var(--t1)">${esc(l.label)}</div><div style="font-size:7px;color:var(--t3)">${l.active ? '🟢' : '🔴'}</div></div>
-                    <div style="font-size:8px;color:var(--t2)">${fmtB(l.used_bytes || 0)}</div>
-                </div>
-            `).join('');
+            badge.innerHTML = `📊 سهمیه: ${data.quota.percent}%`;
+            badge.className = 'badge bg-amber';
         }
-    } catch(e) { console.error(e); }
+    } catch(e) {}
+}
+
+async function resetWorkspaceQuota() {
+    if (!confirm('آیا مطمئن هستید؟ مصرف Workspace ریست می‌شود.')) return;
+    try {
+        const r = await authF(`/api/admin/workspaces/${workspaceId}/quota/reset`, {method: 'POST'});
+        if (r.ok) {
+            toast('✅ مصرف Workspace ریست شد', 'ok');
+            loadWorkspaceInfo();
+            loadDashboard();
+        }
+    } catch(e) { toast('❌ خطا', 'err'); }
 }
 
 // ===== اینباند =====
 async function loadInbound() {
-    try {
-        const r = await authF('/api/inbound');
-        const data = await r.json();
-        document.getElementById('inbound-port').textContent = data.port || 443;
-        document.getElementById('inbound-protocol').textContent = (data.protocol || 'vless').toUpperCase();
-        document.getElementById('inbound-host').textContent = data.host || '—';
-        document.getElementById('inbound-port-setting').value = data.port || 443;
-    } catch(e) { console.error(e); }
+  try {
+    const r = await authF('/api/inbound');
+    const data = await r.json();
+    document.getElementById('inbound-port').textContent = data.port || 443;
+    document.getElementById('inbound-protocol').textContent = (data.protocol || 'vless').toUpperCase();
+    document.getElementById('inbound-host').textContent = data.host || '—';
+    document.getElementById('inbound-port-setting').value = data.port || 443;
+  } catch(e) { console.error(e); }
 }
 
 async function updateInbound() {
-    const port = parseInt(document.getElementById('inbound-port-setting').value) || 443;
-    try {
-        const r = await authF('/api/inbound', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ port: port }) });
-        if (!r.ok) { toast('❌ خطا', 'err'); return; }
-        toast('✅ ذخیره شد', 'ok');
-        loadInbound();
-    } catch(e) { toast('❌ خطا', 'err'); }
+  const port = parseInt(document.getElementById('inbound-port-setting').value) || 443;
+  try {
+    const r = await authF('/api/inbound', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ port: port })
+    });
+    if (!r.ok) { toast('❌ خطا', 'err'); return; }
+    toast('✅ ذخیره شد', 'ok');
+    loadInbound();
+  } catch(e) { toast('❌ خطا', 'err'); }
 }
 
 // ===== کاربران =====
 async function loadUsers() {
-    try {
-        const r = await authF('/api/links');
-        const { links=[] } = await r.json();
-        const tbody = document.getElementById('users-tbody');
-        const total = links.length;
-        const active = links.filter(l => l.active && !l.expired).length;
-        const expired = links.filter(l => l.expired).length;
-        const totalTraffic = links.reduce((sum, l) => sum + (l.used_bytes || 0), 0);
-        
-        document.getElementById('users-total').textContent = total;
-        document.getElementById('users-active').textContent = active;
-        document.getElementById('users-expired').textContent = expired;
-        document.getElementById('users-traffic').textContent = fmtB(totalTraffic);
-        document.getElementById('users-count-label').textContent = total + ' کاربر';
-        
-        if (!links.length) {
-            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);">هیچ کاربری وجود ندارد</td></tr>';
-            return;
-        }
-        
-        const fpEmoji = { chrome: '🌐', firefox: '🦊', safari: '🧭', edge: '🌊', ios: '📱', android: '🤖', safari_ios: '🍏', random: '🎲', none: '🚫' };
-        
-        tbody.innerHTML = links.map(l => {
-            const isActive = l.active && !l.expired;
-            const statusClass = isActive ? 'active' : (l.expired ? 'expired' : 'disabled');
-            const statusText = isActive ? 'فعال' : (l.expired ? 'منقضی' : 'غیرفعال');
-            const pct = l.limit_bytes === 0 ? 0 : Math.min(100, (l.used_bytes / l.limit_bytes) * 100);
-            const usedFmt = fmtB(l.used_bytes || 0);
-            const limitFmt = l.limit_bytes === 0 ? '∞' : fmtB(l.limit_bytes);
-            const fp = l.fingerprint || 'chrome';
-            const fpName = { chrome: 'Chrome', firefox: 'Firefox', safari: 'Safari', edge: 'Edge', ios: 'iOS', android: 'Android', safari_ios: 'Safari iOS', random: 'Random', none: 'None' }[fp] || fp;
-            
-            let duration = '∞';
-            if (l.expires_at) {
-                try { const exp = new Date(l.expires_at); const now = new Date(); const days = Math.ceil((exp - now) / (1000*60*60*24)); duration = days > 0 ? days + ' روز' : 'منقضی'; } catch(e) { duration = '—'; }
-            }
-            
-            const avatarLetter = (l.label || 'U')[0].toUpperCase();
-            return `<tr>
-                <td><div class="user-name-cell"><div class="avatar">${avatarLetter}</div><div><div class="name">${esc(l.label)}</div><div class="uuid-short">${l.uuid.slice(0,8)}…</div></div></div></td>
-                <td style="font-size:9px;color:var(--t2);">${fpEmoji[fp] || '🌐'} ${fpName}</td>
-                <td><span class="status-badge ${statusClass}"><span class="status-dot"></span>${statusText}</span></td>
-                <td><div class="usage-bar"><span class="usage-text">${usedFmt} / ${limitFmt}</span><div class="bar"><div class="fill" style="width:${pct}%"></div></div></div></td>
-                <td style="font-size:10px;color:var(--t2);">${duration}</td>
-                <td><div class="action-btns">
-                    <button class="btn btn-pur btn-sm" onclick="navigator.clipboard.writeText('${esc(l.sub_url)}').then(()=>toast('✅ کپی ساب','ok'))" title="کپی ساب‌لینک"><i class="ti ti-link"></i></button>
-                    <button class="btn btn-amber btn-sm" onclick="resetUsage('${l.uuid}')" title="ریست مصرف"><i class="ti ti-rotate"></i></button>
-                    <button class="btn btn-pur btn-sm" onclick="openEditModal('${l.uuid}')" title="ویرایش"><i class="ti ti-edit"></i></button>
-                    <button class="btn btn-d btn-sm" onclick="openDeleteModal('${l.uuid}')" title="حذف"><i class="ti ti-trash"></i></button>
-                </div></td>
-            </tr>`;
-        }).join('');
-    } catch(e) { console.error(e); }
+  try {
+    const search = document.getElementById('search-users')?.value || '';
+    const status = document.getElementById('filter-status')?.value || '';
+    const r = await authF(`/api/workspace/links?search=${encodeURIComponent(search)}&status=${status}`);
+    const { links=[] } = await r.json();
+    const tbody = document.getElementById('users-tbody');
+    const total = links.length;
+    const active = links.filter(l => l.active && !l.expired).length;
+    const expired = links.filter(l => l.expired).length;
+    const totalTraffic = links.reduce((sum, l) => sum + (l.used_bytes || 0), 0);
+    
+    document.getElementById('users-total').textContent = total;
+    document.getElementById('users-active').textContent = active;
+    document.getElementById('users-expired').textContent = expired;
+    document.getElementById('users-traffic').textContent = fmtB(totalTraffic);
+    document.getElementById('users-count-label').textContent = total + ' کاربر';
+    document.getElementById('users-sub').textContent = `لیست کانفیگ‌ها، سهمیه و انقضا (${total} کاربر)`;
+    
+    if (!links.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);">هیچ کاربری وجود ندارد</td></tr>';
+      return;
+    }
+    
+    const fpEmoji = {
+      chrome: '🌐', firefox: '🦊', safari: '🧭', edge: '🌊',
+      ios: '📱', android: '🤖', safari_ios: '🍏', random: '🎲', none: '🚫'
+    };
+    
+    tbody.innerHTML = links.map(l => {
+      const isActive = l.active && !l.expired;
+      const statusClass = isActive ? 'active' : (l.expired ? 'expired' : 'disabled');
+      const statusText = isActive ? 'فعال' : (l.expired ? 'منقضی' : 'غیرفعال');
+      const pct = l.limit_bytes === 0 ? 0 : Math.min(100, (l.used_bytes / l.limit_bytes) * 100);
+      const usedFmt = fmtB(l.used_bytes || 0);
+      const limitFmt = l.limit_bytes === 0 ? '∞' : fmtB(l.limit_bytes);
+      const fp = l.fingerprint || 'chrome';
+      const fpName = {
+        chrome: 'Chrome', firefox: 'Firefox', safari: 'Safari',
+        edge: 'Edge', ios: 'iOS', android: 'Android',
+        safari_ios: 'Safari iOS', random: 'Random', none: 'None'
+      }[fp] || fp;
+      
+      let duration = '∞';
+      if (l.expires_at) {
+        try {
+          const exp = new Date(l.expires_at);
+          const now = new Date();
+          const days = Math.ceil((exp - now) / (1000*60*60*24));
+          duration = days > 0 ? days + ' روز' : 'منقضی';
+        } catch(e) { duration = '—'; }
+      }
+      
+      const avatarLetter = (l.label || 'U')[0].toUpperCase();
+      const cleanIp = l.clean_ip || '—';
+      
+      return `<tr>
+        <td>
+          <div class="user-name-cell">
+            <div class="avatar">${avatarLetter}</div>
+            <div>
+              <div class="name">${esc(l.label)}</div>
+              <div class="uuid-short">${l.uuid.slice(0,8)}…</div>
+              ${cleanIp !== '—' ? `<div style="font-size:6px;color:var(--accent);">🪐 ${cleanIp}</div>` : ''}
+            </div>
+          </div>
+        </td>
+        <td style="font-size:9px;color:var(--t2);">${fpEmoji[fp] || '🌐'} ${fpName}</td>
+        <td><span class="status-badge ${statusClass}"><span class="status-dot"></span>${statusText}</span></td>
+        <td>
+          <div class="usage-bar">
+            <span class="usage-text">${usedFmt} / ${limitFmt}</span>
+            <div class="bar"><div class="fill" style="width:${pct}%"></div></div>
+          </div>
+        </td>
+        <td style="font-size:10px;color:var(--t2);">${duration}</td>
+        <td>
+          <div class="action-btns">
+            <button class="btn btn-o btn-sm" onclick="navigator.clipboard.writeText('${esc(l.vless_link)}').then(()=>toast('✅ کپی لینک','ok'))" title="کپی لینک"><i class="ti ti-copy"></i></button>
+            <button class="btn btn-pur btn-sm" onclick="navigator.clipboard.writeText('${esc(l.sub_url)}').then(()=>toast('✅ کپی ساب','ok'))" title="کپی ساب"><i class="ti ti-link"></i></button>
+            <button class="btn btn-amber btn-sm" onclick="resetUsage('${l.uuid}')" title="ریست مصرف"><i class="ti ti-rotate"></i></button>
+            <button class="btn btn-pur btn-sm" onclick="openEditModal('${l.uuid}')" title="ویرایش"><i class="ti ti-edit"></i></button>
+            <button class="btn btn-d btn-sm" onclick="openDeleteModal('${l.uuid}')" title="حذف"><i class="ti ti-trash"></i></button>
+          </div>
+        </td>
+      </tr>`;
+    }).join('');
+  } catch(e) {
+    console.error(e);
+  }
 }
 
 // ===== ساخت کاربر =====
 async function saveUser() {
-    const label = document.getElementById('user-label').value.trim() || 'کاربر';
-    const quota = parseFloat(document.getElementById('user-quota').value) || 0;
-    const exp = parseInt(document.getElementById('user-exp').value) || 30;
-    const devices = parseInt(document.getElementById('user-devices').value) || 0;
-    const password = document.getElementById('user-password').value.trim();
-    const fingerprint = document.getElementById('user-fingerprint').value || 'chrome';
-    const portChecks = document.querySelectorAll('.port-check:checked');
-    const ports = Array.from(portChecks).map(cb => parseInt(cb.value));
-    if (ports.length === 0) { toast('❌ حداقل یک پورت انتخاب کنید', 'err'); return; }
+  const label = document.getElementById('user-label').value.trim() || 'کاربر';
+  const quota = parseFloat(document.getElementById('user-quota').value) || 0;
+  const exp = parseInt(document.getElementById('user-exp').value) || 30;
+  const devices = parseInt(document.getElementById('user-devices').value) || 0;
+  const password = document.getElementById('user-password').value.trim();
+  const fingerprint = document.getElementById('user-fingerprint').value || 'chrome';
+  const clean_ip = document.getElementById('user-clean-ip').value.trim();
+  const portChecks = document.querySelectorAll('.port-check:checked');
+  const ports = Array.from(portChecks).map(cb => parseInt(cb.value));
+  if (ports.length === 0) { toast('❌ حداقل یک پورت انتخاب کنید', 'err'); return; }
+  
+  try {
+    const r = await authF('/api/workspace/links', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        label, limit_value: quota, limit_unit: 'GB',
+        expires_days: exp, max_devices: devices,
+        password, fingerprint, protocol: 'vless-ws',
+        ports, clean_ip: clean_ip || null
+      })
+    });
+    if (!r.ok) { 
+      const err = await r.json();
+      toast('❌ ' + (err.detail || 'خطا'), 'err');
+      return;
+    }
     
-    try {
-        const r = await authF('/api/links', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ label, limit_value: quota, limit_unit: 'GB', expires_days: exp, max_devices: devices, password, fingerprint, protocol: 'vless-ws', ports })
-        });
-        if (!r.ok) throw new Error();
-        document.getElementById('user-label').value = 'کاربر';
-        document.getElementById('user-quota').value = '2';
-        document.getElementById('user-exp').value = '30';
-        document.getElementById('user-devices').value = '1';
-        document.getElementById('user-password').value = '';
-        document.getElementById('user-fingerprint').value = 'chrome';
-        document.querySelectorAll('.port-check').forEach(cb => cb.checked = cb.value === '443');
-        closeModal('modal-user');
-        toast('✅ کاربر با ' + ports.length + ' پورت ساخته شد', 'ok');
-        loadUsers(); loadDashboard();
-    } catch(e) { toast('❌ خطا', 'err'); }
+    document.getElementById('user-label').value = 'کاربر';
+    document.getElementById('user-quota').value = '2';
+    document.getElementById('user-exp').value = '30';
+    document.getElementById('user-devices').value = '1';
+    document.getElementById('user-password').value = '';
+    document.getElementById('user-fingerprint').value = 'chrome';
+    document.getElementById('user-clean-ip').value = '';
+    document.querySelectorAll('.port-check').forEach(cb => cb.checked = cb.value === '443');
+    
+    closeModal('modal-user');
+    toast('✅ کاربر ساخته شد', 'ok');
+    loadUsers(); loadDashboard();
+  } catch(e) {
+    toast('❌ خطا', 'err');
+  }
 }
 
 // ===== ویرایش کاربر =====
 async function openEditModal(uuid) {
-    try {
-        const r = await authF('/api/links');
-        const { links=[] } = await r.json();
-        const link = links.find(l => l.uuid === uuid);
-        if (!link) { toast('کاربر یافت نشد', 'err'); return; }
-        document.getElementById('edit-uuid').value = uuid;
-        document.getElementById('edit-label').value = link.label || '';
-        document.getElementById('edit-password').value = '';
-        document.getElementById('edit-quota').value = link.limit_bytes === 0 ? '' : (link.limit_bytes / (1024**3)).toFixed(1);
-        document.getElementById('edit-exp').value = link.expires_at ? Math.ceil((new Date(link.expires_at) - new Date()) / (1000*60*60*24)) : '';
-        document.getElementById('edit-devices').value = link.max_devices || 0;
-        document.getElementById('edit-status').value = link.active ? 'true' : 'false';
-        document.getElementById('edit-fingerprint').value = link.fingerprint || 'chrome';
-        document.getElementById('edit-password-section').style.display = link.has_password ? 'block' : 'none';
-        openModal('modal-edit');
-    } catch(e) { toast('خطا', 'err'); }
+  try {
+    const r = await authF('/api/workspace/links');
+    const { links=[] } = await r.json();
+    const link = links.find(l => l.uuid === uuid);
+    if (!link) { toast('کاربر یافت نشد', 'err'); return; }
+    
+    document.getElementById('edit-uuid').value = uuid;
+    document.getElementById('edit-label').value = link.label || '';
+    document.getElementById('edit-password').value = '';
+    document.getElementById('edit-quota').value = link.limit_bytes === 0 ? '' : (link.limit_bytes / (1024**3)).toFixed(1);
+    document.getElementById('edit-exp').value = link.expires_at ? Math.ceil((new Date(link.expires_at) - new Date()) / (1000*60*60*24)) : '';
+    document.getElementById('edit-devices').value = link.max_devices || 0;
+    document.getElementById('edit-status').value = link.active ? 'true' : 'false';
+    document.getElementById('edit-fingerprint').value = link.fingerprint || 'chrome';
+    document.getElementById('edit-clean-ip').value = link.clean_ip || '';
+    document.getElementById('edit-password-section').style.display = link.has_password ? 'block' : 'none';
+    
+    openModal('modal-edit');
+  } catch(e) {
+    toast('خطا', 'err');
+  }
 }
 
 async function saveEdit() {
-    const uuid = document.getElementById('edit-uuid').value;
-    const password = document.getElementById('edit-password').value.trim();
-    const label = document.getElementById('edit-label').value.trim() || 'کاربر';
-    const quota = parseFloat(document.getElementById('edit-quota').value) || 0;
-    const exp = parseInt(document.getElementById('edit-exp').value) || 0;
-    const devices = parseInt(document.getElementById('edit-devices').value) || 0;
-    const active = document.getElementById('edit-status').value === 'true';
-    const fingerprint = document.getElementById('edit-fingerprint').value || 'chrome';
-    try {
-        const r = await authF('/api/links/' + uuid, {
-            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ label, limit_value: quota, limit_unit: 'GB', expires_days: exp, max_devices: devices, active, password, fingerprint })
-        });
-        if (!r.ok) { if (r.status === 403) { toast('❌ رمز اشتباه', 'err'); return; } throw new Error(); }
-        closeModal('modal-edit');
-        toast('✅ ویرایش شد', 'ok');
-        loadUsers();
-    } catch(e) { toast('❌ خطا', 'err'); }
+  const uuid = document.getElementById('edit-uuid').value;
+  const password = document.getElementById('edit-password').value.trim();
+  const label = document.getElementById('edit-label').value.trim() || 'کاربر';
+  const quota = parseFloat(document.getElementById('edit-quota').value) || 0;
+  const exp = parseInt(document.getElementById('edit-exp').value) || 0;
+  const devices = parseInt(document.getElementById('edit-devices').value) || 0;
+  const active = document.getElementById('edit-status').value === 'true';
+  const fingerprint = document.getElementById('edit-fingerprint').value || 'chrome';
+  const clean_ip = document.getElementById('edit-clean-ip').value.trim() || null;
+  
+  try {
+    const r = await authF('/api/workspace/links/' + uuid, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        label, limit_value: quota, limit_unit: 'GB',
+        expires_days: exp, max_devices: devices,
+        active, password, fingerprint, clean_ip
+      })
+    });
+    if (!r.ok) {
+      if (r.status === 403) { toast('❌ رمز اشتباه', 'err'); return; }
+      throw new Error();
+    }
+    closeModal('modal-edit');
+    toast('✅ ویرایش شد', 'ok');
+    loadUsers();
+  } catch(e) {
+    toast('❌ خطا', 'err');
+  }
 }
 
 // ===== حذف =====
-function openDeleteModal(uuid) { document.getElementById('delete-uuid').value = uuid; document.getElementById('delete-password').value = ''; openModal('modal-delete'); }
+function openDeleteModal(uuid) {
+  document.getElementById('delete-uuid').value = uuid;
+  document.getElementById('delete-password').value = '';
+  openModal('modal-delete');
+}
 
 async function confirmDelete() {
-    const uuid = document.getElementById('delete-uuid').value;
-    const password = document.getElementById('delete-password').value.trim();
-    try {
-        const r = await authF('/api/links/' + uuid, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
-        if (!r.ok) { if (r.status === 403) { toast('❌ رمز اشتباه', 'err'); return; } throw new Error(); }
-        closeModal('modal-delete');
-        toast('✅ حذف شد', 'ok');
-        loadUsers(); loadDashboard();
-    } catch(e) { toast('❌ خطا', 'err'); }
+  const uuid = document.getElementById('delete-uuid').value;
+  const password = document.getElementById('delete-password').value.trim();
+  try {
+    const r = await authF('/api/workspace/links/' + uuid, {
+      method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    if (!r.ok) { if (r.status === 403) { toast('❌ رمز اشتباه', 'err'); return; } throw new Error(); }
+    closeModal('modal-delete');
+    toast('✅ حذف شد', 'ok');
+    loadUsers(); loadDashboard();
+  } catch(e) { toast('❌ خطا', 'err'); }
 }
 
 async function resetUsage(uuid) {
-    if (!confirm('ریست مصرف؟')) return;
-    try {
-        const r = await authF('/api/links/' + uuid, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reset_usage: true }) });
-        if (!r.ok) throw new Error();
-        toast('✅ ریست شد', 'ok');
-        loadUsers();
-    } catch(e) { toast('❌ خطا', 'err'); }
+  if (!confirm('ریست مصرف؟')) return;
+  try {
+    const r = await authF('/api/workspace/links/' + uuid, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reset_usage: true })
+    });
+    if (!r.ok) throw new Error();
+    toast('✅ ریست شد', 'ok');
+    loadUsers();
+  } catch(e) { toast('❌ خطا', 'err'); }
 }
 
 // ===== اتصالات =====
 async function loadConnections() {
-    try {
-        const r = await authF('/api/connections');
-        const d = await r.json();
-        const grid = document.getElementById('conns-grid');
-        const count = d.count || 0;
-        document.getElementById('conn-count').textContent = count + ' اتصال';
-        if (!count) { grid.innerHTML = '<div class="empty"><i class="ti ti-plug-off"></i><p>هیچ اتصالی وجود ندارد</p></div>'; return; }
-        grid.innerHTML = d.connections.map(c => {
-            const secs = c.connected_at ? Math.max(0, Math.floor((Date.now() - new Date(c.connected_at).getTime()) / 1000)) : 0;
-            const dur = secs < 60 ? secs + 'ث' : secs < 3600 ? Math.floor(secs/60) + 'د' : Math.floor(secs/3600) + 'س';
-            return `<div class="conn-card"><div class="ip"><span class="conn-status-dot"></span> ${esc(c.ip)}</div><div class="label">${esc(c.label || 'نامشخص')}</div><div class="conn-info"><span>📥 ${esc(c.bytes_fmt || '0 B')}</span><span>⏱ ${dur}</span></div></div>`;
-        }).join('');
-    } catch(e) { console.error(e); }
+  try {
+    const r = await authF('/api/connections');
+    const d = await r.json();
+    const grid = document.getElementById('conns-grid');
+    const count = d.count || 0;
+    document.getElementById('conn-count').textContent = count + ' اتصال';
+    if (!count) { grid.innerHTML = '<div class="empty"><i class="ti ti-plug-off"></i><p>هیچ اتصالی وجود ندارد</p></div>'; return; }
+    grid.innerHTML = d.connections.map(c => {
+      const secs = c.connected_at ? Math.max(0, Math.floor((Date.now() - new Date(c.connected_at).getTime()) / 1000)) : 0;
+      const dur = secs < 60 ? secs + 'ث' : secs < 3600 ? Math.floor(secs/60) + 'د' : Math.floor(secs/3600) + 'س';
+      return `<div class="conn-card"><div class="ip"><span class="conn-status-dot"></span> ${esc(c.ip)}</div><div class="label">${esc(c.label || 'نامشخص')}</div><div class="conn-info"><span>📥 ${esc(c.bytes_fmt || '0 B')}</span><span>⏱ ${dur}</span></div></div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
 }
 
 // ===== لاگ‌ها =====
 async function loadLogs() {
-    try {
-        const r = await authF('/api/activity');
-        const data = await r.json();
-        const logs = data.logs || [];
-        document.getElementById('logs-count').textContent = logs.length + ' لاگ';
-        const container = document.getElementById('logs-container');
-        if (!logs.length) { container.innerHTML = '<div class="empty"><i class="ti ti-notes"></i><p>هیچ لاگی وجود ندارد</p></div>'; return; }
-        container.innerHTML = logs.map(log => {
-            const time = log.time ? new Date(log.time).toLocaleString('fa-IR') : '—';
-            const color = log.level === 'err' ? '#F87171' : log.level === 'warn' ? '#FCD34D' : '#A78BFA';
-            return `<div style="padding:3px 0;border-bottom:1px solid rgba(100,80,255,0.02);display:flex;gap:6px"><span style="color:${color};font-weight:700">[${(log.level || 'info').toUpperCase()}]</span><span style="color:var(--t3)">${time}</span><span>${esc(log.message)}</span></div>`;
-        }).join('');
-    } catch(e) { console.error(e); }
+  try {
+    const level = document.getElementById('log-level-filter')?.value || '';
+    const search = document.getElementById('log-search')?.value || '';
+    const r = await authF(`/api/workspace/logs?limit=100&level=${level}&search=${encodeURIComponent(search)}`);
+    const data = await r.json();
+    const logs = data.logs || [];
+    document.getElementById('logs-count').textContent = logs.length + ' لاگ';
+    const container = document.getElementById('logs-container');
+    if (!logs.length) { container.innerHTML = '<div class="empty"><i class="ti ti-notes"></i><p>هیچ لاگی وجود ندارد</p></div>'; return; }
+    container.innerHTML = logs.map(log => {
+      const time = log.time ? new Date(log.time).toLocaleString('fa-IR') : '—';
+      const color = log.level === 'err' ? '#F87171' : log.level === 'warn' ? '#FCD34D' : '#A78BFA';
+      return `<div style="padding:3px 0;border-bottom:1px solid rgba(100,80,255,0.02);display:flex;gap:6px"><span style="color:${color};font-weight:700">[${(log.level || 'info').toUpperCase()}]</span><span style="color:var(--t3)">${time}</span><span>${esc(log.message)}</span></div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ===== تنظیمات =====
+async function loadSettings() {
+  try {
+    const r = await authF('/api/workspace/settings');
+    const data = await r.json();
+    // Clean IPs
+    const cleanIps = data.clean_ips || [];
+    const list = document.getElementById('clean-ips-list');
+    list.innerHTML = cleanIps.map(ip => `
+      <span style="background:rgba(100,80,255,0.05);border:1px solid var(--card-b);border-radius:4px;padding:2px 8px;font-size:9px;display:inline-flex;align-items:center;gap:4px;">
+        ${ip.ip} (${ip.provider})
+        <button onclick="deleteCleanIP('${ip.ip}')" style="background:none;border:none;color:var(--red-t);cursor:pointer;font-size:10px;">×</button>
+      </span>
+    `).join('');
+    
+    // Routes
+    const routes = data.routes || [];
+    const routesList = document.getElementById('routes-list');
+    routesList.innerHTML = routes.map(r => `
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 6px;border-bottom:1px solid var(--card-b);font-size:9px;">
+        <span>${r.domain} → ${r.type}</span>
+        <button onclick="deleteRoute('${r.domain}')" style="background:none;border:none;color:var(--red-t);cursor:pointer;font-size:10px;">×</button>
+      </div>
+    `).join('');
+    
+    // Filters
+    document.getElementById('ad-filter-switch').className = 'switch' + (data.ad_filter_enabled ? ' on' : '');
+    document.getElementById('porn-filter-switch').className = 'switch' + (data.porn_filter_enabled ? ' on' : '');
+    document.getElementById('malware-filter-switch').className = 'switch' + (data.malware_filter_enabled ? ' on' : '');
+    
+    // Backup interval
+    document.getElementById('backup-interval').value = data.backup_interval || 6;
+  } catch(e) { console.error(e); }
+}
+
+// ===== Clean IP =====
+async function addCleanIP() {
+  const ip = document.getElementById('clean-ip-input').value.trim();
+  const provider = document.getElementById('clean-ip-provider').value;
+  if (!ip) { toast('❌ IP را وارد کنید', 'err'); return; }
+  try {
+    const r = await authF('/api/workspace/clean-ips', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ip, provider })
+    });
+    if (r.ok) {
+      document.getElementById('clean-ip-input').value = '';
+      toast('✅ IP اضافه شد', 'ok');
+      loadSettings();
+    }
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+async function deleteCleanIP(ip) {
+  if (!confirm(`حذف IP ${ip}؟`)) return;
+  try {
+    await authF('/api/workspace/clean-ips/' + ip, { method: 'DELETE' });
+    toast('✅ حذف شد', 'ok');
+    loadSettings();
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+// ===== Routes =====
+async function addRoute() {
+  const domain = document.getElementById('route-domain').value.trim();
+  const type = document.getElementById('route-type').value;
+  if (!domain) { toast('❌ دامنه را وارد کنید', 'err'); return; }
+  try {
+    const r = await authF('/api/workspace/routes', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain, type })
+    });
+    if (r.ok) {
+      document.getElementById('route-domain').value = '';
+      toast('✅ مسیر اضافه شد', 'ok');
+      loadSettings();
+    }
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+async function deleteRoute(domain) {
+  if (!confirm(`حذف مسیر ${domain}؟`)) return;
+  try {
+    await authF('/api/workspace/routes/' + domain, { method: 'DELETE' });
+    toast('✅ حذف شد', 'ok');
+    loadSettings();
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+// ===== Filters =====
+async function toggleFilter(type) {
+  const sw = document.getElementById(type + '-filter-switch');
+  const enabled = !sw.classList.contains('on');
+  const key = type + '_filter_enabled';
+  try {
+    const r = await authF('/api/workspace/filters', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ [key]: enabled })
+    });
+    if (r.ok) {
+      sw.className = 'switch' + (enabled ? ' on' : '');
+      toast(enabled ? '✅ فعال شد' : '❌ غیرفعال شد', 'ok');
+    }
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+// ===== Backup =====
+async function saveBackupInterval() {
+  const interval = parseInt(document.getElementById('backup-interval').value) || 6;
+  try {
+    const r = await authF('/api/settings/backup-interval', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ interval })
+    });
+    if (r.ok) toast('✅ ذخیره شد', 'ok');
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+async function backupNow() {
+  try {
+    const r = await authF('/api/backup/now', { method: 'POST' });
+    if (r.ok) toast('✅ بکاپ گرفته شد', 'ok');
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+// ===== Export =====
+async function exportUsers(type) {
+  try {
+    const r = await authF(`/api/workspace/export/${type}`);
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `users_${new Date().toISOString().slice(0,10)}.${type === 'excel' ? 'xlsx' : 'csv'}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('✅ دانلود شد', 'ok');
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+// ===== Create Backup =====
+async function createBackup() {
+  try {
+    const r = await authF('/api/backup');
+    const data = await r.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `eagle_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('✅ بکاپ دانلود شد', 'ok');
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+async function restoreBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const r = await authF('/api/backup/restore', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!r.ok) { toast('❌ خطا', 'err'); return; }
+    toast('✅ بکاپ بازیابی شد', 'ok');
+    setTimeout(() => location.reload(), 1000);
+  } catch(e) { toast('❌ خطا: ' + e.message, 'err'); }
+  event.target.value = '';
+}
+
+// ===== Workspace Management (Super Admin) =====
+async function loadWorkspaces() {
+  try {
+    const r = await authF('/api/admin/workspaces');
+    const data = await r.json();
+    const container = document.getElementById('workspaces-container');
+    if (!data.workspaces || !data.workspaces.length) {
+      container.innerHTML = '<div class="empty"><i class="ti ti-buildings"></i><p>هیچ Workspace ای وجود ندارد</p></div>';
+      return;
+    }
+    container.innerHTML = data.workspaces.map(ws => `
+      <div class="settings-card" style="max-width:100%;">
+        <div style="display:flex;justify-content:space-between;align-items:start;">
+          <div>
+            <div style="font-size:13px;font-weight:700;color:var(--t1);">🏢 ${esc(ws.name)}</div>
+            <div style="font-size:9px;color:var(--t2);">👤 ${esc(ws.admin_username)}</div>
+            <div style="font-size:9px;color:var(--t2);">📅 ${ws.created_at ? new Date(ws.created_at).toLocaleDateString('fa-IR') : '—'}</div>
+          </div>
+          <div style="text-align:left;">
+            <div style="font-size:11px;color:${ws.is_quota_exceeded ? '#F87171' : '#34D399'};">
+              ${ws.is_quota_exceeded ? '⛔ تمام شده' : '✅ فعال'}
+            </div>
+            <div style="font-size:9px;color:var(--t2);">👥 ${ws.links_count} کاربر</div>
+          </div>
+        </div>
+        <div style="margin:6px 0;">
+          <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--t2);">
+            <span>سهمیه: ${ws.quota_used_gb.toFixed(1)} / ${ws.quota_limit_gb} GB</span>
+            <span>${ws.quota_percent}%</span>
+          </div>
+          <div class="quota-bar" style="height:4px;background:rgba(100,80,255,0.05);border-radius:2px;overflow:hidden;margin-top:2px;">
+            <div class="quota-fill" style="width:${Math.min(ws.quota_percent, 100)}%;height:100%;background:${ws.quota_percent > 90 ? '#EF4444' : ws.quota_percent > 70 ? '#F59E0B' : 'linear-gradient(90deg,#7C6BFF,#5B4BD9,#A78BFA)'};border-radius:2px;"></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap;">
+          <button class="btn btn-pur btn-sm" onclick="editWorkspaceQuota('${ws.id}')"><i class="ti ti-edit"></i> سهمیه</button>
+          <button class="btn btn-amber btn-sm" onclick="resetWorkspaceQuota('${ws.id}')"><i class="ti ti-rotate"></i> ریست</button>
+          <button class="btn btn-d btn-sm" onclick="deleteWorkspace('${ws.id}')"><i class="ti ti-trash"></i> حذف</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) { console.error(e); }
+}
+
+async function editWorkspaceQuota(wsId) {
+  const newQuota = prompt('سهمیه جدید به GB را وارد کنید:');
+  if (newQuota === null) return;
+  const quota = parseFloat(newQuota);
+  if (isNaN(quota) || quota < 0) { toast('❌ عدد معتبر وارد کنید', 'err'); return; }
+  try {
+    const r = await authF(`/api/admin/workspaces/${wsId}/quota`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ quota_gb: quota })
+    });
+    if (r.ok) { toast('✅ سهمیه تغییر کرد', 'ok'); loadWorkspaces(); }
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+async function resetWorkspaceQuota(wsId) {
+  if (!confirm('ریست مصرف Workspace؟')) return;
+  try {
+    const r = await authF(`/api/admin/workspaces/${wsId}/quota/reset`, { method: 'POST' });
+    if (r.ok) { toast('✅ ریست شد', 'ok'); loadWorkspaces(); }
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+async function deleteWorkspace(wsId) {
+  if (!confirm('حذف Workspace؟ این کار غیرقابل بازگشت است!')) return;
+  try {
+    const r = await authF(`/api/admin/workspaces/${wsId}`, { method: 'DELETE' });
+    if (r.ok) { toast('✅ حذف شد', 'ok'); loadWorkspaces(); }
+  } catch(e) { toast('❌ خطا', 'err'); }
+}
+
+// ===== تغییر نام کاربری =====
+async function changeUsername() {
+  const current = document.getElementById('current-username').value.trim();
+  const newUser = document.getElementById('new-username').value.trim();
+  const result = document.getElementById('username-result');
+  if (!current || !newUser) {
+    result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ همه فیلدها را پر کنید'; return;
+  }
+  if (newUser.length < 3) {
+    result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ حداقل ۳ کاراکتر'; return;
+  }
+  try {
+    const r = await authF('/api/change-username', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current_username: current, new_username: newUser })
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ ' + (data.detail || data.message || 'خطا');
+      return;
+    }
+    result.style.display='block'; result.style.color='#34D399'; result.innerHTML='✅ ' + data.message;
+    document.getElementById('current-username').value = '';
+    document.getElementById('new-username').value = '';
+    toast('✅ نام کاربری تغییر کرد', 'ok');
+  } catch(e) { result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ خطا'; }
+}
+
+// ===== تغییر رمز =====
+async function changePassword() {
+  const oldPw = document.getElementById('old-password').value;
+  const newPw = document.getElementById('new-password').value;
+  const confirmPw = document.getElementById('confirm-password').value;
+  const result = document.getElementById('password-result');
+  if (!oldPw || !newPw || !confirmPw) {
+    result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ همه فیلدها را پر کنید'; return;
+  }
+  if (newPw.length < 4) {
+    result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ حداقل ۴ کاراکتر'; return;
+  }
+  if (newPw !== confirmPw) {
+    result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ رمزها مطابقت ندارند'; return;
+  }
+  try {
+    const r = await authF('/api/change-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_password: oldPw, new_password: newPw })
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ ' + (data.detail || data.message || 'خطا');
+      return;
+    }
+    result.style.display='block'; result.style.color='#34D399'; result.innerHTML='✅ رمز تغییر کرد!';
+    document.getElementById('old-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+    toast('✅ رمز تغییر کرد', 'ok');
+  } catch(e) { result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ خطا'; }
 }
 
 // ===== تم RGB =====
 let rgbMode = false;
 async function loadRGBStatus() {
-    try { const r = await authF('/api/settings'); const data = await r.json(); rgbMode = data.rgb_mode || false; updateRGBUI(); } catch(e) {}
+  try {
+    const r = await authF('/api/settings');
+    const data = await r.json();
+    rgbMode = data.rgb_mode || false;
+    updateRGBUI();
+  } catch(e) {}
 }
-function updateRGBUI() { const sw = document.getElementById('rgb-switch'); if (rgbMode) { document.body.classList.add('rgb-mode'); sw.classList.add('on'); } else { document.body.classList.remove('rgb-mode'); sw.classList.remove('on'); } }
+
+function updateRGBUI() {
+  const sw = document.getElementById('rgb-switch');
+  if (rgbMode) {
+    document.body.classList.add('rgb-mode');
+    sw.classList.add('on');
+  } else {
+    document.body.classList.remove('rgb-mode');
+    sw.classList.remove('on');
+  }
+}
+
 async function toggleRGB() {
-    const newState = !rgbMode;
-    try { const r = await authF('/api/settings/rgb', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ enabled: newState }) }); const data = await r.json(); rgbMode = data.rgb_mode; updateRGBUI(); toast(rgbMode ? '🌈 RGB فعال شد' : '🌙 RGB غیرفعال شد', 'ok'); } catch(e) { toast('❌ خطا', 'err'); }
-}
-
-// ===== تغییر رمز =====
-async function changePassword() {
-    const oldPw = document.getElementById('old-password').value;
-    const newPw = document.getElementById('new-password').value;
-    const confirmPw = document.getElementById('confirm-password').value;
-    const result = document.getElementById('password-result');
-    if (!oldPw || !newPw || !confirmPw) { result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ همه فیلدها را پر کنید'; return; }
-    if (newPw.length < 4) { result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ حداقل ۴ کاراکتر'; return; }
-    if (newPw !== confirmPw) { result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ رمزها مطابقت ندارند'; return; }
-    try {
-        const r = await authF('/api/change-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ old_password: oldPw, new_password: newPw }) });
-        const data = await r.json();
-        if (!r.ok) { result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ ' + (data.detail || data.message || 'خطا'); return; }
-        result.style.display='block'; result.style.color='#34D399'; result.innerHTML='✅ رمز تغییر کرد!';
-        document.getElementById('old-password').value = '';
-        document.getElementById('new-password').value = '';
-        document.getElementById('confirm-password').value = '';
-        toast('✅ رمز تغییر کرد', 'ok');
-    } catch(e) { result.style.display='block'; result.style.color='#F87171'; result.innerHTML='❌ خطا'; }
-}
-
-// ===== بکاپ =====
-async function createBackup() {
-    try {
-        const r = await authF('/api/backup');
-        const data = await r.json();
-        const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `eagle_backup_${new Date().toISOString().slice(0,10)}.json`;
-        a.click();
-        URL.revokeObjectURL(url);
-        toast('✅ بکاپ دانلود شد', 'ok');
-    } catch(e) { toast('❌ خطا', 'err'); }
-}
-
-async function restoreBackup(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        const r = await authF('/api/backup/restore', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
-        if (!r.ok) { toast('❌ خطا', 'err'); return; }
-        toast('✅ بکاپ بازیابی شد', 'ok');
-        setTimeout(() => location.reload(), 1000);
-    } catch(e) { toast('❌ خطا: ' + e.message, 'err'); }
-    event.target.value = '';
-}
-
-// ===== تنظیمات تلگرام =====
-async function loadTelegramStatus() {
-    try {
-        const r = await authF('/api/telegram/status');
-        const data = await r.json();
-        const statusEl = document.getElementById('telegram-status');
-        const infoEl = document.getElementById('telegram-info');
-        
-        if (data.active) {
-            statusEl.textContent = '✅ فعال';
-            statusEl.style.color = '#34D399';
-            infoEl.textContent = 'توکن: ' + data.token_preview + ' | Chat: ' + data.chat_id;
-        } else if (data.has_token && !data.has_chat_id) {
-            statusEl.textContent = '⚠️ توکن تنظیم شده، Chat ID خالی';
-            statusEl.style.color = '#FCD34D';
-            infoEl.textContent = 'توکن: ' + data.token_preview;
-        } else {
-            statusEl.textContent = '❌ غیرفعال';
-            statusEl.style.color = '#F87171';
-            infoEl.textContent = 'تنظیم نشده';
-        }
-        
-        // پر کردن فیلدها
-        document.getElementById('telegram-token').value = data.has_token ? data.token_preview + '...' : '';
-        document.getElementById('telegram-chat-id').value = data.chat_id || '';
-    } catch(e) {
-        console.error('Telegram status error:', e);
-    }
-}
-
-async function saveTelegramSettings() {
-    const token = document.getElementById('telegram-token').value.trim();
-    const chatId = document.getElementById('telegram-chat-id').value.trim();
-    const result = document.getElementById('telegram-result');
-    
-    if (!token || !chatId) {
-        result.style.display = 'block';
-        result.style.color = '#F87171';
-        result.innerHTML = '❌ لطفاً توکن و Chat ID را وارد کنید';
-        return;
-    }
-    
-    try {
-        const r = await authF('/api/settings/telegram', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token, chat_id: chatId })
-        });
-        const data = await r.json();
-        
-        result.style.display = 'block';
-        if (r.ok) {
-            result.style.color = '#34D399';
-            result.innerHTML = '✅ ' + data.message;
-            await loadTelegramStatus();
-        } else {
-            result.style.color = '#F87171';
-            result.innerHTML = '❌ ' + (data.message || 'خطا');
-        }
-    } catch(e) {
-        result.style.display = 'block';
-        result.style.color = '#F87171';
-        result.innerHTML = '❌ خطا در ارتباط با سرور';
-    }
-}
-
-async function testTelegram() {
-    const result = document.getElementById('telegram-result');
-    result.style.display = 'block';
-    result.style.color = '#FCD34D';
-    result.innerHTML = '⏳ در حال ارسال پیام تست...';
-    
-    try {
-        const r = await authF('/api/telegram/test', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-        const data = await r.json();
-        
-        if (data.ok) {
-            result.style.color = '#34D399';
-            result.innerHTML = '✅ ' + data.message;
-        } else {
-            result.style.color = '#F87171';
-            result.innerHTML = '❌ ' + (data.message || 'خطا');
-        }
-    } catch(e) {
-        result.style.color = '#F87171';
-        result.innerHTML = '❌ خطا در ارتباط با سرور';
-    }
+  const newState = !rgbMode;
+  try {
+    const r = await authF('/api/settings/rgb', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: newState })
+    });
+    const data = await r.json();
+    rgbMode = data.rgb_mode;
+    updateRGBUI();
+    toast(rgbMode ? '🌈 RGB فعال شد' : '🌙 RGB غیرفعال شد', 'ok');
+  } catch(e) { toast('❌ خطا', 'err'); }
 }
 
 // ===== بارگذاری اولیه =====
 document.addEventListener('DOMContentLoaded', async () => {
-    try { const r = await fetch('/api/me'); const d = await r.json(); if (!d.authenticated) location.href = '/login'; } catch(e) { location.href = '/login'; }
-    await loadThemeFromServer();
-    setLang(currentLang);
-    await loadRGBStatus();
-    await loadTelegramStatus();
-    loadDashboard();
-    loadInbound();
-    loadUsers();
-    loadConnections();
-    loadLogs();
-    setInterval(() => {
-        if (document.getElementById('pg-dashboard').classList.contains('on')) loadDashboard();
-        if (document.getElementById('pg-connections').classList.contains('on')) loadConnections();
-        if (document.getElementById('pg-users').classList.contains('on')) loadUsers();
-    }, 5000);
+  try {
+    const r = await fetch('/api/me');
+    const d = await r.json();
+    if (!d.authenticated) location.href = '/login';
+    isSuperAdmin = d.is_super_admin || false;
+  } catch(e) { location.href = '/login'; }
+  
+  await checkUserType();
+  
+  // بارگذاری تم
+  let theme = localStorage.getItem('eagle-theme') || 'dark';
+  setTheme(theme);
+  
+  // بارگذاری زبان
+  let lang = localStorage.getItem('eagle-lang') || 'fa';
+  setLang(lang);
+  
+  await loadRGBStatus();
+  loadDashboard();
+  loadInbound();
+  loadUsers();
+  loadConnections();
+  loadLogs();
+  loadSettings();
+  if (isSuperAdmin) loadWorkspaces();
+  
+  // جستجو و فیلتر
+  document.getElementById('search-users')?.addEventListener('input', loadUsers);
+  document.getElementById('filter-status')?.addEventListener('change', loadUsers);
+  document.getElementById('log-level-filter')?.addEventListener('change', loadLogs);
+  document.getElementById('log-search')?.addEventListener('input', loadLogs);
+  
+  setInterval(() => {
+    if (document.getElementById('pg-dashboard').classList.contains('on')) loadDashboard();
+    if (document.getElementById('pg-connections').classList.contains('on')) loadConnections();
+    if (document.getElementById('pg-users').classList.contains('on')) loadUsers();
+  }, 5000);
 });
 </script>
 </body></html>"""
@@ -1346,6 +1891,7 @@ def get_sub_page_html(uuid: str, link: dict) -> str:
     active_connections = link.get('active_connections', 0)
     active_connections_list = link.get('active_connections_list', [])
     last_connected = link.get('last_connected_at')
+    clean_ip = link.get('clean_ip')
     user_ip = link.get('user_ip', 'نامشخص')
     percent = link.get('percent', 0)
     days_left = link.get('days_left', 'نامحدود')
@@ -1391,6 +1937,8 @@ def get_sub_page_html(uuid: str, link: dict) -> str:
         if len(vless_links) > 5:
             vless_links_html += f"<div style='font-size:7px;color:#555577'>+{len(vless_links)-5} کانفیگ دیگر</div>"
         vless_links_html += "</div>"
+    
+    clean_ip_html = f"<div class='info-item'><span class='info-label'><i class='ti ti-server'></i> IP تمیز</span><span class='info-value proto'>{clean_ip if clean_ip else '—'}</span></div>" if clean_ip else ""
     
     return f"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -1477,6 +2025,7 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
         <div class="info-item"><span class="info-label"><i class="ti ti-devices"></i> دستگاه</span><span class="info-value">{max_devices if max_devices > 0 else '∞'}</span></div>
         <div class="info-item"><span class="info-label"><i class="ti ti-clock"></i> آخرین اتصال</span><span class="info-value" style="font-size:9px;">{last_connected_text}</span></div>
         <div class="info-item"><span class="info-label"><i class="ti ti-ip"></i> IP</span><span class="info-value proto">{user_ip}</span></div>
+        {clean_ip_html}
         <div class="info-item"><span class="info-label"><i class="ti ti-fingerprint"></i> FP</span><span class="info-value proto">{fingerprint}</span></div>
         <div class="info-item"><span class="info-label"><i class="ti ti-settings"></i> پروتکل</span><span class="info-value proto">{protocol}</span></div>
     </div>
