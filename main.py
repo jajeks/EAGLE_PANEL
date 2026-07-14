@@ -70,6 +70,7 @@ stats = {
 error_logs: deque = deque(maxlen=50)
 activity_logs: deque = deque(maxlen=200)
 hourly_traffic: dict = defaultdict(int)
+hourly_traffic_history: dict = defaultdict(lambda: defaultdict(int))  # {day: {hour: bytes}}
 device_connections: dict = {}
 DEVICE_CONNECTIONS_LOCK = asyncio.Lock()
 http_client: httpx.AsyncClient | None = None
@@ -286,7 +287,7 @@ async def require_auth(request: Request):
 # ─── State Persistence ──────────────────────────────────────────────────────
 
 async def load_state():
-    global LINKS, SUBS, AUTH, SETTINGS
+    global LINKS, SUBS, AUTH, SETTINGS, hourly_traffic_history, hourly_traffic
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         if DATA_FILE.exists():
@@ -299,6 +300,14 @@ async def load_state():
                 AUTH["password_hash"] = data["password_hash"]
             if "settings" in data:
                 SETTINGS.update(data["settings"])
+            if "hourly_traffic" in data:
+                hourly_traffic = defaultdict(int, data["hourly_traffic"])
+            if "hourly_traffic_history" in data:
+                # تبدیل به defaultdict
+                hist = data["hourly_traffic_history"]
+                hourly_traffic_history = defaultdict(lambda: defaultdict(int))
+                for day, hours in hist.items():
+                    hourly_traffic_history[day] = defaultdict(int, hours)
             logger.info(f"📂 State loaded: {len(LINKS)} links, {len(SUBS)} subs")
     except Exception as e:
         logger.warning(f"Could not load state: {e}")
@@ -307,11 +316,19 @@ async def save_state():
     async with SAVE_LOCK:
         try:
             DATA_DIR.mkdir(parents=True, exist_ok=True)
+            
+            # تبدیل hourly_traffic_history به دیکشنری معمولی برای ذخیره
+            hist_dict = {}
+            for day, hours in hourly_traffic_history.items():
+                hist_dict[day] = dict(hours)
+            
             data = {
                 "links": dict(LINKS),
                 "subs": dict(SUBS),
                 "password_hash": AUTH["password_hash"],
                 "settings": SETTINGS,
+                "hourly_traffic": dict(hourly_traffic),
+                "hourly_traffic_history": hist_dict,
                 "saved_at": datetime.now().isoformat(),
             }
             tmp = DATA_FILE.with_suffix(".tmp")
@@ -459,12 +476,10 @@ async def create_link(request: Request, _=Depends(require_auth)):
     limit_bytes = 0 if lv <= 0 else parse_size_to_bytes(lv, lu)
     exp_days = int(body.get("expires_days") or 0)
     
-    # اطمینان از اینکه تاریخ انقضا به درستی ذخیره میشه
     expires_at = None
     if exp_days > 0:
         exp_date = datetime.now() + timedelta(days=exp_days)
         expires_at = exp_date.isoformat()
-        logger.info(f"📅 تاریخ انقضا: {expires_at} ({exp_days} روز)")
     
     note = (body.get("note") or "").strip()[:200]
     sub_id = body.get("sub_id") or None
@@ -504,7 +519,7 @@ async def create_link(request: Request, _=Depends(require_auth)):
                     ids.append(uid)
 
     asyncio.create_task(save_state())
-    log_activity("link", f"کانفیگ «{label}» ساخته شد با انقضای {exp_days} روز", "ok")
+    log_activity("link", f"کانفیگ «{label}» ساخته شد", "ok")
     host = get_host()
     
     remark = f"🏛️ {label}"
@@ -672,6 +687,15 @@ async def get_stats(_=Depends(require_auth)):
                 "used_fmt": fmt_bytes(used)
             }
     
+    # گرفتن دیتای ساعتی برای ۳۰ روز اخیر
+    hourly_data = {}
+    now = datetime.now()
+    for i in range(30):
+        day = (now - timedelta(days=i)).strftime("%Y-%m-%d")
+        if day in hourly_traffic_history:
+            for hour, bytes_count in hourly_traffic_history[day].items():
+                hourly_data[hour] = hourly_data.get(hour, 0) + bytes_count
+    
     return {
         "active_connections": len(connections),
         "total_traffic_mb": round(stats["total_bytes"] / (1024 ** 2), 2),
@@ -680,6 +704,7 @@ async def get_stats(_=Depends(require_auth)):
         "uptime": uptime(),
         "timestamp": datetime.now().isoformat(),
         "hourly": dict(hourly_traffic),
+        "hourly_history": hourly_data,
         "recent_errors": list(error_logs)[-10:],
         "links_count": len(snap),
         "active_links": sum(1 for l in snap.values() if is_link_allowed(l)),
@@ -790,17 +815,26 @@ async def get_backup(_=Depends(require_auth)):
         links = dict(LINKS)
     async with SUBS_LOCK:
         subs = dict(SUBS)
+    
+    # تبدیل hourly_traffic_history به دیکشنری معمولی
+    hist_dict = {}
+    for day, hours in hourly_traffic_history.items():
+        hist_dict[day] = dict(hours)
+    
     return {
         "links": links,
         "subs": subs,
         "password_hash": AUTH["password_hash"],
         "settings": SETTINGS,
+        "hourly_traffic": dict(hourly_traffic),
+        "hourly_traffic_history": hist_dict,
         "exported_at": datetime.now().isoformat(),
         "version": "10.0"
     }
 
 @app.post("/api/backup/restore")
 async def restore_backup(request: Request, _=Depends(require_auth)):
+    global hourly_traffic_history
     try:
         body = await request.json()
         
@@ -825,6 +859,15 @@ async def restore_backup(request: Request, _=Depends(require_auth)):
         
         if "settings" in body and isinstance(body["settings"], dict):
             SETTINGS.update(body["settings"])
+        
+        if "hourly_traffic" in body:
+            hourly_traffic.clear()
+            hourly_traffic.update(body["hourly_traffic"])
+        
+        if "hourly_traffic_history" in body:
+            hourly_traffic_history = defaultdict(lambda: defaultdict(int))
+            for day, hours in body["hourly_traffic_history"].items():
+                hourly_traffic_history[day] = defaultdict(int, hours)
         
         await save_state()
         log_activity("backup", "بکاپ بازیابی شد", "ok")
@@ -904,7 +947,13 @@ async def check_and_use(uid: str, n: int) -> bool:
             return False
         link["used_bytes"] = link.get("used_bytes", 0) + n
         stats["total_bytes"] = stats.get("total_bytes", 0) + n
-        hourly_traffic[now_ir().strftime("%H:00")] = hourly_traffic.get(now_ir().strftime("%H:00"), 0) + n
+        
+        # ذخیره دیتای ساعتی برای نمودار
+        now = datetime.now()
+        day_key = now.strftime("%Y-%m-%d")
+        hour_key = now.strftime("%H:00")
+        hourly_traffic[hour_key] = hourly_traffic.get(hour_key, 0) + n
+        hourly_traffic_history[day_key][hour_key] = hourly_traffic_history[day_key].get(hour_key, 0) + n
         
         limit = link.get("limit_bytes", 0)
         used = link.get("used_bytes", 0)
@@ -1067,7 +1116,7 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await remove_device_connection(uuid, client_ip)
         logger.info(f"🔌 WS closed [{conn_id}] total={len(connections)}")
 
-# ─── ===== ساب‌لینک با ۳ کانفیگ (اصلاح شده برای نمایش زمان) ===== ──────────────────────────────────
+# ─── ===== ساب‌لینک با ۳ کانفیگ (اصلی + زمان + حجم) ===== ──────────────────────────────────
 
 @app.get("/sub/{uuid}")
 async def subscription_single(request: Request, uuid: str):
@@ -1159,30 +1208,22 @@ async def subscription_single(request: Request, uuid: str):
     if limit_bytes > 0:
         percent = min(100, (used_bytes / limit_bytes) * 100)
     
-    # ===== محاسبه روزهای باقی‌مونده =====
+    # محاسبه روزهای باقی‌مونده
     days_left = "نامحدود"
     days_number = 0
-    
-    # لاگ برای دیباگ
-    logger.info(f"🔍 UUID: {uuid}, expires_at: {expires_at}")
-    
     if expires_at:
         try:
-            # پاک کردن Z و + از انتهای تاریخ
             clean_exp = expires_at.replace('Z', '').replace('+00:00', '')
             if 'T' in clean_exp:
                 exp_date = datetime.fromisoformat(clean_exp)
             else:
                 exp_date = datetime.fromisoformat(clean_exp)
             
-            # اطمینان از timezone
             if exp_date.tzinfo is None:
                 exp_date = exp_date.replace(tzinfo=IRAN_TZ)
             
             now = datetime.now(IRAN_TZ)
             days = (exp_date - now).days
-            
-            logger.info(f"📅 تاریخ انقضا: {exp_date}, الان: {now}, روزهای باقیمانده: {days}")
             
             days_number = days if days > 0 else 0
             if days > 0:
@@ -1194,8 +1235,6 @@ async def subscription_single(request: Request, uuid: str):
         except Exception as e:
             logger.error(f"❌ خطا در محاسبه تاریخ: {e}")
             days_left = "نامشخص"
-    else:
-        logger.info(f"ℹ️ بدون تاریخ انقضا برای {uuid}")
     
     # حجم باقیمانده
     remaining_bytes = limit_bytes - used_bytes if limit_bytes > 0 else 0
