@@ -1,4 +1,4 @@
-# pages.py - پنل تخت جمشید با ربات تلگرام
+# pages.py - پنل تخت جمشید نسخه ساده
 
 LOGIN_HTML = r"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -183,7 +183,6 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .bg-fire{background:rgba(212,175,55,0.08);color:#F5D060}
 .bg-amber{background:var(--amber-bg);color:var(--amber-t)}
 .bg-red{background:var(--red-bg);color:var(--red-t)}
-.bg-telegram{background:rgba(68,168,228,0.08);color:#44A8E4}
 .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;display:inline-block}
 .dg{background:var(--green);animation:dotPulse 1.5s ease-in-out infinite}
 .dr{background:var(--red);animation:dotPulse 1.8s ease-in-out infinite}
@@ -257,8 +256,6 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .btn-amber:hover{background:rgba(245,158,11,0.15);transform:translateY(-1px)}
 .btn-sm{padding:2px 6px;font-size:8px;border-radius:4px}
 .btn-icon{width:22px;height:22px;padding:0;justify-content:center}
-.btn-telegram{background:rgba(68,168,228,0.08);color:#44A8E4;border:1px solid rgba(68,168,228,0.1)}
-.btn-telegram:hover{background:rgba(68,168,228,0.15);transform:translateY(-1px)}
 
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
 .modal-bg.open{display:flex}
@@ -292,17 +289,13 @@ select.fi{appearance:none;cursor:pointer}
 .settings-card .field label{font-size:9px;color:var(--t3);display:block;margin-bottom:2px;font-weight:600}
 .settings-card .field input{width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--card-b);background:rgba(0,0,20,.2);color:var(--t1);font-family:inherit;font-size:11px;outline:none;transition:.3s}
 .settings-card .field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(212,175,55,.06)}
-.settings-card .field input[type="password"]{font-family:monospace}
 .settings-card .btn{width:100%;justify-content:center;margin-top:3px;font-size:11px;padding:6px}
 .settings-card .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-b)}
 .settings-card .toggle-row .toggle-label{font-size:11px;color:var(--t2);display:flex;align-items:center;gap:5px}
-.settings-card .btn-group{display:flex;gap:6px;margin-top:6px}
-.settings-card .btn-group .btn{flex:1}
 .switch{position:relative;width:36px;height:20px;background:var(--t3);border-radius:10px;cursor:pointer;transition:.4s;flex-shrink:0}
+.switch.on{background:linear-gradient(135deg,#D4A843,#B8922E)}
 .switch .slider{position:absolute;top:2px;right:2px;width:16px;height:16px;background:#1a1208;border-radius:50%;transition:.4s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 2px 4px rgba(0,0,0,0.2)}
 .switch.on .slider{right:18px}
-.switch.bot-on{background:linear-gradient(135deg,#44A8E4,#1E7EBE)}
-.switch.bot-on .slider{right:18px}
 
 .toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(50px);background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--card-b);color:var(--t1);border-radius:8px;padding:8px 16px;font-size:11px;opacity:0;transition:all .4s cubic-bezier(0.34,1.56,0.64,1);z-index:999;pointer-events:none;box-shadow:var(--shadow);display:flex;align-items:center;gap:5px}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -551,28 +544,6 @@ body.light-theme .chart-section{background:rgba(255,255,255,0.8)}
   <!-- RGB -->
   <div class="settings-card"><div class="title"><i class="ti ti-color-swatch"></i> <span id="set-rgb-title">تم RGB</span></div><div class="toggle-row"><div class="toggle-label"><i class="ti ti-color-palette" style="background:linear-gradient(135deg,#ff0000,#00ff00,#0000ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent"></i> RGB</div><div class="switch" id="rgb-switch" onclick="toggleRGB()"><div class="slider"></div></div></div></div>
   
-  <!-- Telegram Bot -->
-  <div class="settings-card">
-    <div class="title"><i class="ti ti-brand-telegram"></i> <span id="set-bot-title">ربات تلگرام</span></div>
-    <div class="field">
-        <label id="set-bot-token">توکن ربات</label>
-        <input class="fi" id="bot-token" type="password" placeholder="توکن را وارد کنید" dir="ltr">
-    </div>
-    <div class="field">
-        <label id="set-bot-chat-id">چت آیدی ادمین</label>
-        <input class="fi" id="bot-chat-id" type="text" placeholder="مثلاً: 123456789" dir="ltr">
-    </div>
-    <div class="toggle-row">
-        <div class="toggle-label"><i class="ti ti-toggle-left"></i> <span id="set-bot-enabled">فعال/غیرفعال</span></div>
-        <div class="switch" id="bot-switch" onclick="toggleBot()"><div class="slider"></div></div>
-    </div>
-    <div style="display:flex;gap:6px;margin-top:6px">
-        <button class="btn btn-telegram btn-sm" onclick="testBot()" style="flex:1"><i class="ti ti-send"></i> <span id="set-bot-test">ارسال تست</span></button>
-        <button class="btn btn-o btn-sm" onclick="loadBotSettings()" style="flex:1"><i class="ti ti-refresh"></i> <span id="set-bot-refresh">بروزرسانی</span></button>
-    </div>
-    <div id="bot-status" style="margin-top:6px;font-size:9px;color:var(--t3)"></div>
-  </div>
-  
 </section>
 
 <!-- صفحه لاگ‌ها -->
@@ -614,9 +585,6 @@ const translations = {
     set_current_theme: 'تم فعلی', set_lang: 'زبان پنل', set_current_lang: 'زبان فعلی',
     set_pass: 'تغییر رمز', set_old_pass: 'رمز فعلی', set_new_pass: 'رمز جدید',
     set_confirm_pass: 'تکرار', set_change_btn: 'تغییر', set_rgb: 'تم RGB',
-    set_bot_title: 'ربات تلگرام', set_bot_token: 'توکن ربات',
-    set_bot_chat_id: 'چت آیدی ادمین', set_bot_enabled: 'فعال/غیرفعال',
-    set_bot_test: 'ارسال تست', set_bot_refresh: 'بروزرسانی',
     backup_title: 'بکاپ', backup_sub: 'ذخیره و بازیابی',
     backup_download: 'بکاپ‌گیری', backup_download_btn: 'دانلود', backup_restore_btn: 'بازیابی',
     logs_title: 'لاگ‌ها',
@@ -659,9 +627,6 @@ const translations = {
     set_current_theme: 'Current Theme', set_lang: 'Language', set_current_lang: 'Current Language',
     set_pass: 'Change Password', set_old_pass: 'Current Password', set_new_pass: 'New Password',
     set_confirm_pass: 'Confirm', set_change_btn: 'Change', set_rgb: 'RGB Mode',
-    set_bot_title: 'Telegram Bot', set_bot_token: 'Bot Token',
-    set_bot_chat_id: 'Admin Chat ID', set_bot_enabled: 'Enable/Disable',
-    set_bot_test: 'Send Test', set_bot_refresh: 'Refresh',
     backup_title: 'Backup', backup_sub: 'Save & Restore',
     backup_download: 'Backup', backup_download_btn: 'Download', backup_restore_btn: 'Restore',
     logs_title: 'Logs',
@@ -684,15 +649,16 @@ const translations = {
 };
 
 let currentLang = localStorage.getItem('persepolis-lang') || 'fa';
+
+function t(key) { return translations[currentLang]?.[key] || key; }
+
+// ===== متغیرهای عمومی =====
 let currentTheme = localStorage.getItem('persepolis-theme') || 'dark';
 let trafficChart = null;
 let chartPeriod = '7d';
 let qrCodeInstance = null;
-let botEnabled = false;
 
-// ===== توابع =====
-function t(key) { return translations[currentLang]?.[key] || key; }
-
+// ===== توابع تم =====
 function setTheme(theme) {
   currentTheme = theme;
   localStorage.setItem('persepolis-theme', theme);
@@ -728,6 +694,7 @@ async function loadThemeFromServer() {
   } catch(e) { setTheme(currentTheme); }
 }
 
+// ===== توابع زبان =====
 function setLang(lang) {
   currentLang = lang;
   localStorage.setItem('persepolis-lang', lang);
@@ -816,12 +783,6 @@ function updateUITexts() {
   document.getElementById('set-confirm-pass').textContent = t.set_confirm_pass;
   document.getElementById('set-change-btn').textContent = t.set_change_btn;
   document.getElementById('set-rgb-title').textContent = t.set_rgb;
-  document.getElementById('set-bot-title').textContent = t.set_bot_title;
-  document.getElementById('set-bot-token').textContent = t.set_bot_token;
-  document.getElementById('set-bot-chat-id').textContent = t.set_bot_chat_id;
-  document.getElementById('set-bot-enabled').textContent = t.set_bot_enabled;
-  document.getElementById('set-bot-test').textContent = t.set_bot_test;
-  document.getElementById('set-bot-refresh').textContent = t.set_bot_refresh;
   
   document.getElementById('backup-title').textContent = t.backup_title;
   document.getElementById('backup-sub').textContent = t.backup_sub;
@@ -914,7 +875,7 @@ function navTo(name) {
     inbound: loadInbound,
     connections: loadConnections,
     logs: loadLogs,
-    settings: () => { loadBotSettings(); }
+    settings: () => {}
   };
   if (loaders[name]) loaders[name]();
 }
@@ -1031,67 +992,6 @@ async function loadChart(period) {
       }
     });
   } catch(e) { console.error(e); }
-}
-
-// ===== ربات تلگرام =====
-async function loadBotSettings() {
-  try {
-    const r = await authF('/api/bot/settings');
-    const data = await r.json();
-    document.getElementById('bot-token').value = data.token || '';
-    document.getElementById('bot-chat-id').value = data.admin_chat_id || '';
-    botEnabled = data.enabled || false;
-    updateBotUI();
-    document.getElementById('bot-status').textContent = data.running ? '✅ ' + (currentLang === 'fa' ? 'ربات آنلاین' : 'Bot online') : '❌ ' + (currentLang === 'fa' ? 'ربات آفلاین' : 'Bot offline');
-    document.getElementById('bot-status').style.color = data.running ? '#34D399' : '#F87171';
-  } catch(e) { console.error(e); }
-}
-
-function updateBotUI() {
-  const sw = document.getElementById('bot-switch');
-  if (botEnabled) { sw.classList.add('bot-on'); }
-  else { sw.classList.remove('bot-on'); }
-}
-
-async function toggleBot() {
-  const token = document.getElementById('bot-token').value.trim();
-  const chatId = document.getElementById('bot-chat-id').value.trim();
-  if (!token || !chatId) {
-    toast('❌ ' + (currentLang === 'fa' ? 'توکن و چت آیدی را وارد کنید!' : 'Enter token and chat ID!'), 'err');
-    return;
-  }
-  const newState = !botEnabled;
-  try {
-    const r = await authF('/api/bot/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: token, admin_chat_id: chatId, enabled: newState })
-    });
-    const data = await r.json();
-    botEnabled = data.enabled;
-    updateBotUI();
-    toast(data.enabled ? '✅ ' + (currentLang === 'fa' ? 'ربات فعال شد' : 'Bot enabled') : '❌ ' + (currentLang === 'fa' ? 'ربات غیرفعال شد' : 'Bot disabled'), data.enabled ? 'ok' : 'err');
-    loadBotSettings();
-  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
-}
-
-async function testBot() {
-  const chatId = document.getElementById('bot-chat-id').value.trim();
-  const token = document.getElementById('bot-token').value.trim();
-  if (!chatId) {
-    toast('❌ ' + (currentLang === 'fa' ? 'چت آیدی را وارد کنید!' : 'Enter chat ID!'), 'err');
-    return;
-  }
-  try {
-    const r = await authF('/api/bot/test', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: chatId, token: token })
-    });
-    const data = await r.json();
-    if (data.ok) { toast('✅ ' + (currentLang === 'fa' ? 'پیام تست ارسال شد!' : 'Test message sent!'), 'ok'); }
-    else { toast('❌ ' + (currentLang === 'fa' ? 'خطا: ' : 'Error: ') + (data.detail || 'Unknown'), 'err'); }
-  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا در ارسال تست' : 'Test send error'), 'err'); }
 }
 
 // ===== بارگذاری داشبورد =====
@@ -1499,7 +1399,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadUsers();
   loadConnections();
   loadLogs();
-  loadBotSettings();
   
   setInterval(() => {
     if (document.getElementById('pg-dashboard').classList.contains('on')) loadDashboard();
@@ -1791,7 +1690,7 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
         <button class="btn btn-secondary" onclick="copyVless()" id="copyVlessBtn"><i class="ti ti-copy"></i> کپی کانفیگ</button>
     </div>
 
-    <div class="footer"><span class="eagle">🏛️</span> تخت جمشید · نسخه ۱۱</div>
+    <div class="footer"><span class="eagle">🏛️</span> تخت جمشید · نسخه ۱۰</div>
 </div>
 
 <script>
