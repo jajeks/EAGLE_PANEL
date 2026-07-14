@@ -1,4 +1,4 @@
-# pages.py - صفحات پنل تخت جمشید
+# pages.py - پنل تخت جمشید با نمودار + چندزبانه + QR Code + اعلان‌ها
 
 LOGIN_HTML = r"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -130,6 +130,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#0a0a1a;--bg2:#12122a;--bg3:#1a1a3a;--card:rgba(10,10,30,0.7);--card-b:rgba(212,175,55,0.08);--card-bh:rgba(212,175,55,0.15);--accent:#D4A843;--accent2:#F5D060;--accent3:#B8922E;--green:#10B981;--green-bg:rgba(16,185,129,0.08);--green-t:#34D399;--red:#EF4444;--red-bg:rgba(239,68,68,0.08);--red-t:#F87171;--amber:#F59E0B;--amber-bg:rgba(245,158,11,0.08);--amber-t:#FCD34D;--t1:#F5ECD7;--t2:#C4A35A;--t3:#8A7A4A;--sidebar-w:180px;--radius:12px;--shadow:0 8px 32px rgba(0,0,0,0.5),0 0 60px rgba(212,175,55,0.02)}
@@ -180,6 +182,7 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .bg-blue{background:rgba(212,175,55,0.1);color:var(--accent)}
 .bg-fire{background:rgba(212,175,55,0.08);color:#F5D060}
 .bg-amber{background:var(--amber-bg);color:var(--amber-t)}
+.bg-red{background:var(--red-bg);color:var(--red-t)}
 .dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;display:inline-block}
 .dg{background:var(--green);animation:dotPulse 1.5s ease-in-out infinite}
 .dr{background:var(--red);animation:dotPulse 1.8s ease-in-out infinite}
@@ -197,11 +200,20 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .stat-card .number.small{font-size:13px}
 .stat-card .label{font-size:9px;color:var(--t3);margin-top:2px;font-weight:500}
 .stat-card .sub{font-size:7px;color:var(--t3);margin-top:0px;opacity:.6}
+
+.chart-section{background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:16px;margin:12px 0;transition:background .4s}
+.chart-section .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
+.chart-section .chart-title{font-size:13px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:6px}
+.chart-section .chart-title i{color:var(--accent)}
+.chart-section .chart-sub{font-size:9px;color:var(--t3)}
+.chart-section .chart-actions{display:flex;gap:4px;flex-wrap:wrap}
+
 .stat-mini{background:var(--card);border:1px solid var(--card-b);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;transition:all .3s cubic-bezier(0.34,1.56,0.64,1)}
 .stat-mini:hover{transform:translateY(-2px);border-color:var(--card-bh)}
 .stat-mini-icon{font-size:16px}
 .stat-mini-num{font-size:16px;font-weight:800;color:var(--t1)}
 .stat-mini-label{font-size:9px;color:var(--t3)}
+
 .users-table{width:100%;border-collapse:collapse;font-size:12px}
 .users-table thead th{padding:10px 12px;text-align:right;color:var(--t2);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--card-b);background:rgba(212,175,55,0.02)}
 .users-table tbody td{padding:8px 12px;border-bottom:1px solid var(--card-b);color:var(--t1);vertical-align:middle}
@@ -227,6 +239,7 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .user-name-cell:hover .avatar{transform:scale(1.1) rotate(-5deg)}
 .user-name-cell .name{font-weight:600;color:var(--t1)}
 .user-name-cell .uuid-short{font-size:7px;color:var(--t3);font-family:monospace}
+
 .btn{font-family:inherit;font-size:10px;font-weight:600;border-radius:6px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border:none;transition:all .3s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap}
 .btn i{font-size:11px;transition:transform .3s}
 .btn:hover i{transform:scale(1.1)}
@@ -243,6 +256,7 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .btn-amber:hover{background:rgba(245,158,11,0.15);transform:translateY(-1px)}
 .btn-sm{padding:2px 6px;font-size:8px;border-radius:4px}
 .btn-icon{width:22px;height:22px;padding:0;justify-content:center}
+
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
 .modal-bg.open{display:flex}
 .modal{background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--card-b);border-radius:14px;padding:20px 18px;max-width:560px;width:calc(100% - 20px);max-height:90vh;overflow-y:auto;position:relative;animation:modalIn .4s cubic-bezier(0.34,1.56,0.64,1);box-shadow:var(--shadow)}
@@ -257,6 +271,7 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .fi:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(212,175,55,.06)}
 .fi::placeholder{color:var(--t3)}
 select.fi{appearance:none;cursor:pointer}
+
 .conn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
 .conn-card{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--card-b);border-radius:10px;padding:10px 12px;transition:.3s}
 .conn-card:hover{border-color:var(--card-bh);transform:translateY(-2px)}
@@ -264,6 +279,7 @@ select.fi{appearance:none;cursor:pointer}
 .conn-card .label{font-size:8px;color:var(--t3);margin-top:1px}
 .conn-card .conn-info{display:flex;justify-content:space-between;margin-top:4px;font-size:8px;color:var(--t2);gap:3px;flex-wrap:wrap}
 .conn-status-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#34D399;animation:pulse 1.5s infinite;margin-left:3px}
+
 .settings-card{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--card-b);border-radius:var(--radius);padding:14px 16px;max-width:480px;margin-bottom:10px;position:relative;overflow:hidden;transition:all .3s}
 .settings-card:hover{border-color:var(--card-bh)}
 .settings-card::before{content:'';position:absolute;top:-50%;right:-50%;width:150px;height:150px;background:radial-gradient(circle,rgba(212,175,55,0.02),transparent 70%);pointer-events:none}
@@ -280,22 +296,29 @@ select.fi{appearance:none;cursor:pointer}
 .switch.on{background:linear-gradient(135deg,#D4A843,#B8922E)}
 .switch .slider{position:absolute;top:2px;right:2px;width:16px;height:16px;background:#1a1208;border-radius:50%;transition:.4s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 2px 4px rgba(0,0,0,0.2)}
 .switch.on .slider{right:18px}
+
 .toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(50px);background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--card-b);color:var(--t1);border-radius:8px;padding:8px 16px;font-size:11px;opacity:0;transition:all .4s cubic-bezier(0.34,1.56,0.64,1);z-index:999;pointer-events:none;box-shadow:var(--shadow);display:flex;align-items:center;gap:5px}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{border-color:rgba(16,185,129,.2);background:var(--green-bg);color:var(--green-t)}
 .toast.err{border-color:rgba(239,68,68,.2);background:var(--red-bg);color:var(--red-t)}
+.toast.warn{border-color:rgba(245,158,11,.2);background:var(--amber-bg);color:var(--amber-t)}
+
 .empty{text-align:center;padding:30px 15px;color:var(--t3)}
 .empty i{font-size:28px;opacity:.3;display:block;margin-bottom:6px}
 .empty p{font-size:10px}
+
 .bottom-nav{display:none;position:fixed;bottom:0;right:0;left:0;background:var(--card);backdrop-filter:blur(30px);border-top:1px solid var(--card-b);z-index:300;padding:4px 2px 6px;justify-content:space-around;align-items:center}
 .bottom-nav .nav-item{display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--t3);font-size:7px;cursor:pointer;padding:3px 6px;border-radius:6px;transition:all .3s;border:none;background:none;font-family:inherit;min-width:40px;position:relative}
 .bottom-nav .nav-item i{font-size:16px;transition:all .3s}
 .bottom-nav .nav-item:hover{color:var(--t2);transform:translateY(-2px)}
 .bottom-nav .nav-item.active{color:var(--accent)}
 .bottom-nav .nav-item.active i{transform:scale(1.1)}
+.bottom-nav .nav-item .notif-dot{position:absolute;top:0;right:0;width:6px;height:6px;background:var(--red);border-radius:50%;animation:pulse 1.5s infinite}
+
 @media(max-width:768px){.bottom-nav{display:flex !important}.main{padding-bottom:65px !important;margin-right:0 !important;padding-top:55px !important}.sidebar{transform:translateX(100%);padding-bottom:60px}.sidebar.open{transform:translateX(0)}.mob-top{display:flex}.stats-grid{grid-template-columns:repeat(3,1fr)}.stat-mini{grid-template-columns:1fr 1fr}}
 @media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr}.main{padding:50px 8px 65px}.bottom-nav .nav-item{min-width:32px;padding:2px 4px}.bottom-nav .nav-item i{font-size:14px}.bottom-nav .nav-item span{font-size:6px}.users-table thead th{font-size:7px;padding:6px 4px}.users-table tbody td{font-size:9px;padding:6px 4px}.users-table .usage-bar .bar{width:40px}.stat-mini{padding:6px 8px}.stat-mini-num{font-size:13px}}
 @media(min-width:769px){.bottom-nav{display:none !important}}
+
 body.light-theme{--bg:#f0f0f5;--bg2:#e8e8f0;--bg3:#dddde8;--card:rgba(255,255,255,0.85);--card-b:rgba(212,175,55,0.12);--card-bh:rgba(212,175,55,0.2);--t1:#1a1a2e;--t2:#4a4a6a;--t3:#7a7a9a;--shadow:0 8px 32px rgba(0,0,0,0.08),0 0 60px rgba(212,175,55,0.02)}
 body.light-theme .stars-bg .star-bg{background:#8888BB}
 body.light-theme .glow-main{display:none}
@@ -308,6 +331,7 @@ body.light-theme .users-table tbody tr:hover{background:rgba(212,175,55,0.03)}
 body.light-theme .stat-mini{background:rgba(255,255,255,0.8)}
 body.light-theme .conn-card{background:rgba(255,255,255,0.8)}
 body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
+body.light-theme .chart-section{background:rgba(255,255,255,0.8)}
 </style>
 </head>
 <body>
@@ -322,17 +346,19 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
 </div>
 <div class="glow-main glow-left"></div><div class="glow-main glow-right"></div>
 <div class="toast" id="toast"></div>
+
+<!-- Modal User -->
 <div class="modal-bg" id="modal-user">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-user')"><i class="ti ti-x"></i></button>
-    <div class="modal-title"><i class="ti ti-user-plus"></i> ساخت کاربر جدید</div>
+    <div class="modal-title"><i class="ti ti-user-plus"></i> <span id="modal-user-title">ساخت کاربر جدید</span></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="fg" style="grid-column:1/2;"><label><i class="ti ti-tag"></i> نام کاربری</label><input class="fi" id="user-label" placeholder="مثلاً: علی" value="کاربر"></div>
-      <div class="fg"><label><i class="ti ti-database"></i> حجم (GB)</label><input class="fi" id="user-quota" type="number" min="0.5" step="0.5" value="2"></div>
-      <div class="fg"><label><i class="ti ti-calendar"></i> انقضا (روز)</label><input class="fi" id="user-exp" type="number" min="0" value="30"></div>
-      <div class="fg"><label><i class="ti ti-devices"></i> دستگاه</label><input class="fi" id="user-devices" type="number" min="0" max="10" value="1"></div>
+      <div class="fg" style="grid-column:1/2;"><label><i class="ti ti-tag"></i> <span id="f-label-name">نام کاربری</span></label><input class="fi" id="user-label" placeholder="مثلاً: علی" value="کاربر"></div>
+      <div class="fg"><label><i class="ti ti-database"></i> <span id="f-label-quota">حجم (GB)</span></label><input class="fi" id="user-quota" type="number" min="0.5" step="0.5" value="2"></div>
+      <div class="fg"><label><i class="ti ti-calendar"></i> <span id="f-label-expiry">انقضا (روز)</span></label><input class="fi" id="user-exp" type="number" min="0" value="30"></div>
+      <div class="fg"><label><i class="ti ti-devices"></i> <span id="f-label-devices">دستگاه</span></label><input class="fi" id="user-devices" type="number" min="0" max="10" value="1"></div>
     </div>
-    <div class="fg"><label><i class="ti ti-fingerprint"></i> انگشت‌نگاری</label>
+    <div class="fg"><label><i class="ti ti-fingerprint"></i> <span id="f-label-fingerprint">انگشت‌نگاری</span></label>
       <select class="fi" id="user-fingerprint">
         <option value="chrome">🌐 Chrome</option><option value="firefox">🦊 Firefox</option>
         <option value="safari">🧭 Safari</option><option value="edge">🌊 Edge</option>
@@ -340,38 +366,26 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
         <option value="safari_ios">🍏 Safari iOS</option><option value="random">🎲 Random</option><option value="none">🚫 None</option>
       </select>
     </div>
-    <div class="fg">
-      <label><i class="ti ti-plug"></i> پورت‌ها (انتخاب چندگانه)</label>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;padding:6px 0;">
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(212,175,55,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="443" checked> 443</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(212,175,55,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="8443"> 8443</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(212,175,55,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="2053"> 2053</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(212,175,55,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="2096"> 2096</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(212,175,55,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="2087"> 2087</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(212,175,55,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="2083"> 2083</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(212,175,55,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="8080"> 8080</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:10px;color:var(--t2);cursor:pointer;background:rgba(212,175,55,0.03);padding:3px 8px;border-radius:4px;border:1px solid var(--card-b);"><input type="checkbox" class="port-check" value="80"> 80</label>
-      </div>
-      <div style="font-size:7px;color:var(--t3);margin-top:2px;">💡 هر پورت = یک کانفیگ جداگانه در ساب‌لینک</div>
-    </div>
-    <div class="fg"><label><i class="ti ti-lock"></i> رمز (اختیاری)</label><input class="fi" id="user-password" type="password" placeholder="برای ویرایش/حذف" dir="ltr"></div>
-    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="saveUser()" style="flex:2"><i class="ti ti-check"></i> ساخت کاربر</button><button class="btn btn-o" onclick="closeModal('modal-user')" style="flex:1">انصراف</button></div>
+    <div class="fg"><label><i class="ti ti-lock"></i> <span id="f-label-password">رمز (اختیاری)</span></label><input class="fi" id="user-password" type="password" placeholder="برای ویرایش/حذف" dir="ltr"></div>
+    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="saveUser()" style="flex:2"><i class="ti ti-check"></i> <span id="btn-create-user">ساخت کاربر</span></button><button class="btn btn-o" onclick="closeModal('modal-user')" style="flex:1"><span id="btn-cancel">انصراف</span></button></div>
   </div>
 </div>
+
+<!-- Modal Edit -->
 <div class="modal-bg" id="modal-edit">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-edit')"><i class="ti ti-x"></i></button>
-    <div class="modal-title"><i class="ti ti-edit"></i> ویرایش کاربر</div>
+    <div class="modal-title"><i class="ti ti-edit"></i> <span id="modal-edit-title">ویرایش کاربر</span></div>
     <input type="hidden" id="edit-uuid">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-      <div class="fg" style="grid-column:1/2;"><label><i class="ti ti-tag"></i> نام</label><input class="fi" id="edit-label" placeholder="نام کاربری"></div>
-      <div class="fg" id="edit-password-section"><label><i class="ti ti-lock"></i> رمز جدید</label><input class="fi" id="edit-password" type="password" placeholder="برای تغییر" dir="ltr"></div>
-      <div class="fg"><label><i class="ti ti-database"></i> حجم (GB)</label><input class="fi" id="edit-quota" type="number" min="0" step="0.5"></div>
-      <div class="fg"><label><i class="ti ti-calendar"></i> انقضا (روز)</label><input class="fi" id="edit-exp" type="number" min="0"></div>
-      <div class="fg"><label><i class="ti ti-devices"></i> دستگاه</label><input class="fi" id="edit-devices" type="number" min="0" max="10"></div>
-      <div class="fg"><label><i class="ti ti-toggle-left"></i> وضعیت</label><select class="fi" id="edit-status"><option value="true">✅ فعال</option><option value="false">❌ غیرفعال</option></select></div>
+      <div class="fg" style="grid-column:1/2;"><label><i class="ti ti-tag"></i> <span id="e-label-name">نام</span></label><input class="fi" id="edit-label" placeholder="نام کاربری"></div>
+      <div class="fg" id="edit-password-section"><label><i class="ti ti-lock"></i> <span id="e-label-password">رمز جدید</span></label><input class="fi" id="edit-password" type="password" placeholder="برای تغییر" dir="ltr"></div>
+      <div class="fg"><label><i class="ti ti-database"></i> <span id="e-label-quota">حجم (GB)</span></label><input class="fi" id="edit-quota" type="number" min="0" step="0.5"></div>
+      <div class="fg"><label><i class="ti ti-calendar"></i> <span id="e-label-expiry">انقضا (روز)</span></label><input class="fi" id="edit-exp" type="number" min="0"></div>
+      <div class="fg"><label><i class="ti ti-devices"></i> <span id="e-label-devices">دستگاه</span></label><input class="fi" id="edit-devices" type="number" min="0" max="10"></div>
+      <div class="fg"><label><i class="ti ti-toggle-left"></i> <span id="e-label-status">وضعیت</span></label><select class="fi" id="edit-status"><option value="true">✅ فعال</option><option value="false">❌ غیرفعال</option></select></div>
     </div>
-    <div class="fg"><label><i class="ti ti-fingerprint"></i> انگشت‌نگاری</label>
+    <div class="fg"><label><i class="ti ti-fingerprint"></i> <span id="e-label-fingerprint">انگشت‌نگاری</span></label>
       <select class="fi" id="edit-fingerprint">
         <option value="chrome">🌐 Chrome</option><option value="firefox">🦊 Firefox</option>
         <option value="safari">🧭 Safari</option><option value="edge">🌊 Edge</option>
@@ -379,148 +393,1072 @@ body.light-theme .settings-card{background:rgba(255,255,255,0.8)}
         <option value="safari_ios">🍏 Safari iOS</option><option value="random">🎲 Random</option><option value="none">🚫 None</option>
       </select>
     </div>
-    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="saveEdit()" style="flex:2"><i class="ti ti-check"></i> ذخیره</button><button class="btn btn-o" onclick="closeModal('modal-edit')" style="flex:1">انصراف</button></div>
+    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="saveEdit()" style="flex:2"><i class="ti ti-check"></i> <span id="btn-save">ذخیره</span></button><button class="btn btn-o" onclick="closeModal('modal-edit')" style="flex:1"><span id="btn-cancel2">انصراف</span></button></div>
   </div>
 </div>
+
+<!-- Modal Delete -->
 <div class="modal-bg" id="modal-delete">
   <div class="modal" style="max-width:340px">
     <button class="modal-close" onclick="closeModal('modal-delete')"><i class="ti ti-x"></i></button>
-    <div class="modal-title"><i class="ti ti-trash"></i> حذف کاربر</div>
+    <div class="modal-title"><i class="ti ti-trash"></i> <span id="modal-delete-title">حذف کاربر</span></div>
     <input type="hidden" id="delete-uuid">
-    <p style="font-size:10px;color:var(--t2);margin-bottom:10px">برای حذف، رمز کانفیگ را وارد کنید.</p>
-    <div class="fg"><label><i class="ti ti-lock"></i> رمز</label><input class="fi" id="delete-password" type="password" placeholder="رمز کانفیگ" dir="ltr"></div>
-    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-d" onclick="confirmDelete()" style="flex:2"><i class="ti ti-trash"></i> حذف</button><button class="btn btn-o" onclick="closeModal('modal-delete')" style="flex:1">انصراف</button></div>
+    <p style="font-size:10px;color:var(--t2);margin-bottom:10px" id="delete-desc">برای حذف، رمز کانفیگ را وارد کنید.</p>
+    <div class="fg"><label><i class="ti ti-lock"></i> <span id="d-label-password">رمز</span></label><input class="fi" id="delete-password" type="password" placeholder="رمز کانفیگ" dir="ltr"></div>
+    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-d" onclick="confirmDelete()" style="flex:2"><i class="ti ti-trash"></i> <span id="btn-delete">حذف</span></button><button class="btn btn-o" onclick="closeModal('modal-delete')" style="flex:1"><span id="btn-cancel3">انصراف</span></button></div>
   </div>
 </div>
+
+<!-- Modal QR Code -->
+<div class="modal-bg" id="modal-qr">
+  <div class="modal" style="max-width:400px;text-align:center">
+    <button class="modal-close" onclick="closeModal('modal-qr')"><i class="ti ti-x"></i></button>
+    <div class="modal-title"><i class="ti ti-qrcode"></i> <span id="qr-title">QR Code</span></div>
+    <div id="qrcode-container" style="display:flex;justify-content:center;padding:10px 0;"></div>
+    <p style="font-size:9px;color:var(--t3);margin-top:4px" id="qr-desc">اسکن کنید تا ساب‌لینک اضافه شود</p>
+    <button class="btn btn-p btn-sm" onclick="downloadQR()" style="margin-top:6px"><i class="ti ti-download"></i> <span id="qr-download">دانلود QR</span></button>
+  </div>
+</div>
+
 <div class="mob-top">
   <div class="ml"><div class="mob-logo">🏛️</div><span class="mob-title">تخت جمشید</span></div>
   <button class="menu-btn" id="open-sb"><i class="ti ti-menu-2"></i></button>
 </div>
 <div class="overlay" id="overlay"></div>
+
 <aside class="sidebar" id="sb">
   <div class="logo"><div class="logo-icon">🏛️</div><div><div class="logo-name">تخت جمشید</div><div class="logo-sub">مدیریت کاربران</div></div></div>
   <div class="nav-wrap">
-    <div class="nav-it on" data-pg="dashboard"><i class="ti ti-layout-dashboard"></i> خانه</div>
-    <div class="nav-it" data-pg="users"><i class="ti ti-users"></i> کاربران</div>
-    <div class="nav-it" data-pg="inbound"><i class="ti ti-plug"></i> اینباند</div>
-    <div class="nav-it" data-pg="connections"><i class="ti ti-plug-connected"></i> اتصالات</div>
-    <div class="nav-it" data-pg="settings"><i class="ti ti-settings"></i> تنظیمات</div>
-    <div class="nav-it" data-pg="logs"><i class="ti ti-notes"></i> لاگ‌ها</div>
-    <div class="nav-it" data-pg="backup"><i class="ti ti-database"></i> بکاپ</div>
+    <div class="nav-it on" data-pg="dashboard"><i class="ti ti-layout-dashboard"></i> <span id="nav-home">خانه</span></div>
+    <div class="nav-it" data-pg="users"><i class="ti ti-users"></i> <span id="nav-users">کاربران</span></div>
+    <div class="nav-it" data-pg="inbound"><i class="ti ti-plug"></i> <span id="nav-inbound">اینباند</span></div>
+    <div class="nav-it" data-pg="connections"><i class="ti ti-plug-connected"></i> <span id="nav-connections">اتصالات</span></div>
+    <div class="nav-it" data-pg="settings"><i class="ti ti-settings"></i> <span id="nav-settings">تنظیمات</span></div>
+    <div class="nav-it" data-pg="logs"><i class="ti ti-notes"></i> <span id="nav-logs">لاگ‌ها</span></div>
+    <div class="nav-it" data-pg="backup"><i class="ti ti-database"></i> <span id="nav-backup">بکاپ</span></div>
   </div>
-  <div class="sb-foot"><button class="logout-btn" onclick="logout()"><i class="ti ti-logout"></i> خروج</button></div>
+  <div class="sb-foot"><button class="logout-btn" onclick="logout()"><i class="ti ti-logout"></i> <span id="nav-logout">خروج</span></button></div>
 </aside>
+
 <div class="bottom-nav" id="bottomNav">
-  <button class="nav-item active" data-pg="dashboard" onclick="navTo('dashboard')"><i class="ti ti-layout-dashboard"></i><span>خانه</span></button>
-  <button class="nav-item" data-pg="users" onclick="navTo('users')"><i class="ti ti-users"></i><span>کاربران</span></button>
-  <button class="nav-item" data-pg="inbound" onclick="navTo('inbound')"><i class="ti ti-plug"></i><span>اینباند</span></button>
-  <button class="nav-item" data-pg="settings" onclick="navTo('settings')"><i class="ti ti-settings"></i><span>تنظیمات</span></button>
+  <button class="nav-item active" data-pg="dashboard" onclick="navTo('dashboard')"><i class="ti ti-layout-dashboard"></i><span id="b-home">خانه</span></button>
+  <button class="nav-item" data-pg="users" onclick="navTo('users')"><i class="ti ti-users"></i><span id="b-users">کاربران</span></button>
+  <button class="nav-item" data-pg="inbound" onclick="navTo('inbound')"><i class="ti ti-plug"></i><span id="b-inbound">اینباند</span></button>
+  <button class="nav-item" data-pg="settings" onclick="navTo('settings')"><i class="ti ti-settings"></i><span id="b-settings">تنظیمات</span></button>
 </div>
+
 <main class="main">
+<!-- صفحه خانه -->
 <section class="pg on" id="pg-dashboard">
   <div class="topbar">
-    <div><div class="tb-title"><i class="ti ti-layout-dashboard"></i> خانه</div><div class="tb-sub" id="last-update">بروزرسانی: لحظه‌ای</div></div>
-    <div class="tb-right"><span class="badge bg-fire" id="online-badge"><span class="dot dg"></span> ۰ آنلاین</span><button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> کاربر</button></div>
+    <div><div class="tb-title"><i class="ti ti-layout-dashboard"></i> <span id="dash-title">خانه</span></div><div class="tb-sub" id="last-update">بروزرسانی: لحظه‌ای</div></div>
+    <div class="tb-right">
+      <span class="badge bg-fire" id="online-badge"><span class="dot dg"></span> ۰ آنلاین</span>
+      <button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> <span id="dash-add-user">کاربر</span></button>
+    </div>
   </div>
+  
   <div class="stats-grid">
-    <div class="stat-card"><span class="icon">📊</span><div class="number" id="stat-traffic">۰</div><div class="label">ترافیک</div><div class="sub">MB</div></div>
-    <div class="stat-card"><span class="icon">📨</span><div class="number" id="stat-requests">۰</div><div class="label">درخواست‌ها</div><div class="sub">تعداد</div></div>
-    <div class="stat-card"><span class="icon">⏱️</span><div class="number" id="stat-uptime">۰۰:۰۰:۰۰</div><div class="label">آپتایم</div><div class="sub">زمان</div></div>
-    <div class="stat-card"><span class="icon">💾</span><div class="number small" id="stat-disk">۰ GB</div><div class="label">فضای دیسک</div><div class="sub" id="stat-disk-used">استفاده</div></div>
-    <div class="stat-card"><span class="icon">📶</span><div class="number small" id="stat-speed">۰ B/s</div><div class="label">سرعت</div><div class="sub">لحظه‌ای</div></div>
-    <div class="stat-card"><span class="icon">👥</span><div class="number" id="stat-users">۰</div><div class="label">کاربران</div><div class="sub" id="stat-users-active">۰ فعال</div></div>
+    <div class="stat-card"><span class="icon">📊</span><div class="number" id="stat-traffic">۰</div><div class="label" id="s-traffic">ترافیک</div><div class="sub">MB</div></div>
+    <div class="stat-card"><span class="icon">📨</span><div class="number" id="stat-requests">۰</div><div class="label" id="s-requests">درخواست‌ها</div><div class="sub" id="s-count">تعداد</div></div>
+    <div class="stat-card"><span class="icon">⏱️</span><div class="number" id="stat-uptime">۰۰:۰۰:۰۰</div><div class="label" id="s-uptime">آپتایم</div><div class="sub" id="s-time">زمان</div></div>
+    <div class="stat-card"><span class="icon">💾</span><div class="number small" id="stat-disk">۰ GB</div><div class="label" id="s-disk">فضای دیسک</div><div class="sub" id="stat-disk-used">استفاده</div></div>
+    <div class="stat-card"><span class="icon">📶</span><div class="number small" id="stat-speed">۰ B/s</div><div class="label" id="s-speed">سرعت</div><div class="sub" id="s-live">لحظه‌ای</div></div>
+    <div class="stat-card"><span class="icon">👥</span><div class="number" id="stat-users">۰</div><div class="label" id="s-users">کاربران</div><div class="sub" id="stat-users-active">۰ فعال</div></div>
   </div>
+
+  <!-- نمودار مصرف -->
+  <div class="chart-section">
+    <div class="chart-header">
+      <div>
+        <span class="chart-title"><i class="ti ti-chart-bar"></i> <span id="chart-title-text">مصرف روزانه</span></span>
+        <span class="chart-sub" id="chart-sub-text">آخرین ۷ روز</span>
+      </div>
+      <div class="chart-actions">
+        <button class="btn btn-sm btn-pur" onclick="loadChart('7d')" id="chart-7d">۷ روز</button>
+        <button class="btn btn-sm btn-o" onclick="loadChart('30d')" id="chart-30d">۳۰ روز</button>
+        <button class="btn btn-sm btn-o" onclick="loadChart('90d')" id="chart-90d">۹۰ روز</button>
+      </div>
+    </div>
+    <div style="position:relative;height:180px;width:100%">
+      <canvas id="trafficChart"></canvas>
+    </div>
+  </div>
+
   <div style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:10px 12px;margin-top:4px;transition:background .4s">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:11px;font-weight:700;color:var(--t1)">🆕 کاربران اخیر</span><button class="btn btn-sm btn-o" onclick="loadDashboard()"><i class="ti ti-refresh"></i></button></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <span style="font-size:11px;font-weight:700;color:var(--t1)">🆕 <span id="recent-users-title">کاربران اخیر</span></span>
+      <button class="btn btn-sm btn-o" onclick="loadDashboard()"><i class="ti ti-refresh"></i></button>
+    </div>
     <div id="recent-users" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px"></div>
   </div>
 </section>
+
+<!-- صفحه کاربران -->
 <section class="pg" id="pg-users">
-  <div class="topbar"><div><div class="tb-title"><i class="ti ti-users"></i> کاربران</div><div class="tb-sub">لیست کانفیگ‌ها، سهمیه و انقضا</div></div><div class="tb-right"><button class="btn btn-o btn-sm" onclick="loadUsers()"><i class="ti ti-refresh"></i></button></div></div>
+  <div class="topbar"><div><div class="tb-title"><i class="ti ti-users"></i> <span id="users-title">کاربران</span></div><div class="tb-sub" id="users-sub">لیست کانفیگ‌ها، سهمیه و انقضا</div></div><div class="tb-right"><button class="btn btn-o btn-sm" onclick="loadUsers()"><i class="ti ti-refresh"></i></button></div></div>
   <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px;">
-    <div class="stat-mini"><span class="stat-mini-icon">👥</span><span class="stat-mini-num" id="users-total">0</span><span class="stat-mini-label">کل کاربران</span></div>
-    <div class="stat-mini"><span class="stat-mini-icon">🟢</span><span class="stat-mini-num" id="users-active">0</span><span class="stat-mini-label">فعال</span></div>
-    <div class="stat-mini"><span class="stat-mini-icon">🔴</span><span class="stat-mini-num" id="users-expired">0</span><span class="stat-mini-label">منقضی</span></div>
-    <div class="stat-mini"><span class="stat-mini-icon">📊</span><span class="stat-mini-num" id="users-traffic">0</span><span class="stat-mini-label">مصرف کل</span></div>
+    <div class="stat-mini"><span class="stat-mini-icon">👥</span><span class="stat-mini-num" id="users-total">0</span><span class="stat-mini-label" id="u-total">کل کاربران</span></div>
+    <div class="stat-mini"><span class="stat-mini-icon">🟢</span><span class="stat-mini-num" id="users-active">0</span><span class="stat-mini-label" id="u-active">فعال</span></div>
+    <div class="stat-mini"><span class="stat-mini-icon">🔴</span><span class="stat-mini-num" id="users-expired">0</span><span class="stat-mini-label" id="u-expired">منقضی</span></div>
+    <div class="stat-mini"><span class="stat-mini-icon">📊</span><span class="stat-mini-num" id="users-traffic">0</span><span class="stat-mini-label" id="u-traffic">مصرف کل</span></div>
   </div>
   <div style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);overflow:hidden;backdrop-filter:blur(20px);transition:background .4s">
-    <div style="overflow-x:auto;"><table class="users-table" id="users-table"><thead><tr><th>نام</th><th>اکانت</th><th>وضعیت</th><th>مصرف دیتا</th><th>مدت</th><th style="text-align:center;">عملیات</th></tr></thead><tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);">هیچ کاربری وجود ندارد</td></tr></tbody></table></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--card-b);flex-wrap:wrap;gap:8px;"><div style="font-size:9px;color:var(--t3);"><span id="users-count-label">۰ کاربر</span></div><div style="display:flex;gap:6px;"><button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> افزودن کاربر جدید</button></div></div>
+    <div style="overflow-x:auto;"><table class="users-table" id="users-table"><thead><tr><th id="th-name">نام</th><th id="th-account">اکانت</th><th id="th-status">وضعیت</th><th id="th-usage">مصرف دیتا</th><th id="th-duration">مدت</th><th style="text-align:center;" id="th-actions">عملیات</th></tr></thead><tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);" id="no-users">هیچ کاربری وجود ندارد</td></tr></tbody></table></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--card-b);flex-wrap:wrap;gap:8px;"><div style="font-size:9px;color:var(--t3);"><span id="users-count-label">۰ کاربر</span></div><div style="display:flex;gap:6px;"><button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> <span id="add-user-btn">افزودن کاربر جدید</span></button></div></div>
   </div>
 </section>
+
+<!-- صفحه اینباند -->
 <section class="pg" id="pg-inbound">
-  <div class="topbar"><div><div class="tb-title"><i class="ti ti-plug"></i> اینباند</div><div class="tb-sub">تنظیمات ورودی</div></div></div>
+  <div class="topbar"><div><div class="tb-title"><i class="ti ti-plug"></i> <span id="inbound-title">اینباند</span></div><div class="tb-sub" id="inbound-sub">تنظیمات ورودی</div></div></div>
   <div style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;transition:background .4s">
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
-      <div style="text-align:center"><div style="font-size:14px;font-weight:700;color:var(--t1)" id="inbound-port">۴۴۳</div><div style="font-size:8px;color:var(--t3)">پورت</div></div>
-      <div style="text-align:center"><div style="font-size:14px;font-weight:700;color:var(--t1)" id="inbound-protocol">VLESS</div><div style="font-size:8px;color:var(--t3)">پروتکل</div></div>
-      <div style="text-align:center"><div style="font-size:12px;font-weight:700;color:var(--t1)" id="inbound-host">—</div><div style="font-size:8px;color:var(--t3)">هاست</div></div>
-      <div style="text-align:center"><div style="font-size:14px;font-weight:700;color:#34D399">✅ فعال</div><div style="font-size:8px;color:var(--t3)">وضعیت</div></div>
+      <div style="text-align:center"><div style="font-size:14px;font-weight:700;color:var(--t1)" id="inbound-port">۴۴۳</div><div style="font-size:8px;color:var(--t3)" id="inb-port-label">پورت</div></div>
+      <div style="text-align:center"><div style="font-size:14px;font-weight:700;color:var(--t1)" id="inbound-protocol">VLESS</div><div style="font-size:8px;color:var(--t3)" id="inb-protocol-label">پروتکل</div></div>
+      <div style="text-align:center"><div style="font-size:12px;font-weight:700;color:var(--t1)" id="inbound-host">—</div><div style="font-size:8px;color:var(--t3)" id="inb-host-label">هاست</div></div>
+      <div style="text-align:center"><div style="font-size:14px;font-weight:700;color:#34D399">✅ <span id="inb-status-label">فعال</span></div><div style="font-size:8px;color:var(--t3)" id="inb-status-title">وضعیت</div></div>
     </div>
-    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-user-plus"></i> کاربر</button><button class="btn btn-o btn-sm" onclick="openModal('modal-inbound')"><i class="ti ti-settings"></i> تنظیمات</button></div>
   </div>
 </section>
+
+<!-- صفحه اتصالات -->
 <section class="pg" id="pg-connections">
-  <div class="topbar"><div><div class="tb-title">🔌 اتصالات</div><div class="tb-sub" id="conn-count">۰ اتصال</div></div><div class="tb-right"><span class="badge bg-green"><span class="dot dg pulse"></span> فعال</span><button class="btn btn-sm btn-o" onclick="loadConnections()"><i class="ti ti-refresh"></i></button></div></div>
-  <div id="conns-grid" class="conn-grid"><div class="empty"><i class="ti ti-plug-off"></i><p>هیچ اتصالی وجود ندارد</p></div></div>
+  <div class="topbar"><div><div class="tb-title">🔌 <span id="conn-title">اتصالات</span></div><div class="tb-sub" id="conn-count">۰ اتصال</div></div><div class="tb-right"><span class="badge bg-green"><span class="dot dg pulse"></span> <span id="conn-active-label">فعال</span></span><button class="btn btn-sm btn-o" onclick="loadConnections()"><i class="ti ti-refresh"></i></button></div></div>
+  <div id="conns-grid" class="conn-grid"><div class="empty"><i class="ti ti-plug-off"></i><p id="no-conn">هیچ اتصالی وجود ندارد</p></div></div>
 </section>
+
+<!-- صفحه تنظیمات -->
 <section class="pg" id="pg-settings">
-  <div class="topbar"><div><div class="tb-title"><i class="ti ti-settings"></i> تنظیمات</div><div class="tb-sub">مدیریت پنل</div></div></div>
-  <div class="settings-card"><div class="title"><i class="ti ti-color-swatch"></i> تم پنل</div><div style="display:flex;gap:8px;margin-top:4px;"><button class="btn" onclick="setTheme('dark')" id="theme-dark-btn" style="flex:1;font-size:11px;padding:6px 12px;background:var(--card);border:1px solid var(--card-b);color:var(--t1);transition:all .3s">🌙 تاریک</button><button class="btn" onclick="setTheme('light')" id="theme-light-btn" style="flex:1;font-size:11px;padding:6px 12px;background:var(--card);border:1px solid var(--card-b);color:var(--t1);transition:all .3s">☀️ روشن</button></div><div style="font-size:9px;color:var(--t3);margin-top:6px;">💡 تم فعلی: <span id="current-theme-label">تاریک</span></div></div>
-  <div class="settings-card"><div class="title"><i class="ti ti-language"></i> زبان پنل</div><div style="display:flex;gap:6px;margin-top:4px"><button class="btn btn-pur" onclick="setLang('fa')" style="flex:1;font-size:11px;padding:6px 12px" id="lang-fa-btn">🇮🇷 فارسی</button><button class="btn btn-o" onclick="setLang('en')" style="flex:1;font-size:11px;padding:6px 12px" id="lang-en-btn">🇬🇧 English</button></div><div style="font-size:9px;color:var(--t3);margin-top:6px">💡 زبان فعلی: <span id="current-lang-label">فارسی</span></div></div>
-  <div class="settings-card"><div class="title"><i class="ti ti-key"></i> تغییر رمز</div><div class="field"><label>رمز فعلی</label><input class="fi" id="old-password" type="password" placeholder="رمز فعلی" dir="ltr"></div><div class="field"><label>رمز جدید</label><input class="fi" id="new-password" type="password" placeholder="حداقل ۴ کاراکتر" dir="ltr"></div><div class="field"><label>تکرار</label><input class="fi" id="confirm-password" type="password" placeholder="تکرار" dir="ltr"></div><button class="btn btn-p" onclick="changePassword()"><i class="ti ti-key"></i> تغییر</button><div id="password-result" style="margin-top:8px;display:none;font-size:11px;"></div></div>
-  <div class="settings-card"><div class="title"><i class="ti ti-plug"></i> پورت اینباند</div><div class="field"><label>پورت</label><input class="fi" id="inbound-port-setting" type="number" min="1" max="65535" value="443"></div><button class="btn btn-p" onclick="updateInbound()"><i class="ti ti-check"></i> ذخیره</button></div>
-  <div class="settings-card"><div class="title"><i class="ti ti-color-swatch"></i> تم RGB</div><div class="toggle-row"><div class="toggle-label"><i class="ti ti-color-palette" style="background:linear-gradient(135deg,#ff0000,#00ff00,#0000ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent"></i> RGB</div><div class="switch" id="rgb-switch" onclick="toggleRGB()"><div class="slider"></div></div></div></div>
+  <div class="topbar"><div><div class="tb-title"><i class="ti ti-settings"></i> <span id="settings-title">تنظیمات</span></div><div class="tb-sub" id="settings-sub">مدیریت پنل</div></div></div>
+  <div class="settings-card"><div class="title"><i class="ti ti-color-swatch"></i> <span id="set-theme-title">تم پنل</span></div><div style="display:flex;gap:8px;margin-top:4px;"><button class="btn" onclick="setTheme('dark')" id="theme-dark-btn" style="flex:1;font-size:11px;padding:6px 12px;background:var(--card);border:1px solid var(--card-b);color:var(--t1);transition:all .3s">🌙 <span id="set-dark">تاریک</span></button><button class="btn" onclick="setTheme('light')" id="theme-light-btn" style="flex:1;font-size:11px;padding:6px 12px;background:var(--card);border:1px solid var(--card-b);color:var(--t1);transition:all .3s">☀️ <span id="set-light">روشن</span></button></div><div style="font-size:9px;color:var(--t3);margin-top:6px;">💡 <span id="set-current-theme">تم فعلی</span>: <span id="current-theme-label">تاریک</span></div></div>
+  <div class="settings-card"><div class="title"><i class="ti ti-language"></i> <span id="set-lang-title">زبان پنل</span></div><div style="display:flex;gap:6px;margin-top:4px"><button class="btn btn-pur" onclick="setLang('fa')" style="flex:1;font-size:11px;padding:6px 12px" id="lang-fa-btn">🇮🇷 فارسی</button><button class="btn btn-o" onclick="setLang('en')" style="flex:1;font-size:11px;padding:6px 12px" id="lang-en-btn">🇬🇧 English</button></div><div style="font-size:9px;color:var(--t3);margin-top:6px">💡 <span id="set-current-lang">زبان فعلی</span>: <span id="current-lang-label">فارسی</span></div></div>
+  <div class="settings-card"><div class="title"><i class="ti ti-key"></i> <span id="set-pass-title">تغییر رمز</span></div><div class="field"><label id="set-old-pass">رمز فعلی</label><input class="fi" id="old-password" type="password" placeholder="رمز فعلی" dir="ltr"></div><div class="field"><label id="set-new-pass">رمز جدید</label><input class="fi" id="new-password" type="password" placeholder="حداقل ۴ کاراکتر" dir="ltr"></div><div class="field"><label id="set-confirm-pass">تکرار</label><input class="fi" id="confirm-password" type="password" placeholder="تکرار" dir="ltr"></div><button class="btn btn-p" onclick="changePassword()"><i class="ti ti-key"></i> <span id="set-change-btn">تغییر</span></button><div id="password-result" style="margin-top:8px;display:none;font-size:11px;"></div></div>
+  <div class="settings-card"><div class="title"><i class="ti ti-color-swatch"></i> <span id="set-rgb-title">تم RGB</span></div><div class="toggle-row"><div class="toggle-label"><i class="ti ti-color-palette" style="background:linear-gradient(135deg,#ff0000,#00ff00,#0000ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent"></i> RGB</div><div class="switch" id="rgb-switch" onclick="toggleRGB()"><div class="slider"></div></div></div></div>
 </section>
+
+<!-- صفحه لاگ‌ها -->
 <section class="pg" id="pg-logs">
-  <div class="topbar"><div><div class="tb-title"><i class="ti ti-notes"></i> لاگ‌ها</div><div class="tb-sub" id="logs-count">۰ لاگ</div></div><div class="tb-right"><button class="btn btn-sm btn-o" onclick="loadLogs()"><i class="ti ti-refresh"></i></button></div></div>
+  <div class="topbar"><div><div class="tb-title"><i class="ti ti-notes"></i> <span id="logs-title">لاگ‌ها</span></div><div class="tb-sub" id="logs-count">۰ لاگ</div></div><div class="tb-right"><button class="btn btn-sm btn-o" onclick="loadLogs()"><i class="ti ti-refresh"></i></button></div></div>
   <div style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:8px 10px;max-height:400px;overflow-y:auto;transition:background .4s"><div id="logs-container" style="font-family:monospace;font-size:9px;color:var(--t2);direction:ltr;text-align:left;line-height:1.5"></div></div>
 </section>
+
+<!-- صفحه بکاپ -->
 <section class="pg" id="pg-backup">
-  <div class="topbar"><div><div class="tb-title"><i class="ti ti-database"></i> بکاپ</div><div class="tb-sub">ذخیره و بازیابی</div></div></div>
-  <div class="settings-card"><div class="title"><i class="ti ti-download"></i> بکاپ‌گیری</div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="createBackup()" style="flex:2"><i class="ti ti-download"></i> دانلود</button><button class="btn btn-o btn-sm" onclick="document.getElementById('restore-input').click()" style="flex:1"><i class="ti ti-upload"></i> بازیابی</button><input type="file" id="restore-input" accept=".json" style="display:none" onchange="restoreBackup(event)"></div></div>
+  <div class="topbar"><div><div class="tb-title"><i class="ti ti-database"></i> <span id="backup-title">بکاپ</span></div><div class="tb-sub" id="backup-sub">ذخیره و بازیابی</div></div></div>
+  <div class="settings-card"><div class="title"><i class="ti ti-download"></i> <span id="backup-download-title">بکاپ‌گیری</span></div><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn btn-p btn-sm" onclick="createBackup()" style="flex:2"><i class="ti ti-download"></i> <span id="backup-download-btn">دانلود</span></button><button class="btn btn-o btn-sm" onclick="document.getElementById('restore-input').click()" style="flex:1"><i class="ti ti-upload"></i> <span id="backup-restore-btn">بازیابی</span></button><input type="file" id="restore-input" accept=".json" style="display:none" onchange="restoreBackup(event)"></div></div>
 </section>
 </main>
+
 <script>
-let currentTheme=localStorage.getItem('persepolis-theme')||'dark';
-function setTheme(theme){currentTheme=theme;localStorage.setItem('persepolis-theme',theme);if(theme==='light'){document.body.classList.add('light-theme');document.getElementById('current-theme-label').textContent='روشن';document.getElementById('theme-dark-btn').className='btn btn-o';document.getElementById('theme-light-btn').className='btn btn-pur'}else{document.body.classList.remove('light-theme');document.getElementById('current-theme-label').textContent='تاریک';document.getElementById('theme-dark-btn').className='btn btn-pur';document.getElementById('theme-light-btn').className='btn btn-o'}fetch('/api/settings/theme',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({theme:theme})}).catch(()=>{})}
-async function loadThemeFromServer(){try{const r=await fetch('/api/settings');const data=await r.json();if(data.theme){currentTheme=data.theme;localStorage.setItem('persepolis-theme',data.theme);setTheme(data.theme)}else{setTheme(currentTheme)}}catch(e){setTheme(currentTheme)}}
-function toast(msg,type=''){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(type?' '+type:'');setTimeout(()=>t.classList.remove('show'),2500)}
-function fmtB(b){if(!b||b===0)return'0 B';if(b<1024)return b+' B';if(b<1024**2)return(b/1024).toFixed(1)+' KB';if(b<1024**3)return(b/1024**2).toFixed(1)+' MB';if(b<1024**4)return(b/1024**3).toFixed(2)+' GB';return(b/1024**4).toFixed(2)+' TB'}
-function esc(s){return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function openModal(id){document.getElementById(id).classList.add('open')}
-function closeModal(id){document.getElementById(id).classList.remove('open')}
-let currentLang=localStorage.getItem('persepolis-lang')||'fa';
-function setLang(lang){currentLang=lang;localStorage.setItem('persepolis-lang',lang);document.getElementById('lang-fa-btn').className='btn '+(lang==='fa'?'btn-pur':'btn-o');document.getElementById('lang-en-btn').className='btn '+(lang==='en'?'btn-pur':'btn-o');document.getElementById('current-lang-label').textContent=lang==='fa'?'فارسی':'English';fetch('/api/settings/language',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({language:lang})}).catch(()=>{});if(lang==='en'){document.querySelector('.tb-title:first-child').innerHTML='<i class="ti ti-layout-dashboard"></i> Home';document.querySelector('#pg-users .tb-title').innerHTML='<i class="ti ti-users"></i> Users';document.querySelector('#pg-inbound .tb-title').innerHTML='<i class="ti ti-plug"></i> Inbound';document.querySelector('#pg-connections .tb-title').innerHTML='🔌 Connections';document.querySelector('#pg-settings .tb-title').innerHTML='<i class="ti ti-settings"></i> Settings';document.querySelector('#pg-logs .tb-title').innerHTML='<i class="ti ti-notes"></i> Logs';document.querySelector('#pg-backup .tb-title').innerHTML='<i class="ti ti-database"></i> Backup';document.querySelector('#pg-settings .settings-card:first-child .title').innerHTML='<i class="ti ti-language"></i> Panel Language';document.querySelector('#pg-users .tb-sub').textContent='Per-user links, quotas, and expiry'}else{document.querySelector('.tb-title:first-child').innerHTML='<i class="ti ti-layout-dashboard"></i> خانه';document.querySelector('#pg-users .tb-title').innerHTML='<i class="ti ti-users"></i> کاربران';document.querySelector('#pg-inbound .tb-title').innerHTML='<i class="ti ti-plug"></i> اینباند';document.querySelector('#pg-connections .tb-title').innerHTML='🔌 اتصالات';document.querySelector('#pg-settings .tb-title').innerHTML='<i class="ti ti-settings"></i> تنظیمات';document.querySelector('#pg-logs .tb-title').innerHTML='<i class="ti ti-notes"></i> لاگ‌ها';document.querySelector('#pg-backup .tb-title').innerHTML='<i class="ti ti-database"></i> بکاپ';document.querySelector('#pg-settings .settings-card:first-child .title').innerHTML='<i class="ti ti-language"></i> زبان پنل';document.querySelector('#pg-users .tb-sub').textContent='لیست کانفیگ‌ها، سهمیه و انقضا'}}
-async function authF(url,opts={}){const r=await fetch(url,opts);if(r.status===401){location.href='/login';throw new Error('unauthorized')}return r}
-async function logout(){try{await fetch('/api/logout',{method:'POST'})}catch(e){}location.href='/login'}
-function navTo(name){document.querySelectorAll('.nav-it').forEach(n=>n.classList.toggle('on',n.dataset.pg===name));document.querySelectorAll('.pg').forEach(p=>p.classList.toggle('on',p.id==='pg-'+name));document.querySelectorAll('.bottom-nav .nav-item').forEach(n=>n.classList.toggle('active',n.dataset.pg===name));closeSb();const loaders={dashboard:loadDashboard,users:loadUsers,inbound:loadInbound,connections:loadConnections,logs:loadLogs,settings:()=>{}};if(loaders[name])loaders[name]()}
-document.querySelectorAll('.nav-it, .bottom-nav .nav-item').forEach(el=>{el.addEventListener('click',()=>navTo(el.dataset.pg))});
-const sb=document.getElementById('sb'),overlay=document.getElementById('overlay');
-function openSb(){sb.classList.add('open');overlay.classList.add('show')}
-function closeSb(){sb.classList.remove('open');overlay.classList.remove('show')}
-document.getElementById('open-sb').addEventListener('click',openSb);
-overlay.addEventListener('click',closeSb);
-async function loadDashboard(){try{const r=await authF('/api/dashboard/stats');const data=await r.json();document.getElementById('stat-traffic').textContent=(data.traffic.total/(1024*1024)).toFixed(1);document.getElementById('stat-requests').textContent=data.requests||0;document.getElementById('stat-uptime').textContent=data.uptime||'00:00:00';document.getElementById('stat-disk').textContent=data.disk.total_fmt||'0 GB';document.getElementById('stat-disk-used').textContent='استفاده: '+(data.disk.used_fmt||'0');document.getElementById('stat-speed').textContent=data.speed.download_fmt||'0 B/s';document.getElementById('stat-users').textContent=data.links_count||0;document.getElementById('stat-users-active').textContent=(data.active_links||0)+' فعال';document.getElementById('online-badge').innerHTML='<span class="dot dg"></span> '+(data.connections||0)+' آنلاین';document.getElementById('last-update').textContent='بروزرسانی: '+new Date().toLocaleTimeString('fa-IR');const usersR=await authF('/api/links');const usersData=await usersR.json();const links=usersData.links||[];const recent=links.slice(0,4);const grid=document.getElementById('recent-users');if(!recent.length){grid.innerHTML='<div class="empty" style="padding:10px"><i class="ti ti-users"></i><p style="font-size:9px">هیچ کاربری وجود ندارد</p></div>'}else{grid.innerHTML=recent.map(l=>`<div style="background:rgba(212,175,55,0.02);border-radius:4px;padding:4px 6px;display:flex;justify-content:space-between;align-items:center;transition:transform .3s"><div><div style="font-size:9px;font-weight:600;color:var(--t1)">${esc(l.label)}</div><div style="font-size:7px;color:var(--t3)">${l.active?'🟢':'🔴'}</div></div><div style="font-size:8px;color:var(--t2)">${fmtB(l.used_bytes||0)}</div></div>`).join('')}}catch(e){console.error(e)}}
-async function loadInbound(){try{const r=await authF('/api/inbound');const data=await r.json();document.getElementById('inbound-port').textContent=data.port||443;document.getElementById('inbound-protocol').textContent=(data.protocol||'vless').toUpperCase();document.getElementById('inbound-host').textContent=data.host||'—';document.getElementById('inbound-port-setting').value=data.port||443}catch(e){console.error(e)}}
-async function updateInbound(){const port=parseInt(document.getElementById('inbound-port-setting').value)||443;try{const r=await authF('/api/inbound',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({port:port})});if(!r.ok){toast('❌ خطا','err');return}toast('✅ ذخیره شد','ok');loadInbound()}catch(e){toast('❌ خطا','err')}}
-async function loadUsers(){try{const r=await authF('/api/links');const{links=[]}=await r.json();const tbody=document.getElementById('users-tbody');const total=links.length;const active=links.filter(l=>l.active&&!l.expired).length;const expired=links.filter(l=>l.expired).length;const totalTraffic=links.reduce((sum,l)=>sum+(l.used_bytes||0),0);document.getElementById('users-total').textContent=total;document.getElementById('users-active').textContent=active;document.getElementById('users-expired').textContent=expired;document.getElementById('users-traffic').textContent=fmtB(totalTraffic);document.getElementById('users-count-label').textContent=total+' کاربر';if(!links.length){tbody.innerHTML='<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);">هیچ کاربری وجود ندارد</td></tr>';return}const fpEmoji={chrome:'🌐',firefox:'🦊',safari:'🧭',edge:'🌊',ios:'📱',android:'🤖',safari_ios:'🍏',random:'🎲',none:'🚫'};tbody.innerHTML=links.map(l=>{const isActive=l.active&&!l.expired;const statusClass=isActive?'active':(l.expired?'expired':'disabled');const statusText=isActive?'فعال':(l.expired?'منقضی':'غیرفعال');const pct=l.limit_bytes===0?0:Math.min(100,(l.used_bytes/l.limit_bytes)*100);const usedFmt=fmtB(l.used_bytes||0);const limitFmt=l.limit_bytes===0?'∞':fmtB(l.limit_bytes);const fp=l.fingerprint||'chrome';const fpName={chrome:'Chrome',firefox:'Firefox',safari:'Safari',edge:'Edge',ios:'iOS',android:'Android',safari_ios:'Safari iOS',random:'Random',none:'None'}[fp]||fp;let duration='∞';if(l.expires_at){try{const exp=new Date(l.expires_at);const now=new Date();const days=Math.ceil((exp-now)/(1000*60*60*24));duration=days>0?days+' روز':'منقضی'}catch(e){duration='—'}}const avatarLetter=(l.label||'U')[0].toUpperCase();return`<tr><td><div class="user-name-cell"><div class="avatar">${avatarLetter}</div><div><div class="name">${esc(l.label)}</div><div class="uuid-short">${l.uuid.slice(0,8)}…</div></div></div></td><td style="font-size:9px;color:var(--t2);">${fpEmoji[fp]||'🌐'} ${fpName}</td><td><span class="status-badge ${statusClass}"><span class="status-dot"></span>${statusText}</span></td><td><div class="usage-bar"><span class="usage-text">${usedFmt} / ${limitFmt}</span><div class="bar"><div class="fill" style="width:${pct}%"></div></div></div></td><td style="font-size:10px;color:var(--t2);">${duration}</td><td><div class="action-btns"><button class="btn btn-pur btn-sm" onclick="navigator.clipboard.writeText('${esc(l.sub_url)}').then(()=>toast('✅ کپی ساب','ok'))" title="کپی ساب‌لینک"><i class="ti ti-link"></i></button><button class="btn btn-amber btn-sm" onclick="resetUsage('${l.uuid}')" title="ریست مصرف"><i class="ti ti-rotate"></i></button><button class="btn btn-pur btn-sm" onclick="openEditModal('${l.uuid}')" title="ویرایش"><i class="ti ti-edit"></i></button><button class="btn btn-d btn-sm" onclick="openDeleteModal('${l.uuid}')" title="حذف"><i class="ti ti-trash"></i></button></div></td></tr>`}).join('')}catch(e){console.error(e)}}
-async function saveUser(){const label=document.getElementById('user-label').value.trim()||'کاربر';const quota=parseFloat(document.getElementById('user-quota').value)||0;const exp=parseInt(document.getElementById('user-exp').value)||30;const devices=parseInt(document.getElementById('user-devices').value)||0;const password=document.getElementById('user-password').value.trim();const fingerprint=document.getElementById('user-fingerprint').value||'chrome';const portChecks=document.querySelectorAll('.port-check:checked');const ports=Array.from(portChecks).map(cb=>parseInt(cb.value));if(ports.length===0){toast('❌ حداقل یک پورت انتخاب کنید','err');return}try{const r=await authF('/api/links',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,limit_value:quota,limit_unit:'GB',expires_days:exp,max_devices:devices,password,fingerprint,protocol:'vless-ws',ports})});if(!r.ok)throw new Error();document.getElementById('user-label').value='کاربر';document.getElementById('user-quota').value='2';document.getElementById('user-exp').value='30';document.getElementById('user-devices').value='1';document.getElementById('user-password').value='';document.getElementById('user-fingerprint').value='chrome';document.querySelectorAll('.port-check').forEach(cb=>cb.checked=cb.value==='443');closeModal('modal-user');toast('✅ کاربر با '+ports.length+' پورت ساخته شد','ok');loadUsers();loadDashboard()}catch(e){toast('❌ خطا','err')}}
-async function openEditModal(uuid){try{const r=await authF('/api/links');const{links=[]}=await r.json();const link=links.find(l=>l.uuid===uuid);if(!link){toast('کاربر یافت نشد','err');return}document.getElementById('edit-uuid').value=uuid;document.getElementById('edit-label').value=link.label||'';document.getElementById('edit-password').value='';document.getElementById('edit-quota').value=link.limit_bytes===0?'':(link.limit_bytes/(1024**3)).toFixed(1);document.getElementById('edit-exp').value=link.expires_at?Math.ceil((new Date(link.expires_at)-new Date())/(1000*60*60*24)):'';document.getElementById('edit-devices').value=link.max_devices||0;document.getElementById('edit-status').value=link.active?'true':'false';document.getElementById('edit-fingerprint').value=link.fingerprint||'chrome';document.getElementById('edit-password-section').style.display=link.has_password?'block':'none';openModal('modal-edit')}catch(e){toast('خطا','err')}}
-async function saveEdit(){const uuid=document.getElementById('edit-uuid').value;const password=document.getElementById('edit-password').value.trim();const label=document.getElementById('edit-label').value.trim()||'کاربر';const quota=parseFloat(document.getElementById('edit-quota').value)||0;const exp=parseInt(document.getElementById('edit-exp').value)||0;const devices=parseInt(document.getElementById('edit-devices').value)||0;const active=document.getElementById('edit-status').value==='true';const fingerprint=document.getElementById('edit-fingerprint').value||'chrome';try{const r=await authF('/api/links/'+uuid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({label,limit_value:quota,limit_unit:'GB',expires_days:exp,max_devices:devices,active,password,fingerprint})});if(!r.ok){if(r.status===403){toast('❌ رمز اشتباه','err');return}throw new Error()}closeModal('modal-edit');toast('✅ ویرایش شد','ok');loadUsers()}catch(e){toast('❌ خطا','err')}}
-function openDeleteModal(uuid){document.getElementById('delete-uuid').value=uuid;document.getElementById('delete-password').value='';openModal('modal-delete')}
-async function confirmDelete(){const uuid=document.getElementById('delete-uuid').value;const password=document.getElementById('delete-password').value.trim();try{const r=await authF('/api/links/'+uuid,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({password})});if(!r.ok){if(r.status===403){toast('❌ رمز اشتباه','err');return}throw new Error()}closeModal('modal-delete');toast('✅ حذف شد','ok');loadUsers();loadDashboard()}catch(e){toast('❌ خطا','err')}}
-async function resetUsage(uuid){if(!confirm('ریست مصرف؟'))return;try{const r=await authF('/api/links/'+uuid,{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({reset_usage:true})});if(!r.ok)throw new Error();toast('✅ ریست شد','ok');loadUsers()}catch(e){toast('❌ خطا','err')}}
-async function loadConnections(){try{const r=await authF('/api/connections');const d=await r.json();const grid=document.getElementById('conns-grid');const count=d.count||0;document.getElementById('conn-count').textContent=count+' اتصال';if(!count){grid.innerHTML='<div class="empty"><i class="ti ti-plug-off"></i><p>هیچ اتصالی وجود ندارد</p></div>';return}grid.innerHTML=d.connections.map(c=>{const secs=c.connected_at?Math.max(0,Math.floor((Date.now()-new Date(c.connected_at).getTime())/1000)):0;const dur=secs<60?secs+'ث':secs<3600?Math.floor(secs/60)+'د':Math.floor(secs/3600)+'س';return`<div class="conn-card"><div class="ip"><span class="conn-status-dot"></span> ${esc(c.ip)}</div><div class="label">${esc(c.label||'نامشخص')}</div><div class="conn-info"><span>📥 ${esc(c.bytes_fmt||'0 B')}</span><span>⏱ ${dur}</span></div></div>`}).join('')}catch(e){console.error(e)}}
-async function loadLogs(){try{const r=await authF('/api/activity');const data=await r.json();const logs=data.logs||[];document.getElementById('logs-count').textContent=logs.length+' لاگ';const container=document.getElementById('logs-container');if(!logs.length){container.innerHTML='<div class="empty"><i class="ti ti-notes"></i><p>هیچ لاگی وجود ندارد</p></div>';return}container.innerHTML=logs.map(log=>{const time=log.time?new Date(log.time).toLocaleString('fa-IR'):'—';const color=log.level==='err'?'#F87171':log.level==='warn'?'#FCD34D':'#F5D060';return`<div style="padding:3px 0;border-bottom:1px solid rgba(212,175,55,0.02);display:flex;gap:6px"><span style="color:${color};font-weight:700">[${(log.level||'info').toUpperCase()}]</span><span style="color:var(--t3)">${time}</span><span>${esc(log.message)}</span></div>`}).join('')}catch(e){console.error(e)}}
-let rgbMode=false;
-async function loadRGBStatus(){try{const r=await authF('/api/settings');const data=await r.json();rgbMode=data.rgb_mode||false;updateRGBUI()}catch(e){}}
-function updateRGBUI(){const sw=document.getElementById('rgb-switch');if(rgbMode){document.body.classList.add('rgb-mode');sw.classList.add('on')}else{document.body.classList.remove('rgb-mode');sw.classList.remove('on')}}
-async function toggleRGB(){const newState=!rgbMode;try{const r=await authF('/api/settings/rgb',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({enabled:newState})});const data=await r.json();rgbMode=data.rgb_mode;updateRGBUI();toast(rgbMode?'🌈 RGB فعال شد':'🌙 RGB غیرفعال شد','ok')}catch(e){toast('❌ خطا','err')}}
-async function changePassword(){const oldPw=document.getElementById('old-password').value;const newPw=document.getElementById('new-password').value;const confirmPw=document.getElementById('confirm-password').value;const result=document.getElementById('password-result');if(!oldPw||!newPw||!confirmPw){result.style.display='block';result.style.color='#F87171';result.innerHTML='❌ همه فیلدها را پر کنید';return}if(newPw.length<4){result.style.display='block';result.style.color='#F87171';result.innerHTML='❌ حداقل ۴ کاراکتر';return}if(newPw!==confirmPw){result.style.display='block';result.style.color='#F87171';result.innerHTML='❌ رمزها مطابقت ندارند';return}try{const r=await authF('/api/change-password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({old_password:oldPw,new_password:newPw})});const data=await r.json();if(!r.ok){result.style.display='block';result.style.color='#F87171';result.innerHTML='❌ '+(data.detail||data.message||'خطا');return}result.style.display='block';result.style.color='#34D399';result.innerHTML='✅ رمز تغییر کرد!';document.getElementById('old-password').value='';document.getElementById('new-password').value='';document.getElementById('confirm-password').value='';toast('✅ رمز تغییر کرد','ok')}catch(e){result.style.display='block';result.style.color='#F87171';result.innerHTML='❌ خطا'}}
-async function createBackup(){try{const r=await authF('/api/backup');const data=await r.json();const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`persepolis_backup_${new Date().toISOString().slice(0,10)}.json`;a.click();URL.revokeObjectURL(url);toast('✅ بکاپ دانلود شد','ok')}catch(e){toast('❌ خطا','err')}}
-async function restoreBackup(event){const file=event.target.files[0];if(!file)return;try{const text=await file.text();const data=JSON.parse(text);const r=await authF('/api/backup/restore',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});if(!r.ok){toast('❌ خطا','err');return}toast('✅ بکاپ بازیابی شد','ok');setTimeout(()=>location.reload(),1000)}catch(e){toast('❌ خطا: '+e.message,'err')}event.target.value=''}
-document.addEventListener('DOMContentLoaded',async()=>{try{const r=await fetch('/api/me');const d=await r.json();if(!d.authenticated)location.href='/login'}catch(e){location.href='/login'}await loadThemeFromServer();setLang(currentLang);await loadRGBStatus();loadDashboard();loadInbound();loadUsers();loadConnections();loadLogs();setInterval(()=>{if(document.getElementById('pg-dashboard').classList.contains('on'))loadDashboard();if(document.getElementById('pg-connections').classList.contains('on'))loadConnections();if(document.getElementById('pg-users').classList.contains('on'))loadUsers()},5000)});
+// ===== ترجمه‌ها =====
+const translations = {
+  fa: {
+    // ناوبری
+    nav_home: 'خانه', nav_users: 'کاربران', nav_inbound: 'اینباند',
+    nav_connections: 'اتصالات', nav_settings: 'تنظیمات', nav_logs: 'لاگ‌ها',
+    nav_backup: 'بکاپ', nav_logout: 'خروج',
+    // خانه
+    dash_title: 'خانه', dash_add_user: 'کاربر',
+    s_traffic: 'ترافیک', s_requests: 'درخواست‌ها', s_uptime: 'آپتایم',
+    s_disk: 'فضای دیسک', s_speed: 'سرعت', s_users: 'کاربران',
+    s_count: 'تعداد', s_time: 'زمان', s_live: 'لحظه‌ای',
+    chart_title: 'مصرف روزانه', chart_sub: 'آخرین ۷ روز',
+    recent_users: 'کاربران اخیر',
+    // کاربران
+    users_title: 'کاربران', users_sub: 'لیست کانفیگ‌ها، سهمیه و انقضا',
+    u_total: 'کل کاربران', u_active: 'فعال', u_expired: 'منقضی', u_traffic: 'مصرف کل',
+    th_name: 'نام', th_account: 'اکانت', th_status: 'وضعیت', th_usage: 'مصرف دیتا',
+    th_duration: 'مدت', th_actions: 'عملیات',
+    add_user_btn: 'افزودن کاربر جدید', no_users: 'هیچ کاربری وجود ندارد',
+    // اینباند
+    inbound_title: 'اینباند', inbound_sub: 'تنظیمات ورودی',
+    inb_port: 'پورت', inb_protocol: 'پروتکل', inb_host: 'هاست', inb_status: 'وضعیت',
+    // اتصالات
+    conn_title: 'اتصالات', conn_active: 'فعال', no_conn: 'هیچ اتصالی وجود ندارد',
+    // تنظیمات
+    settings_title: 'تنظیمات', settings_sub: 'مدیریت پنل',
+    set_theme: 'تم پنل', set_dark: 'تاریک', set_light: 'روشن',
+    set_current_theme: 'تم فعلی', set_lang: 'زبان پنل', set_current_lang: 'زبان فعلی',
+    set_pass: 'تغییر رمز', set_old_pass: 'رمز فعلی', set_new_pass: 'رمز جدید',
+    set_confirm_pass: 'تکرار', set_change_btn: 'تغییر', set_rgb: 'تم RGB',
+    // بکاپ
+    backup_title: 'بکاپ', backup_sub: 'ذخیره و بازیابی',
+    backup_download: 'بکاپ‌گیری', backup_download_btn: 'دانلود', backup_restore_btn: 'بازیابی',
+    // لاگ
+    logs_title: 'لاگ‌ها',
+    // مودال
+    modal_user_title: 'ساخت کاربر جدید',
+    f_label_name: 'نام کاربری', f_label_quota: 'حجم (GB)',
+    f_label_expiry: 'انقضا (روز)', f_label_devices: 'دستگاه',
+    f_label_fingerprint: 'انگشت‌نگاری', f_label_password: 'رمز (اختیاری)',
+    btn_create_user: 'ساخت کاربر', btn_cancel: 'انصراف',
+    modal_edit_title: 'ویرایش کاربر',
+    e_label_name: 'نام', e_label_password: 'رمز جدید',
+    e_label_quota: 'حجم (GB)', e_label_expiry: 'انقضا (روز)',
+    e_label_devices: 'دستگاه', e_label_status: 'وضعیت',
+    e_label_fingerprint: 'انگشت‌نگاری', btn_save: 'ذخیره',
+    modal_delete_title: 'حذف کاربر', delete_desc: 'برای حذف، رمز کانفیگ را وارد کنید.',
+    d_label_password: 'رمز', btn_delete: 'حذف',
+    qr_title: 'QR Code', qr_desc: 'اسکن کنید تا ساب‌لینک اضافه شود',
+    qr_download: 'دانلود QR'
+  },
+  en: {
+    nav_home: 'Home', nav_users: 'Users', nav_inbound: 'Inbound',
+    nav_connections: 'Connections', nav_settings: 'Settings', nav_logs: 'Logs',
+    nav_backup: 'Backup', nav_logout: 'Logout',
+    dash_title: 'Dashboard', dash_add_user: 'User',
+    s_traffic: 'Traffic', s_requests: 'Requests', s_uptime: 'Uptime',
+    s_disk: 'Disk', s_speed: 'Speed', s_users: 'Users',
+    s_count: 'Count', s_time: 'Time', s_live: 'Live',
+    chart_title: 'Daily Usage', chart_sub: 'Last 7 days',
+    recent_users: 'Recent Users',
+    users_title: 'Users', users_sub: 'Link list, quota and expiry',
+    u_total: 'Total Users', u_active: 'Active', u_expired: 'Expired', u_traffic: 'Total Usage',
+    th_name: 'Name', th_account: 'Account', th_status: 'Status', th_usage: 'Data Usage',
+    th_duration: 'Duration', th_actions: 'Actions',
+    add_user_btn: 'Add New User', no_users: 'No users found',
+    inbound_title: 'Inbound', inbound_sub: 'Inbound Settings',
+    inb_port: 'Port', inb_protocol: 'Protocol', inb_host: 'Host', inb_status: 'Status',
+    conn_title: 'Connections', conn_active: 'Active', no_conn: 'No active connections',
+    settings_title: 'Settings', settings_sub: 'Panel Settings',
+    set_theme: 'Theme', set_dark: 'Dark', set_light: 'Light',
+    set_current_theme: 'Current Theme', set_lang: 'Language', set_current_lang: 'Current Language',
+    set_pass: 'Change Password', set_old_pass: 'Current Password', set_new_pass: 'New Password',
+    set_confirm_pass: 'Confirm', set_change_btn: 'Change', set_rgb: 'RGB Mode',
+    backup_title: 'Backup', backup_sub: 'Save & Restore',
+    backup_download: 'Backup', backup_download_btn: 'Download', backup_restore_btn: 'Restore',
+    logs_title: 'Logs',
+    modal_user_title: 'Create New User',
+    f_label_name: 'Username', f_label_quota: 'Quota (GB)',
+    f_label_expiry: 'Expiry (Days)', f_label_devices: 'Devices',
+    f_label_fingerprint: 'Fingerprint', f_label_password: 'Password (Optional)',
+    btn_create_user: 'Create User', btn_cancel: 'Cancel',
+    modal_edit_title: 'Edit User',
+    e_label_name: 'Name', e_label_password: 'New Password',
+    e_label_quota: 'Quota (GB)', e_label_expiry: 'Expiry (Days)',
+    e_label_devices: 'Devices', e_label_status: 'Status',
+    e_label_fingerprint: 'Fingerprint', btn_save: 'Save',
+    modal_delete_title: 'Delete User', delete_desc: 'Enter the config password to delete.',
+    d_label_password: 'Password', btn_delete: 'Delete',
+    qr_title: 'QR Code', qr_desc: 'Scan to add subscription',
+    qr_download: 'Download QR'
+  }
+};
+
+let currentLang = localStorage.getItem('persepolis-lang') || 'fa';
+
+function t(key) {
+  return translations[currentLang]?.[key] || key;
+}
+
+function updateUI() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+    el.placeholder = t(el.dataset.i18n-placeholder);
+  });
+}
+
+// ===== متغیرهای عمومی =====
+let currentTheme = localStorage.getItem('persepolis-theme') || 'dark';
+let trafficChart = null;
+let chartPeriod = '7d';
+let qrCodeInstance = null;
+
+// ===== توابع تم =====
+function setTheme(theme) {
+  currentTheme = theme;
+  localStorage.setItem('persepolis-theme', theme);
+  if (theme === 'light') {
+    document.body.classList.add('light-theme');
+    document.getElementById('current-theme-label').textContent = currentLang === 'fa' ? 'روشن' : 'Light';
+    document.getElementById('theme-dark-btn').className = 'btn btn-o';
+    document.getElementById('theme-light-btn').className = 'btn btn-pur';
+  } else {
+    document.body.classList.remove('light-theme');
+    document.getElementById('current-theme-label').textContent = currentLang === 'fa' ? 'تاریک' : 'Dark';
+    document.getElementById('theme-dark-btn').className = 'btn btn-pur';
+    document.getElementById('theme-light-btn').className = 'btn btn-o';
+  }
+  fetch('/api/settings/theme', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ theme: theme })
+  }).catch(() => {});
+}
+
+async function loadThemeFromServer() {
+  try {
+    const r = await fetch('/api/settings');
+    const data = await r.json();
+    if (data.theme) {
+      currentTheme = data.theme;
+      localStorage.setItem('persepolis-theme', data.theme);
+      setTheme(data.theme);
+    } else {
+      setTheme(currentTheme);
+    }
+  } catch(e) { setTheme(currentTheme); }
+}
+
+// ===== توابع زبان =====
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem('persepolis-lang', lang);
+  document.getElementById('lang-fa-btn').className = 'btn ' + (lang === 'fa' ? 'btn-pur' : 'btn-o');
+  document.getElementById('lang-en-btn').className = 'btn ' + (lang === 'en' ? 'btn-pur' : 'btn-o');
+  document.getElementById('current-lang-label').textContent = lang === 'fa' ? 'فارسی' : 'English';
+  
+  // بروزرسانی تمام متن‌ها
+  updateUITexts();
+  
+  fetch('/api/settings/language', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ language: lang })
+  }).catch(() => {});
+}
+
+function updateUITexts() {
+  const t = translations[currentLang];
+  if (!t) return;
+  
+  // ناوبری
+  document.getElementById('nav-home').textContent = t.nav_home;
+  document.getElementById('nav-users').textContent = t.nav_users;
+  document.getElementById('nav-inbound').textContent = t.nav_inbound;
+  document.getElementById('nav-connections').textContent = t.nav_connections;
+  document.getElementById('nav-settings').textContent = t.nav_settings;
+  document.getElementById('nav-logs').textContent = t.nav_logs;
+  document.getElementById('nav-backup').textContent = t.nav_backup;
+  document.getElementById('nav-logout').textContent = t.nav_logout;
+  
+  // پایین
+  document.getElementById('b-home').textContent = t.nav_home;
+  document.getElementById('b-users').textContent = t.nav_users;
+  document.getElementById('b-inbound').textContent = t.nav_inbound;
+  document.getElementById('b-settings').textContent = t.nav_settings;
+  
+  // خانه
+  document.getElementById('dash-title').textContent = t.dash_title;
+  document.getElementById('dash-add-user').textContent = t.dash_add_user;
+  document.getElementById('s-traffic').textContent = t.s_traffic;
+  document.getElementById('s-requests').textContent = t.s_requests;
+  document.getElementById('s-uptime').textContent = t.s_uptime;
+  document.getElementById('s-disk').textContent = t.s_disk;
+  document.getElementById('s-speed').textContent = t.s_speed;
+  document.getElementById('s-users').textContent = t.s_users;
+  document.getElementById('s-count').textContent = t.s_count;
+  document.getElementById('s-time').textContent = t.s_time;
+  document.getElementById('s-live').textContent = t.s_live;
+  document.getElementById('chart-title-text').textContent = t.chart_title;
+  document.getElementById('chart-sub-text').textContent = t.chart_sub;
+  document.getElementById('recent-users-title').textContent = t.recent_users;
+  
+  // کاربران
+  document.getElementById('users-title').textContent = t.users_title;
+  document.getElementById('users-sub').textContent = t.users_sub;
+  document.getElementById('u-total').textContent = t.u_total;
+  document.getElementById('u-active').textContent = t.u_active;
+  document.getElementById('u-expired').textContent = t.u_expired;
+  document.getElementById('u-traffic').textContent = t.u_traffic;
+  document.getElementById('th-name').textContent = t.th_name;
+  document.getElementById('th-account').textContent = t.th_account;
+  document.getElementById('th-status').textContent = t.th_status;
+  document.getElementById('th-usage').textContent = t.th_usage;
+  document.getElementById('th-duration').textContent = t.th_duration;
+  document.getElementById('th-actions').textContent = t.th_actions;
+  document.getElementById('add-user-btn').textContent = t.add_user_btn;
+  document.getElementById('no-users').textContent = t.no_users;
+  
+  // اینباند
+  document.getElementById('inbound-title').textContent = t.inbound_title;
+  document.getElementById('inbound-sub').textContent = t.inbound_sub;
+  document.getElementById('inb-port-label').textContent = t.inb_port;
+  document.getElementById('inb-protocol-label').textContent = t.inb_protocol;
+  document.getElementById('inb-host-label').textContent = t.inb_host;
+  document.getElementById('inb-status-label').textContent = t.inb_status;
+  document.getElementById('inb-status-title').textContent = t.inb_status;
+  
+  // اتصالات
+  document.getElementById('conn-title').textContent = t.conn_title;
+  document.getElementById('conn-active-label').textContent = t.conn_active;
+  document.getElementById('no-conn').textContent = t.no_conn;
+  
+  // تنظیمات
+  document.getElementById('settings-title').textContent = t.settings_title;
+  document.getElementById('settings-sub').textContent = t.settings_sub;
+  document.getElementById('set-theme-title').textContent = t.set_theme;
+  document.getElementById('set-dark').textContent = t.set_dark;
+  document.getElementById('set-light').textContent = t.set_light;
+  document.getElementById('set-current-theme').textContent = t.set_current_theme;
+  document.getElementById('set-lang-title').textContent = t.set_lang;
+  document.getElementById('set-current-lang').textContent = t.set_current_lang;
+  document.getElementById('set-pass-title').textContent = t.set_pass;
+  document.getElementById('set-old-pass').textContent = t.set_old_pass;
+  document.getElementById('set-new-pass').textContent = t.set_new_pass;
+  document.getElementById('set-confirm-pass').textContent = t.set_confirm_pass;
+  document.getElementById('set-change-btn').textContent = t.set_change_btn;
+  document.getElementById('set-rgb-title').textContent = t.set_rgb;
+  
+  // بکاپ
+  document.getElementById('backup-title').textContent = t.backup_title;
+  document.getElementById('backup-sub').textContent = t.backup_sub;
+  document.getElementById('backup-download-title').textContent = t.backup_download;
+  document.getElementById('backup-download-btn').textContent = t.backup_download_btn;
+  document.getElementById('backup-restore-btn').textContent = t.backup_restore_btn;
+  
+  // لاگ
+  document.getElementById('logs-title').textContent = t.logs_title;
+  
+  // مودال‌ها
+  document.getElementById('modal-user-title').textContent = t.modal_user_title;
+  document.getElementById('f-label-name').textContent = t.f_label_name;
+  document.getElementById('f-label-quota').textContent = t.f_label_quota;
+  document.getElementById('f-label-expiry').textContent = t.f_label_expiry;
+  document.getElementById('f-label-devices').textContent = t.f_label_devices;
+  document.getElementById('f-label-fingerprint').textContent = t.f_label_fingerprint;
+  document.getElementById('f-label-password').textContent = t.f_label_password;
+  document.getElementById('btn-create-user').textContent = t.btn_create_user;
+  document.getElementById('btn-cancel').textContent = t.btn_cancel;
+  
+  document.getElementById('modal-edit-title').textContent = t.modal_edit_title;
+  document.getElementById('e-label-name').textContent = t.e_label_name;
+  document.getElementById('e-label-password').textContent = t.e_label_password;
+  document.getElementById('e-label-quota').textContent = t.e_label_quota;
+  document.getElementById('e-label-expiry').textContent = t.e_label_expiry;
+  document.getElementById('e-label-devices').textContent = t.e_label_devices;
+  document.getElementById('e-label-status').textContent = t.e_label_status;
+  document.getElementById('e-label-fingerprint').textContent = t.e_label_fingerprint;
+  document.getElementById('btn-save').textContent = t.btn_save;
+  document.getElementById('btn-cancel2').textContent = t.btn_cancel;
+  
+  document.getElementById('modal-delete-title').textContent = t.modal_delete_title;
+  document.getElementById('delete-desc').textContent = t.delete_desc;
+  document.getElementById('d-label-password').textContent = t.d_label_password;
+  document.getElementById('btn-delete').textContent = t.btn_delete;
+  document.getElementById('btn-cancel3').textContent = t.btn_cancel;
+  
+  document.getElementById('qr-title').textContent = t.qr_title;
+  document.getElementById('qr-desc').textContent = t.qr_desc;
+  document.getElementById('qr-download').textContent = t.qr_download;
+  
+  // آپدیت تم
+  document.getElementById('current-theme-label').textContent = currentTheme === 'light' ? (currentLang === 'fa' ? 'روشن' : 'Light') : (currentLang === 'fa' ? 'تاریک' : 'Dark');
+  document.getElementById('current-lang-label').textContent = currentLang === 'fa' ? 'فارسی' : 'English';
+}
+
+// ===== توابع عمومی =====
+function toast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function fmtB(b) {
+  if (!b || b === 0) return '0 B';
+  if (b < 1024) return b + ' B';
+  if (b < 1024**2) return (b/1024).toFixed(1) + ' KB';
+  if (b < 1024**3) return (b/1024**2).toFixed(1) + ' MB';
+  if (b < 1024**4) return (b/1024**3).toFixed(2) + ' GB';
+  return (b/1024**4).toFixed(2) + ' TB';
+}
+
+function esc(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+// ===== احراز هویت =====
+async function authF(url, opts = {}) {
+  const r = await fetch(url, opts);
+  if (r.status === 401) { location.href = '/login'; throw new Error('unauthorized'); }
+  return r;
+}
+
+async function logout() {
+  try { await fetch('/api/logout', { method: 'POST' }); } catch(e) {}
+  location.href = '/login';
+}
+
+// ===== ناوبری =====
+function navTo(name) {
+  document.querySelectorAll('.nav-it').forEach(n => n.classList.toggle('on', n.dataset.pg === name));
+  document.querySelectorAll('.pg').forEach(p => p.classList.toggle('on', p.id === 'pg-' + name));
+  document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.toggle('active', n.dataset.pg === name));
+  closeSb();
+  const loaders = {
+    dashboard: loadDashboard,
+    users: loadUsers,
+    inbound: loadInbound,
+    connections: loadConnections,
+    logs: loadLogs,
+    settings: () => {}
+  };
+  if (loaders[name]) loaders[name]();
+}
+
+document.querySelectorAll('.nav-it, .bottom-nav .nav-item').forEach(el => {
+  el.addEventListener('click', () => navTo(el.dataset.pg));
+});
+
+const sb = document.getElementById('sb'), overlay = document.getElementById('overlay');
+function openSb() { sb.classList.add('open'); overlay.classList.add('show'); }
+function closeSb() { sb.classList.remove('open'); overlay.classList.remove('show'); }
+document.getElementById('open-sb').addEventListener('click', openSb);
+overlay.addEventListener('click', closeSb);
+
+// ===== نمودار مصرف =====
+async function loadChart(period) {
+  chartPeriod = period || '7d';
+  
+  document.querySelectorAll('#chart-7d, #chart-30d, #chart-90d').forEach(btn => {
+    btn.className = 'btn btn-sm btn-o';
+  });
+  const btnMap = {'7d':'chart-7d','30d':'chart-30d','90d':'chart-90d'};
+  if (btnMap[period]) {
+    document.getElementById(btnMap[period]).className = 'btn btn-sm btn-pur';
+  }
+  
+  try {
+    const r = await authF('/api/stats');
+    const data = await r.json();
+    const hourly = data.hourly || {};
+    
+    const dailyData = {};
+    let days = 7;
+    if (period === '30d') days = 30;
+    if (period === '90d') days = 90;
+    
+    for (const [hour, bytes] of Object.entries(hourly)) {
+      const [h] = hour.split(':');
+      const date = new Date();
+      date.setHours(parseInt(h), 0, 0, 0);
+      const key = date.toISOString().split('T')[0];
+      if (!dailyData[key]) dailyData[key] = 0;
+      dailyData[key] += bytes;
+    }
+    
+    const sortedKeys = Object.keys(dailyData).sort();
+    const lastDays = sortedKeys.slice(-days);
+    
+    const labels = [];
+    const values = [];
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days + 1);
+    startDate.setHours(0, 0, 0, 0);
+    
+    for (let i = 0; i < days; i++) {
+      const d = new Date(startDate);
+      d.setDate(d.getDate() + i);
+      const key = d.toISOString().split('T')[0];
+      labels.push(key);
+      values.push(dailyData[key] || 0);
+    }
+    
+    const mbValues = values.map(v => Number((v / (1024 * 1024)).toFixed(2)));
+    
+    const labelsFa = labels.map(d => {
+      const date = new Date(d);
+      return date.toLocaleDateString(currentLang === 'fa' ? 'fa-IR' : 'en-US', { weekday: 'short', day: 'numeric' });
+    });
+    
+    if (trafficChart) { trafficChart.destroy(); }
+    
+    const ctx = document.getElementById('trafficChart').getContext('2d');
+    trafficChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: labelsFa,
+        datasets: [{
+          label: currentLang === 'fa' ? 'مصرف (MB)' : 'Usage (MB)',
+          data: mbValues,
+          borderColor: '#D4A843',
+          backgroundColor: 'rgba(212, 168, 67, 0.1)',
+          borderWidth: 2,
+          fill: true,
+          tension: 0.4,
+          pointBackgroundColor: '#D4A843',
+          pointBorderColor: '#1a1208',
+          pointBorderWidth: 1,
+          pointRadius: 2,
+          pointHoverRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                return context.parsed.y + ' MB';
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: '#8A7A4A',
+              font: { size: 8 },
+              callback: function(value) { return value + ' MB'; }
+            },
+            grid: {
+              color: 'rgba(212, 175, 55, 0.05)'
+            }
+          },
+          x: {
+            ticks: {
+              color: '#8A7A4A',
+              font: { size: 8 }
+            },
+            grid: {
+              display: false
+            }
+          }
+        },
+        interaction: {
+          intersect: false,
+          mode: 'index'
+        }
+      }
+    });
+  } catch(e) { console.error(e); }
+}
+
+// ===== بارگذاری داشبورد =====
+async function loadDashboard() {
+  try {
+    const r = await authF('/api/dashboard/stats');
+    const data = await r.json();
+    document.getElementById('stat-traffic').textContent = (data.traffic.total / (1024 * 1024)).toFixed(1);
+    document.getElementById('stat-requests').textContent = data.requests || 0;
+    document.getElementById('stat-uptime').textContent = data.uptime || '00:00:00';
+    document.getElementById('stat-disk').textContent = data.disk.total_fmt || '0 GB';
+    document.getElementById('stat-disk-used').textContent = (currentLang === 'fa' ? 'استفاده: ' : 'Used: ') + (data.disk.used_fmt || '0');
+    document.getElementById('stat-speed').textContent = data.speed.download_fmt || '0 B/s';
+    document.getElementById('stat-users').textContent = data.links_count || 0;
+    document.getElementById('stat-users-active').textContent = (data.active_links || 0) + (currentLang === 'fa' ? ' فعال' : ' active');
+    document.getElementById('online-badge').innerHTML = '<span class="dot dg"></span> ' + (data.connections || 0) + (currentLang === 'fa' ? ' آنلاین' : ' online');
+    document.getElementById('last-update').textContent = (currentLang === 'fa' ? 'بروزرسانی: ' : 'Updated: ') + new Date().toLocaleTimeString(currentLang === 'fa' ? 'fa-IR' : 'en-US');
+    
+    // بارگذاری کاربران اخیر
+    const usersR = await authF('/api/links');
+    const usersData = await usersR.json();
+    const links = usersData.links || [];
+    const recent = links.slice(0, 4);
+    const grid = document.getElementById('recent-users');
+    if (!recent.length) {
+      grid.innerHTML = '<div class="empty" style="padding:10px"><i class="ti ti-users"></i><p style="font-size:9px">' + (currentLang === 'fa' ? 'هیچ کاربری وجود ندارد' : 'No users') + '</p></div>';
+    } else {
+      grid.innerHTML = recent.map(l => `<div style="background:rgba(212,175,55,0.02);border-radius:4px;padding:4px 6px;display:flex;justify-content:space-between;align-items:center;transition:transform .3s"><div><div style="font-size:9px;font-weight:600;color:var(--t1)">${esc(l.label)}</div><div style="font-size:7px;color:var(--t3)">${l.active ? '🟢' : '🔴'}</div></div><div style="font-size:8px;color:var(--t2)">${fmtB(l.used_bytes||0)}</div></div>`).join('');
+    }
+    
+    // بارگذاری نمودار
+    loadChart(chartPeriod);
+  } catch(e) { console.error(e); }
+}
+
+// ===== بارگذاری اینباند =====
+async function loadInbound() {
+  try {
+    const r = await authF('/api/inbound');
+    const data = await r.json();
+    document.getElementById('inbound-port').textContent = data.port || 443;
+    document.getElementById('inbound-protocol').textContent = (data.protocol || 'vless').toUpperCase();
+    document.getElementById('inbound-host').textContent = data.host || '—';
+  } catch(e) { console.error(e); }
+}
+
+// ===== بارگذاری کاربران =====
+async function loadUsers() {
+  try {
+    const r = await authF('/api/links');
+    const { links = [] } = await r.json();
+    const tbody = document.getElementById('users-tbody');
+    const total = links.length;
+    const active = links.filter(l => l.active && !l.expired).length;
+    const expired = links.filter(l => l.expired).length;
+    const totalTraffic = links.reduce((sum, l) => sum + (l.used_bytes || 0), 0);
+    
+    document.getElementById('users-total').textContent = total;
+    document.getElementById('users-active').textContent = active;
+    document.getElementById('users-expired').textContent = expired;
+    document.getElementById('users-traffic').textContent = fmtB(totalTraffic);
+    document.getElementById('users-count-label').textContent = total + (currentLang === 'fa' ? ' کاربر' : ' users');
+    
+    if (!links.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);">' + (currentLang === 'fa' ? 'هیچ کاربری وجود ندارد' : 'No users found') + '</td></tr>';
+      return;
+    }
+    
+    const fpEmoji = { chrome: '🌐', firefox: '🦊', safari: '🧭', edge: '🌊', ios: '📱', android: '🤖', safari_ios: '🍏', random: '🎲', none: '🚫' };
+    
+    tbody.innerHTML = links.map(l => {
+      const isActive = l.active && !l.expired;
+      const statusClass = isActive ? 'active' : (l.expired ? 'expired' : 'disabled');
+      const statusText = isActive ? (currentLang === 'fa' ? 'فعال' : 'Active') : (l.expired ? (currentLang === 'fa' ? 'منقضی' : 'Expired') : (currentLang === 'fa' ? 'غیرفعال' : 'Disabled'));
+      const pct = l.limit_bytes === 0 ? 0 : Math.min(100, (l.used_bytes / l.limit_bytes) * 100);
+      const usedFmt = fmtB(l.used_bytes || 0);
+      const limitFmt = l.limit_bytes === 0 ? '∞' : fmtB(l.limit_bytes);
+      const fp = l.fingerprint || 'chrome';
+      const fpName = { chrome: 'Chrome', firefox: 'Firefox', safari: 'Safari', edge: 'Edge', ios: 'iOS', android: 'Android', safari_ios: 'Safari iOS', random: 'Random', none: 'None' }[fp] || fp;
+      let duration = '∞';
+      if (l.expires_at) {
+        try {
+          const exp = new Date(l.expires_at);
+          const now = new Date();
+          const days = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+          duration = days > 0 ? days + (currentLang === 'fa' ? ' روز' : ' days') : (currentLang === 'fa' ? 'منقضی' : 'Expired');
+        } catch(e) { duration = '—'; }
+      }
+      const avatarLetter = (l.label || 'U')[0].toUpperCase();
+      return `<tr><td><div class="user-name-cell"><div class="avatar">${avatarLetter}</div><div><div class="name">${esc(l.label)}</div><div class="uuid-short">${l.uuid.slice(0,8)}…</div></div></div></td><td style="font-size:9px;color:var(--t2);">${fpEmoji[fp] || '🌐'} ${fpName}</td><td><span class="status-badge ${statusClass}"><span class="status-dot"></span>${statusText}</span></td><td><div class="usage-bar"><span class="usage-text">${usedFmt} / ${limitFmt}</span><div class="bar"><div class="fill" style="width:${pct}%"></div></div></div></td><td style="font-size:10px;color:var(--t2);">${duration}</td><td><div class="action-btns"><button class="btn btn-pur btn-sm" onclick="showQR('${l.sub_url}')" title="${currentLang === 'fa' ? 'QR Code' : 'QR Code'}"><i class="ti ti-qrcode"></i></button><button class="btn btn-pur btn-sm" onclick="navigator.clipboard.writeText('${esc(l.sub_url)}').then(()=>toast('${currentLang === 'fa' ? '✅ کپی ساب' : '✅ Copied'}','ok'))" title="${currentLang === 'fa' ? 'کپی ساب‌لینک' : 'Copy sub'}"><i class="ti ti-link"></i></button><button class="btn btn-amber btn-sm" onclick="resetUsage('${l.uuid}')" title="${currentLang === 'fa' ? 'ریست مصرف' : 'Reset usage'}"><i class="ti ti-rotate"></i></button><button class="btn btn-pur btn-sm" onclick="openEditModal('${l.uuid}')" title="${currentLang === 'fa' ? 'ویرایش' : 'Edit'}"><i class="ti ti-edit"></i></button><button class="btn btn-d btn-sm" onclick="openDeleteModal('${l.uuid}')" title="${currentLang === 'fa' ? 'حذف' : 'Delete'}"><i class="ti ti-trash"></i></button></div></td></tr>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ===== QR Code =====
+function showQR(url) {
+  const container = document.getElementById('qrcode-container');
+  container.innerHTML = '';
+  
+  if (qrCodeInstance) { qrCodeInstance.clear(); qrCodeInstance = null; }
+  
+  qrCodeInstance = new QRCode(container, {
+    text: url,
+    width: 200,
+    height: 200,
+    colorDark: '#D4A843',
+    colorLight: '#0a0a1a',
+    correctLevel: QRCode.CorrectLevel.H
+  });
+  
+  openModal('modal-qr');
+  
+  // ذخیره URL برای دانلود
+  container.dataset.url = url;
+}
+
+function downloadQR() {
+  const canvas = document.querySelector('#qrcode-container canvas');
+  if (!canvas) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); return; }
+  const link = document.createElement('a');
+  link.download = 'qrcode.png';
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  toast('✅ ' + (currentLang === 'fa' ? 'QR دانلود شد' : 'QR downloaded'), 'ok');
+}
+
+// ===== مدیریت کاربران =====
+async function saveUser() {
+  const label = document.getElementById('user-label').value.trim() || 'کاربر';
+  const quota = parseFloat(document.getElementById('user-quota').value) || 0;
+  const exp = parseInt(document.getElementById('user-exp').value) || 30;
+  const devices = parseInt(document.getElementById('user-devices').value) || 0;
+  const password = document.getElementById('user-password').value.trim();
+  const fingerprint = document.getElementById('user-fingerprint').value || 'chrome';
+  
+  try {
+    const r = await authF('/api/links', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, limit_value: quota, limit_unit: 'GB', expires_days: exp, max_devices: devices, password, fingerprint, protocol: 'vless-ws' })
+    });
+    if (!r.ok) throw new Error();
+    document.getElementById('user-label').value = 'کاربر';
+    document.getElementById('user-quota').value = '2';
+    document.getElementById('user-exp').value = '30';
+    document.getElementById('user-devices').value = '1';
+    document.getElementById('user-password').value = '';
+    document.getElementById('user-fingerprint').value = 'chrome';
+    closeModal('modal-user');
+    toast('✅ ' + (currentLang === 'fa' ? 'کاربر ساخته شد' : 'User created'), 'ok');
+    loadUsers();
+    loadDashboard();
+  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+}
+
+async function openEditModal(uuid) {
+  try {
+    const r = await authF('/api/links');
+    const { links = [] } = await r.json();
+    const link = links.find(l => l.uuid === uuid);
+    if (!link) { toast((currentLang === 'fa' ? 'کاربر یافت نشد' : 'User not found'), 'err'); return; }
+    document.getElementById('edit-uuid').value = uuid;
+    document.getElementById('edit-label').value = link.label || '';
+    document.getElementById('edit-password').value = '';
+    document.getElementById('edit-quota').value = link.limit_bytes === 0 ? '' : (link.limit_bytes / (1024 ** 3)).toFixed(1);
+    document.getElementById('edit-exp').value = link.expires_at ? Math.ceil((new Date(link.expires_at) - new Date()) / (1000 * 60 * 60 * 24)) : '';
+    document.getElementById('edit-devices').value = link.max_devices || 0;
+    document.getElementById('edit-status').value = link.active ? 'true' : 'false';
+    document.getElementById('edit-fingerprint').value = link.fingerprint || 'chrome';
+    document.getElementById('edit-password-section').style.display = link.has_password ? 'block' : 'none';
+    openModal('modal-edit');
+  } catch(e) { toast((currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+}
+
+async function saveEdit() {
+  const uuid = document.getElementById('edit-uuid').value;
+  const password = document.getElementById('edit-password').value.trim();
+  const label = document.getElementById('edit-label').value.trim() || 'کاربر';
+  const quota = parseFloat(document.getElementById('edit-quota').value) || 0;
+  const exp = parseInt(document.getElementById('edit-exp').value) || 0;
+  const devices = parseInt(document.getElementById('edit-devices').value) || 0;
+  const active = document.getElementById('edit-status').value === 'true';
+  const fingerprint = document.getElementById('edit-fingerprint').value || 'chrome';
+  
+  try {
+    const r = await authF('/api/links/' + uuid, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ label, limit_value: quota, limit_unit: 'GB', expires_days: exp, max_devices: devices, active, password, fingerprint })
+    });
+    if (!r.ok) {
+      if (r.status === 403) { toast('❌ ' + (currentLang === 'fa' ? 'رمز اشتباه' : 'Wrong password'), 'err'); return; }
+      throw new Error();
+    }
+    closeModal('modal-edit');
+    toast('✅ ' + (currentLang === 'fa' ? 'ویرایش شد' : 'Saved'), 'ok');
+    loadUsers();
+  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+}
+
+function openDeleteModal(uuid) {
+  document.getElementById('delete-uuid').value = uuid;
+  document.getElementById('delete-password').value = '';
+  openModal('modal-delete');
+}
+
+async function confirmDelete() {
+  const uuid = document.getElementById('delete-uuid').value;
+  const password = document.getElementById('delete-password').value.trim();
+  
+  try {
+    const r = await authF('/api/links/' + uuid, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    });
+    if (!r.ok) {
+      if (r.status === 403) { toast('❌ ' + (currentLang === 'fa' ? 'رمز اشتباه' : 'Wrong password'), 'err'); return; }
+      throw new Error();
+    }
+    closeModal('modal-delete');
+    toast('✅ ' + (currentLang === 'fa' ? 'حذف شد' : 'Deleted'), 'ok');
+    loadUsers();
+    loadDashboard();
+  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+}
+
+async function resetUsage(uuid) {
+  if (!confirm(currentLang === 'fa' ? 'ریست مصرف؟' : 'Reset usage?')) return;
+  try {
+    const r = await authF('/api/links/' + uuid, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reset_usage: true })
+    });
+    if (!r.ok) throw new Error();
+    toast('✅ ' + (currentLang === 'fa' ? 'ریست شد' : 'Reset'), 'ok');
+    loadUsers();
+  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+}
+
+// ===== بارگذاری اتصالات =====
+async function loadConnections() {
+  try {
+    const r = await authF('/api/connections');
+    const d = await r.json();
+    const grid = document.getElementById('conns-grid');
+    const count = d.count || 0;
+    document.getElementById('conn-count').textContent = count + (currentLang === 'fa' ? ' اتصال' : ' connections');
+    if (!count) {
+      grid.innerHTML = '<div class="empty"><i class="ti ti-plug-off"></i><p>' + (currentLang === 'fa' ? 'هیچ اتصالی وجود ندارد' : 'No connections') + '</p></div>';
+      return;
+    }
+    grid.innerHTML = d.connections.map(c => {
+      const secs = c.connected_at ? Math.max(0, Math.floor((Date.now() - new Date(c.connected_at).getTime()) / 1000)) : 0;
+      const dur = secs < 60 ? secs + 's' : secs < 3600 ? Math.floor(secs / 60) + 'm' : Math.floor(secs / 3600) + 'h';
+      return `<div class="conn-card"><div class="ip"><span class="conn-status-dot"></span> ${esc(c.ip)}</div><div class="label">${esc(c.label || 'نامشخص')}</div><div class="conn-info"><span>📥 ${esc(c.bytes_fmt || '0 B')}</span><span>⏱ ${dur}</span></div></div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ===== بارگذاری لاگ‌ها =====
+async function loadLogs() {
+  try {
+    const r = await authF('/api/activity');
+    const data = await r.json();
+    const logs = data.logs || [];
+    document.getElementById('logs-count').textContent = logs.length + (currentLang === 'fa' ? ' لاگ' : ' logs');
+    const container = document.getElementById('logs-container');
+    if (!logs.length) {
+      container.innerHTML = '<div class="empty"><i class="ti ti-notes"></i><p>' + (currentLang === 'fa' ? 'هیچ لاگی وجود ندارد' : 'No logs') + '</p></div>';
+      return;
+    }
+    container.innerHTML = logs.map(log => {
+      const time = log.time ? new Date(log.time).toLocaleString(currentLang === 'fa' ? 'fa-IR' : 'en-US') : '—';
+      const color = log.level === 'err' ? '#F87171' : log.level === 'warn' ? '#FCD34D' : '#F5D060';
+      return `<div style="padding:3px 0;border-bottom:1px solid rgba(212,175,55,0.02);display:flex;gap:6px"><span style="color:${color};font-weight:700">[${(log.level || 'info').toUpperCase()}]</span><span style="color:var(--t3)">${time}</span><span>${esc(log.message)}</span></div>`;
+    }).join('');
+  } catch(e) { console.error(e); }
+}
+
+// ===== RGB Mode =====
+let rgbMode = false;
+async function loadRGBStatus() {
+  try {
+    const r = await authF('/api/settings');
+    const data = await r.json();
+    rgbMode = data.rgb_mode || false;
+    updateRGBUI();
+  } catch(e) {}
+}
+
+function updateRGBUI() {
+  const sw = document.getElementById('rgb-switch');
+  if (rgbMode) { document.body.classList.add('rgb-mode'); sw.classList.add('on'); }
+  else { document.body.classList.remove('rgb-mode'); sw.classList.remove('on'); }
+}
+
+async function toggleRGB() {
+  const newState = !rgbMode;
+  try {
+    const r = await authF('/api/settings/rgb', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: newState })
+    });
+    const data = await r.json();
+    rgbMode = data.rgb_mode;
+    updateRGBUI();
+    toast(rgbMode ? '🌈 RGB ' + (currentLang === 'fa' ? 'فعال شد' : 'enabled') : '🌙 RGB ' + (currentLang === 'fa' ? 'غیرفعال شد' : 'disabled'), 'ok');
+  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+}
+
+// ===== تغییر رمز =====
+async function changePassword() {
+  const oldPw = document.getElementById('old-password').value;
+  const newPw = document.getElementById('new-password').value;
+  const confirmPw = document.getElementById('confirm-password').value;
+  const result = document.getElementById('password-result');
+  
+  if (!oldPw || !newPw || !confirmPw) {
+    result.style.display = 'block';
+    result.style.color = '#F87171';
+    result.innerHTML = '❌ ' + (currentLang === 'fa' ? 'همه فیلدها را پر کنید' : 'Fill all fields');
+    return;
+  }
+  if (newPw.length < 4) {
+    result.style.display = 'block';
+    result.style.color = '#F87171';
+    result.innerHTML = '❌ ' + (currentLang === 'fa' ? 'حداقل ۴ کاراکتر' : 'Minimum 4 characters');
+    return;
+  }
+  if (newPw !== confirmPw) {
+    result.style.display = 'block';
+    result.style.color = '#F87171';
+    result.innerHTML = '❌ ' + (currentLang === 'fa' ? 'رمزها مطابقت ندارند' : 'Passwords do not match');
+    return;
+  }
+  
+  try {
+    const r = await authF('/api/change-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ old_password: oldPw, new_password: newPw })
+    });
+    const data = await r.json();
+    if (!r.ok) {
+      result.style.display = 'block';
+      result.style.color = '#F87171';
+      result.innerHTML = '❌ ' + (data.detail || data.message || (currentLang === 'fa' ? 'خطا' : 'Error'));
+      return;
+    }
+    result.style.display = 'block';
+    result.style.color = '#34D399';
+    result.innerHTML = '✅ ' + (currentLang === 'fa' ? 'رمز تغییر کرد!' : 'Password changed!');
+    document.getElementById('old-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-password').value = '';
+    toast('✅ ' + (currentLang === 'fa' ? 'رمز تغییر کرد' : 'Password changed'), 'ok');
+  } catch(e) {
+    result.style.display = 'block';
+    result.style.color = '#F87171';
+    result.innerHTML = '❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error');
+  }
+}
+
+// ===== بکاپ =====
+async function createBackup() {
+  try {
+    const r = await authF('/api/backup');
+    const data = await r.json();
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `persepolis_backup_${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('✅ ' + (currentLang === 'fa' ? 'بکاپ دانلود شد' : 'Backup downloaded'), 'ok');
+  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+}
+
+async function restoreBackup(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  try {
+    const text = await file.text();
+    const data = JSON.parse(text);
+    const r = await authF('/api/backup/restore', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!r.ok) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); return; }
+    toast('✅ ' + (currentLang === 'fa' ? 'بکاپ بازیابی شد' : 'Backup restored'), 'ok');
+    setTimeout(() => location.reload(), 1000);
+  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا: ' : 'Error: ') + e.message, 'err'); }
+  event.target.value = '';
+}
+
+// ===== راه‌اندازی اولیه =====
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const r = await fetch('/api/me');
+    const d = await r.json();
+    if (!d.authenticated) location.href = '/login';
+  } catch(e) { location.href = '/login'; }
+  
+  await loadThemeFromServer();
+  setLang(currentLang);
+  await loadRGBStatus();
+  
+  loadDashboard();
+  loadInbound();
+  loadUsers();
+  loadConnections();
+  loadLogs();
+  
+  // بروزرسانی خودکار
+  setInterval(() => {
+    if (document.getElementById('pg-dashboard').classList.contains('on')) loadDashboard();
+    if (document.getElementById('pg-connections').classList.contains('on')) loadConnections();
+    if (document.getElementById('pg-users').classList.contains('on')) loadUsers();
+  }, 10000);
+});
 </script>
 </body></html>"""
 
@@ -538,7 +1476,6 @@ def get_sub_page_html(uuid: str, link: dict) -> str:
     fingerprint = link.get('fingerprint', 'chrome')
     max_devices = link.get('max_devices', 0)
     protocol = link.get('protocol', 'vless-ws')
-    ports = link.get('ports', [443])
     active_connections = link.get('active_connections', 0)
     active_connections_list = link.get('active_connections_list', [])
     sub_url = link.get('sub_url', '')
@@ -549,8 +1486,24 @@ def get_sub_page_html(uuid: str, link: dict) -> str:
     percent = link.get('percent', 0)
     days_left = link.get('days_left', 'نامحدود')
     vless_link = link.get('vless_link', '')
+    time_link = link.get('time_link', '')
+    volume_link = link.get('volume_link', '')
     
     is_allowed = active and not expired
+    
+    def fmt_bytes(b):
+        if not b or b == 0:
+            return '0 B'
+        if b < 1024:
+            return f'{b} B'
+        if b < 1024**2:
+            return f'{b/1024:.1f} KB'
+        if b < 1024**3:
+            return f'{b/1024**2:.2f} MB'
+        return f'{b/1024**3:.2f} GB'
+    
+    used_fmt = fmt_bytes(used)
+    limit_fmt = 'نامحدود' if limit == 0 else fmt_bytes(limit)
     
     # ساخت اتصالات
     conns_html = ""
@@ -790,6 +1743,7 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
 
     <div class="actions">
         <button class="btn btn-success" onclick="copySub()" id="copySubBtn"><i class="ti ti-link"></i> کپی ساب‌لینک</button>
+        <button class="btn btn-secondary" onclick="copyVless()" id="copyVlessBtn"><i class="ti ti-copy"></i> کپی کانفیگ</button>
     </div>
 
     <div class="footer"><span class="eagle">🏛️</span> تخت جمشید · نسخه ۱۰</div>
@@ -799,6 +1753,7 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
 // ===== داده‌ها =====
 const subUrl = `{sub_url}`;
 const uuid = `{uuid}`;
+const vlessLink = `{vless_link}`;
 const isExpired = {str(not is_allowed).lower()};
 
 // ===== توابع عمومی =====
@@ -819,6 +1774,19 @@ function copySub() {{
         setTimeout(() => {{
             btn.classList.remove('copy-anim');
             btn.innerHTML = '<i class="ti ti-link"></i> کپی ساب‌لینک';
+        }}, 1500);
+    }}).catch(() => toast('❌ خطا در کپی', 'err'));
+}}
+
+function copyVless() {{
+    const btn = document.getElementById('copyVlessBtn');
+    navigator.clipboard.writeText(vlessLink).then(() => {{
+        toast('✅ کانفیگ کپی شد!', 'ok');
+        btn.classList.add('copy-anim');
+        btn.innerHTML = '<i class="ti ti-check"></i> کپی شد!';
+        setTimeout(() => {{
+            btn.classList.remove('copy-anim');
+            btn.innerHTML = '<i class="ti ti-copy"></i> کپی کانفیگ';
         }}, 1500);
     }}).catch(() => toast('❌ خطا در کپی', 'err'));
 }}
