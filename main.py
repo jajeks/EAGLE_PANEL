@@ -458,7 +458,14 @@ async def create_link(request: Request, _=Depends(require_auth)):
     lu = body.get("limit_unit") or "GB"
     limit_bytes = 0 if lv <= 0 else parse_size_to_bytes(lv, lu)
     exp_days = int(body.get("expires_days") or 0)
-    expires_at = (datetime.now() + timedelta(days=exp_days)).isoformat() if exp_days > 0 else None
+    
+    # اطمینان از اینکه تاریخ انقضا به درستی ذخیره میشه
+    expires_at = None
+    if exp_days > 0:
+        exp_date = datetime.now() + timedelta(days=exp_days)
+        expires_at = exp_date.isoformat()
+        logger.info(f"📅 تاریخ انقضا: {expires_at} ({exp_days} روز)")
+    
     note = (body.get("note") or "").strip()[:200]
     sub_id = body.get("sub_id") or None
     protocol = body.get("protocol") or DEFAULT_PROTOCOL
@@ -497,7 +504,7 @@ async def create_link(request: Request, _=Depends(require_auth)):
                     ids.append(uid)
 
     asyncio.create_task(save_state())
-    log_activity("link", f"کانفیگ «{label}» ساخته شد", "ok")
+    log_activity("link", f"کانفیگ «{label}» ساخته شد با انقضای {exp_days} روز", "ok")
     host = get_host()
     
     remark = f"🏛️ {label}"
@@ -583,7 +590,11 @@ async def update_link(uid: str, request: Request, _=Depends(require_auth)):
             link["limit_bytes"] = 0 if lv <= 0 else parse_size_to_bytes(lv, lu)
         if "expires_days" in body:
             ed = int(body["expires_days"] or 0)
-            link["expires_at"] = (datetime.now() + timedelta(days=ed)).isoformat() if ed > 0 else None
+            if ed > 0:
+                exp_date = datetime.now() + timedelta(days=ed)
+                link["expires_at"] = exp_date.isoformat()
+            else:
+                link["expires_at"] = None
         if "max_devices" in body:
             link["max_devices"] = int(body["max_devices"])
         if "fingerprint" in body and body["fingerprint"] in FINGERPRINTS:
@@ -1056,7 +1067,7 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await remove_device_connection(uuid, client_ip)
         logger.info(f"🔌 WS closed [{conn_id}] total={len(connections)}")
 
-# ─── ===== ساب‌لینک با ۳ کانفیگ (اصلی + زمان + حجم) ===== ──────────────────────────────────
+# ─── ===== ساب‌لینک با ۳ کانفیگ (اصلاح شده برای نمایش زمان) ===== ──────────────────────────────────
 
 @app.get("/sub/{uuid}")
 async def subscription_single(request: Request, uuid: str):
@@ -1148,13 +1159,31 @@ async def subscription_single(request: Request, uuid: str):
     if limit_bytes > 0:
         percent = min(100, (used_bytes / limit_bytes) * 100)
     
-    # محاسبه روزهای باقی‌مونده
+    # ===== محاسبه روزهای باقی‌مونده =====
     days_left = "نامحدود"
     days_number = 0
+    
+    # لاگ برای دیباگ
+    logger.info(f"🔍 UUID: {uuid}, expires_at: {expires_at}")
+    
     if expires_at:
         try:
-            exp_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-            days = (exp_date - datetime.now().astimezone()).days
+            # پاک کردن Z و + از انتهای تاریخ
+            clean_exp = expires_at.replace('Z', '').replace('+00:00', '')
+            if 'T' in clean_exp:
+                exp_date = datetime.fromisoformat(clean_exp)
+            else:
+                exp_date = datetime.fromisoformat(clean_exp)
+            
+            # اطمینان از timezone
+            if exp_date.tzinfo is None:
+                exp_date = exp_date.replace(tzinfo=IRAN_TZ)
+            
+            now = datetime.now(IRAN_TZ)
+            days = (exp_date - now).days
+            
+            logger.info(f"📅 تاریخ انقضا: {exp_date}, الان: {now}, روزهای باقیمانده: {days}")
+            
             days_number = days if days > 0 else 0
             if days > 0:
                 days_left = f"{days} روز"
@@ -1162,8 +1191,11 @@ async def subscription_single(request: Request, uuid: str):
                 days_left = "امروز"
             else:
                 days_left = "منقضی"
-        except:
+        except Exception as e:
+            logger.error(f"❌ خطا در محاسبه تاریخ: {e}")
             days_left = "نامشخص"
+    else:
+        logger.info(f"ℹ️ بدون تاریخ انقضا برای {uuid}")
     
     # حجم باقیمانده
     remaining_bytes = limit_bytes - used_bytes if limit_bytes > 0 else 0
@@ -1247,7 +1279,7 @@ async def subscription_single(request: Request, uuid: str):
         "last_connected_at": last_connected,
         "vless_links": [main_link, time_link, volume_link],
         "vless_link": main_link,
-        "sub_url": f"https://{host}/sub/{uid}",
+        "sub_url": f"https://{host}/sub/{uuid}",
         "user_ip": user_ip,
         "percent": percent,
         "days_left": days_left,
@@ -1399,8 +1431,18 @@ async def info_page(uuid: str, request: Request):
     days_left = "نامحدود"
     if expires_at:
         try:
-            exp_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-            days = (exp_date - datetime.now().astimezone()).days
+            clean_exp = expires_at.replace('Z', '').replace('+00:00', '')
+            if 'T' in clean_exp:
+                exp_date = datetime.fromisoformat(clean_exp)
+            else:
+                exp_date = datetime.fromisoformat(clean_exp)
+            
+            if exp_date.tzinfo is None:
+                exp_date = exp_date.replace(tzinfo=IRAN_TZ)
+            
+            now = datetime.now(IRAN_TZ)
+            days = (exp_date - now).days
+            
             if days > 0:
                 days_left = f"{days} روز"
             elif days == 0:
