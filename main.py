@@ -1081,11 +1081,11 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await remove_device_connection(uuid, client_ip)
         logger.info(f"🔌 WS closed [{conn_id}] total={len(connections)}")
 
-# ─── ===== ساب‌لینک با اطلاعات کامل در هدرهای HTTP ===== ──────────────────────────────────
+# ─── ===== ساب‌لینک با اطلاعات کامل در فایل (بدون هدر اضافی) ===== ──────────────────────────────────
 
 @app.get("/sub/{uuid}")
 async def subscription_single(request: Request, uuid: str):
-    """ساب‌لینک با اطلاعات کامل حجم و زمان در هدرهای HTTP"""
+    """ساب‌لینک با اطلاعات کامل حجم و زمان در کامنت‌های فایل"""
     import base64
     
     # تشخیص User-Agent
@@ -1176,12 +1176,10 @@ async def subscription_single(request: Request, uuid: str):
     
     # محاسبه روزهای باقی‌مونده
     days_left = "نامحدود"
-    days_left_num = 0
     if expires_at:
         try:
             exp_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
             days = (exp_date - datetime.now().astimezone()).days
-            days_left_num = days if days > 0 else 0
             days_left = f"{days} روز" if days > 0 else "منقضی"
         except:
             days_left = "نامشخص"
@@ -1206,59 +1204,47 @@ async def subscription_single(request: Request, uuid: str):
             fingerprint=fingerprint, port=port
         ))
     
-    # ===== اگر کلاینت باشد (غیر مرورگر) → اطلاعات در هدرهای HTTP =====
+    # ===== اگر کلاینت باشد (غیر مرورگر) → اطلاعات در کامنت‌های فایل =====
     if not is_browser:
-        # ساخت محتوای کانفیگ
+        # ساخت فایل با اطلاعات کامل در کامنت‌ها
+        info_lines = [
+            "# ============================================",
+            f"# 🏛️ تخت جمشید - اطلاعات کاربر",
+            "# ============================================",
+            f"# نام: {label}",
+            f"# UUID: {uuid}",
+            f"# مصرف: {used_val} {used_unit} / {limit_val} {limit_unit}",
+            f"# درصد مصرف: {percent:.1f}%",
+            f"# زمان باقیمانده: {days_left}",
+            f"# IP: {user_ip}",
+            f"# پورت‌ها: {', '.join(str(p) for p in ports)}",
+            f"# پروتکل: {protocol}",
+            f"# انگشت‌نگاری: {fingerprint}",
+            f"# دستگاه‌ها: {max_devices if max_devices > 0 else 'نامحدود'}",
+            f"# وضعیت: {'✅ فعال' if is_link_allowed(link) else '❌ غیرفعال'}",
+            "# ============================================",
+            ""
+        ]
+        
         config_lines = []
         for link_str in vless_links:
             config_lines.append(link_str)
         
-        content = "\n".join(config_lines)
+        content = "\n".join(info_lines + config_lines)
         content_b64 = base64.b64encode(content.encode()).decode()
         
-        # هدرهای سفارشی برای کلاینت‌ها
-        headers = {
-            "Content-Disposition": f"attachment; filename=config_{uuid[:8]}.txt",
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0",
-            # هدرهای اصلی برای نمایش در کلاینت
-            "profile-title": quote(f"🏛️ {label}"),
-            "profile-update-interval": "12",
-            "profile-web-page-url": f"https://{host}/info/{uuid}",
-            # ===== هدرهای اطلاعات مصرف و زمان =====
-            "X-User-Name": label,
-            "X-User-UUID": uuid,
-            "X-User-Used": f"{used_val} {used_unit}",
-            "X-User-Limit": f"{limit_val} {limit_unit}" if limit_bytes > 0 else "∞",
-            "X-User-Percent": f"{percent:.1f}%",
-            "X-User-Days-Left": days_left,
-            "X-User-IP": user_ip,
-            "X-User-Ports": ", ".join(str(p) for p in ports),
-            "X-User-Protocol": protocol,
-            "X-User-Fingerprint": fingerprint,
-            "X-User-Devices": str(max_devices) if max_devices > 0 else "∞",
-            "X-User-Status": "✅ Active" if is_link_allowed(link) else "❌ Inactive",
-            "X-User-Expires": expires_at if expires_at else "Never",
-            # هدر برای Hiddify - اطلاعات به صورت JSON
-            "X-Subscription-Info": json.dumps({
-                "name": label,
-                "used": f"{used_val} {used_unit}",
-                "limit": f"{limit_val} {limit_unit}" if limit_bytes > 0 else "∞",
-                "percent": percent,
-                "days_left": days_left,
-                "status": "active" if is_link_allowed(link) else "inactive",
-                "expires_at": expires_at,
-                "devices": max_devices,
-                "ports": ports,
-                "protocol": protocol
-            })
-        }
-        
+        # فقط هدرهای استاندارد
         return Response(
             content=content_b64,
             media_type="text/plain",
-            headers=headers
+            headers={
+                "Content-Disposition": f"attachment; filename=config_{uuid[:8]}.txt",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+                "profile-title": quote(f"🏛️ {label}"),
+                "profile-update-interval": "12",
+            }
         )
     
     # ===== اگر مرورگر باشد → صفحه اطلاعات =====
