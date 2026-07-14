@@ -93,8 +93,7 @@ SETTINGS: dict = {
 
 PROTOCOLS = ("vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one")
 DEFAULT_PROTOCOL = "vless-ws"
-
-DEFAULT_PORTS = [443, 8443, 2053, 2096, 2087, 2083, 8080]
+DEFAULT_PORT = 443
 
 FINGERPRINTS = {
     "chrome": "🌐 Chrome",
@@ -196,7 +195,7 @@ def is_link_allowed(link: dict | None) -> bool:
     return True
 
 def generate_vless_link(uuid: str, host: str, remark: str = "", protocol: str = DEFAULT_PROTOCOL, 
-                        fingerprint: str = "chrome", port: int = 443, 
+                        fingerprint: str = "chrome", port: int = DEFAULT_PORT, 
                         sni: str = None) -> str:
     if not remark:
         remark = "تختجمشید"
@@ -478,14 +477,6 @@ async def create_link(request: Request, _=Depends(require_auth)):
         fingerprint = "chrome"
     config_password = body.get("password", "").strip()
     password_hash = hash_password(config_password) if config_password else None
-    
-    ports = body.get("ports", [443])
-    if isinstance(ports, list) and len(ports) > 0:
-        ports = [p for p in ports if isinstance(p, int) and 1 <= p <= 65535]
-    else:
-        ports = [443]
-    if not ports:
-        ports = [443]
 
     uid = generate_uuid()
     async with LINKS_LOCK:
@@ -503,7 +494,6 @@ async def create_link(request: Request, _=Depends(require_auth)):
             "max_devices": max_devices,
             "fingerprint": fingerprint,
             "password_hash": password_hash,
-            "ports": ports,
         }
 
     if sub_id:
@@ -514,11 +504,11 @@ async def create_link(request: Request, _=Depends(require_auth)):
                     ids.append(uid)
 
     asyncio.create_task(save_state())
-    log_activity("link", f"کانفیگ «{label}» ساخته شد با {len(ports)} پورت", "ok")
+    log_activity("link", f"کانفیگ «{label}» ساخته شد", "ok")
     host = get_host()
     
     remark = f"تختجمشید-{label}"
-    main_link = generate_vless_link(uid, host, remark=remark, protocol=protocol, fingerprint=fingerprint, port=ports[0])
+    main_link = generate_vless_link(uid, host, remark=remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT)
     
     link_data = {
         "uuid": uid,
@@ -541,8 +531,6 @@ async def list_links(_=Depends(require_auth)):
     for uid, d in snap.items():
         proto = d.get("protocol", DEFAULT_PROTOCOL)
         fp = d.get("fingerprint", "chrome")
-        ports = d.get("ports", [443])
-        first_port = ports[0] if ports else 443
         label = d.get("label", "کاربر")
         remark = f"تختجمشید-{label}"
         
@@ -559,13 +547,11 @@ async def list_links(_=Depends(require_auth)):
             **d,
             "protocol": proto,
             "fingerprint": fp,
-            "ports": ports,
             "max_devices": d.get("max_devices", 0),
             "expired": is_link_expired(d),
             "has_password": d.get("password_hash") is not None,
-            "port": first_port,
             "last_connected_at": last_connected,
-            "vless_link": generate_vless_link(uid, host, remark=remark, protocol=proto, fingerprint=fp, port=first_port),
+            "vless_link": generate_vless_link(uid, host, remark=remark, protocol=proto, fingerprint=fp, port=DEFAULT_PORT),
             "sub_url": f"https://{host}/sub/{uid}",
             "warning_config": "",
         })
@@ -611,10 +597,6 @@ async def update_link(uid: str, request: Request, _=Depends(require_auth)):
             link["fingerprint"] = body["fingerprint"]
         if "protocol" in body and body["protocol"] in PROTOCOLS:
             link["protocol"] = body["protocol"]
-        if "ports" in body and isinstance(body["ports"], list):
-            ports = [p for p in body["ports"] if isinstance(p, int) and 1 <= p <= 65535]
-            if ports:
-                link["ports"] = ports
         new_sub = body.get("sub_id", "UNCHANGED")
         if new_sub != "UNCHANGED":
             link["sub_id"] = new_sub or None
@@ -1081,11 +1063,11 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await remove_device_connection(uuid, client_ip)
         logger.info(f"🔌 WS closed [{conn_id}] total={len(connections)}")
 
-# ─── ===== ساب‌لینک با اطلاعات کامل در فایل (بدون هدر اضافی) ===== ──────────────────────────────────
+# ─── ===== ساب‌لینک با ۳ کانفیگ (اصلی + زمان + حجم) ===== ──────────────────────────────────
 
 @app.get("/sub/{uuid}")
 async def subscription_single(request: Request, uuid: str):
-    """ساب‌لینک با اطلاعات کامل حجم و زمان در کامنت‌های فایل"""
+    """ساب‌لینک با ۳ کانفیگ: اصلی + زمان + حجم"""
     import base64
     
     # تشخیص User-Agent
@@ -1163,7 +1145,6 @@ async def subscription_single(request: Request, uuid: str):
     label = link.get("label", "کاربر")
     protocol = link.get("protocol", DEFAULT_PROTOCOL)
     fingerprint = link.get("fingerprint", "chrome")
-    ports = link.get("ports", [443])
     limit_bytes = link.get("limit_bytes", 0)
     used_bytes = link.get("used_bytes", 0)
     expires_at = link.get("expires_at")
@@ -1175,16 +1156,20 @@ async def subscription_single(request: Request, uuid: str):
         percent = min(100, (used_bytes / limit_bytes) * 100)
     
     # محاسبه روزهای باقی‌مونده
-    days_left = "نامحدود"
+    days_left = 0
+    days_left_str = "نامحدود"
     if expires_at:
         try:
             exp_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
             days = (exp_date - datetime.now().astimezone()).days
-            days_left = f"{days} روز" if days > 0 else "منقضی"
+            days_left = days if days > 0 else 0
+            days_left_str = f"{days} روز" if days > 0 else "منقضی"
         except:
-            days_left = "نامشخص"
+            days_left_str = "نامشخص"
     
-    # عدد و واحد برای نمایش کوتاه
+    # حجم باقیمانده
+    remaining_bytes = limit_bytes - used_bytes if limit_bytes > 0 else 0
+    remaining_val, remaining_unit = fmt_bytes_short(remaining_bytes) if remaining_bytes > 0 else ("∞", "")
     used_val, used_unit = fmt_bytes_short(used_bytes)
     limit_val, limit_unit = fmt_bytes_short(limit_bytes) if limit_bytes > 0 else ("∞", "")
     
@@ -1195,45 +1180,37 @@ async def subscription_single(request: Request, uuid: str):
             user_ip = c.get("ip", "نامشخص")
             break
     
-    # ساخت لینک‌های VLESS با پورت‌های مختلف
-    vless_links = []
-    for i, port in enumerate(ports):
-        remark = f"{label}-p{port}" if len(ports) > 1 else label
-        vless_links.append(generate_vless_link(
-            uuid, host, remark=remark, protocol=protocol, 
-            fingerprint=fingerprint, port=port
-        ))
+    # ===== ساخت ۳ کانفیگ =====
     
-    # ===== اگر کلاینت باشد (غیر مرورگر) → اطلاعات در کامنت‌های فایل =====
+    # 1. کانفیگ اصلی
+    main_remark = f"🏛️ {label}"
+    main_link = generate_vless_link(uuid, host, remark=main_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT)
+    
+    # 2. کانفیگ زمان - روزهای باقیمانده
+    time_remark = f"⏳ {days_left_str}" if days_left > 0 else "⏳ نامحدود"
+    time_link = generate_vless_link(uuid, host, remark=time_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT)
+    
+    # 3. کانفیگ حجم - حجم باقیمانده
+    if limit_bytes > 0:
+        if remaining_bytes > 0:
+            volume_remark = f"📊 {remaining_val} {remaining_unit}"
+        else:
+            volume_remark = "📊 0 B"
+    else:
+        volume_remark = "📊 ∞"
+    volume_link = generate_vless_link(uuid, host, remark=volume_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT)
+    
+    # ===== اگر کلاینت باشد → ۳ کانفیگ در فایل =====
     if not is_browser:
-        # ساخت فایل با اطلاعات کامل در کامنت‌ها
-        info_lines = [
-            "# ============================================",
-            f"# 🏛️ تخت جمشید - اطلاعات کاربر",
-            "# ============================================",
-            f"# نام: {label}",
-            f"# UUID: {uuid}",
-            f"# مصرف: {used_val} {used_unit} / {limit_val} {limit_unit}",
-            f"# درصد مصرف: {percent:.1f}%",
-            f"# زمان باقیمانده: {days_left}",
-            f"# IP: {user_ip}",
-            f"# پورت‌ها: {', '.join(str(p) for p in ports)}",
-            f"# پروتکل: {protocol}",
-            f"# انگشت‌نگاری: {fingerprint}",
-            f"# دستگاه‌ها: {max_devices if max_devices > 0 else 'نامحدود'}",
-            f"# وضعیت: {'✅ فعال' if is_link_allowed(link) else '❌ غیرفعال'}",
-            "# ============================================",
-            ""
+        config_lines = [
+            main_link,
+            time_link,
+            volume_link
         ]
         
-        config_lines = []
-        for link_str in vless_links:
-            config_lines.append(link_str)
-        
-        content = "\n".join(info_lines + config_lines)
+        content = "\n".join(config_lines)
         content_b64 = base64.b64encode(content.encode()).decode()
         
-        # فقط هدرهای استاندارد
         return Response(
             content=content_b64,
             media_type="text/plain",
@@ -1243,7 +1220,8 @@ async def subscription_single(request: Request, uuid: str):
                 "Pragma": "no-cache",
                 "Expires": "0",
                 "profile-title": quote(f"🏛️ {label}"),
-                "profile-update-interval": "12",
+                "profile-update-interval": "1",
+                "profile-web-page-url": f"https://{host}/info/{uuid}",
             }
         )
     
@@ -1269,12 +1247,12 @@ async def subscription_single(request: Request, uuid: str):
         "active_connections": active_connections_count,
         "active_connections_list": active_connections_list,
         "last_connected_at": last_connected,
-        "vless_links": vless_links,
-        "vless_link": vless_links[0] if vless_links else "",
+        "vless_links": [main_link, time_link, volume_link],
+        "vless_link": main_link,
         "sub_url": f"https://{host}/sub/{uuid}",
         "user_ip": user_ip,
         "percent": percent,
-        "days_left": days_left,
+        "days_left": days_left_str,
         "used_fmt": fmt_bytes(used_bytes),
         "used_val": used_val,
         "used_unit": used_unit,
@@ -1282,6 +1260,11 @@ async def subscription_single(request: Request, uuid: str):
         "limit_val": limit_val,
         "limit_unit": limit_unit,
         "max_devices": max_devices,
+        "time_link": time_link,
+        "volume_link": volume_link,
+        "main_link": main_link,
+        "remaining_val": remaining_val,
+        "remaining_unit": remaining_unit,
     }
     
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
@@ -1296,12 +1279,9 @@ async def subscription_all(_=Depends(require_auth)):
         for uid, d in LINKS.items():
             if is_link_allowed(d):
                 fp = d.get("fingerprint", "chrome")
-                ports = d.get("ports", [443])
                 label = d.get("label", "کاربر")
                 remark_base = f"تختجمشید-{label}"
-                for i, port in enumerate(ports):
-                    remark = f"{remark_base}-p{port}" if len(ports) > 1 else remark_base
-                    lines.append(generate_vless_link(uid, host, remark=remark, protocol=d.get("protocol", DEFAULT_PROTOCOL), fingerprint=fp, port=port))
+                lines.append(generate_vless_link(uid, host, remark=remark_base, protocol=d.get("protocol", DEFAULT_PROTOCOL), fingerprint=fp, port=DEFAULT_PORT))
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain")
 
@@ -1327,12 +1307,9 @@ async def sub_group_subscription(uuid_key: str, request: Request):
             link = LINKS.get(lid)
             if link and is_link_allowed(link):
                 fp = link.get("fingerprint", "chrome")
-                ports = link.get("ports", [443])
                 label = link.get("label", "کاربر")
                 remark_base = f"تختجمشید-{label}"
-                for i, port in enumerate(ports):
-                    remark = f"{remark_base}-p{port}" if len(ports) > 1 else remark_base
-                    lines.append(generate_vless_link(lid, host, remark=remark, protocol=link.get("protocol", DEFAULT_PROTOCOL), fingerprint=fp, port=port))
+                lines.append(generate_vless_link(lid, host, remark=remark_base, protocol=link.get("protocol", DEFAULT_PROTOCOL), fingerprint=fp, port=DEFAULT_PORT))
 
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(
@@ -1412,7 +1389,6 @@ async def info_page(uuid: str, request: Request):
     label = link.get("label", "کاربر")
     protocol = link.get("protocol", DEFAULT_PROTOCOL)
     fingerprint = link.get("fingerprint", "chrome")
-    ports = link.get("ports", [443])
     limit_bytes = link.get("limit_bytes", 0)
     used_bytes = link.get("used_bytes", 0)
     expires_at = link.get("expires_at")
@@ -1422,14 +1398,16 @@ async def info_page(uuid: str, request: Request):
     if limit_bytes > 0:
         percent = min(100, (used_bytes / limit_bytes) * 100)
     
-    days_left = "نامحدود"
+    days_left_str = "نامحدود"
+    days_left = 0
     if expires_at:
         try:
             exp_date = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
             days = (exp_date - datetime.now().astimezone()).days
-            days_left = f"{days} روز" if days > 0 else "منقضی"
+            days_left = days if days > 0 else 0
+            days_left_str = f"{days} روز" if days > 0 else "منقضی"
         except:
-            days_left = "نامشخص"
+            days_left_str = "نامشخص"
     
     user_ip = "نامشخص"
     for c in connections.values():
@@ -1437,13 +1415,21 @@ async def info_page(uuid: str, request: Request):
             user_ip = c.get("ip", "نامشخص")
             break
     
-    vless_links = []
-    for i, port in enumerate(ports):
-        remark = f"{label}-p{port}" if len(ports) > 1 else label
-        vless_links.append(generate_vless_link(
-            uuid, host, remark=remark, protocol=protocol, 
-            fingerprint=fingerprint, port=port
-        ))
+    # ساخت ۳ کانفیگ
+    main_remark = f"🏛️ {label}"
+    main_link = generate_vless_link(uuid, host, remark=main_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT)
+    
+    time_remark = f"⏳ {days_left_str}" if days_left > 0 else "⏳ نامحدود"
+    time_link = generate_vless_link(uuid, host, remark=time_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT)
+    
+    remaining_bytes = limit_bytes - used_bytes if limit_bytes > 0 else 0
+    remaining_val, remaining_unit = fmt_bytes_short(remaining_bytes) if remaining_bytes > 0 else ("∞", "")
+    
+    if limit_bytes > 0:
+        volume_remark = f"📊 {remaining_val} {remaining_unit}" if remaining_bytes > 0 else "📊 0 B"
+    else:
+        volume_remark = "📊 ∞"
+    volume_link = generate_vless_link(uuid, host, remark=volume_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT)
     
     active_connections_list = []
     for c in connections.values():
@@ -1466,12 +1452,12 @@ async def info_page(uuid: str, request: Request):
         "active_connections": active_connections_count,
         "active_connections_list": active_connections_list,
         "last_connected_at": last_connected,
-        "vless_links": vless_links,
-        "vless_link": vless_links[0] if vless_links else "",
+        "vless_links": [main_link, time_link, volume_link],
+        "vless_link": main_link,
         "sub_url": f"https://{host}/sub/{uuid}",
         "user_ip": user_ip,
         "percent": percent,
-        "days_left": days_left,
+        "days_left": days_left_str,
         "used_fmt": fmt_bytes(used_bytes),
         "used_val": used_val,
         "used_unit": used_unit,
@@ -1479,6 +1465,11 @@ async def info_page(uuid: str, request: Request):
         "limit_val": limit_val,
         "limit_unit": limit_unit,
         "max_devices": max_devices,
+        "time_link": time_link,
+        "volume_link": volume_link,
+        "main_link": main_link,
+        "remaining_val": remaining_val,
+        "remaining_unit": remaining_unit,
     }
     
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
