@@ -13,7 +13,6 @@ from collections import deque, defaultdict
 from pathlib import Path
 import socket
 import base64
-import threading
 
 from fastapi import FastAPI, Request, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response, HTMLResponse, JSONResponse, RedirectResponse
@@ -37,11 +36,12 @@ CONFIG = {
     "port": int(os.environ.get("PORT", 8000)),
     "secret": os.environ.get("SECRET_KEY", secrets.token_urlsafe(32)),
     "host": os.environ.get("RAILWAY_PUBLIC_DOMAIN", os.environ.get("RENDER_EXTERNAL_URL", "localhost")),
-    "admin_password": os.environ.get("ADMIN_PASSWORD", "123456"),
+    "admin_password": os.environ.get("ADMIN_PASSWORD", "ARMIN9259.A"),
+    "access_token": os.environ.get("ACCESS_TOKEN", "QWPLOBYTROI"),
 }
 
 # ─── App ──────────────────────────────────────────────────────────────────────
-app = FastAPI(title="🏛️ Persepolis Gateway v10", docs_url=None, redoc_url=None)
+app = FastAPI(title="🏛️ Persepolis Gateway v12", docs_url=None, redoc_url=None)
 
 app.add_middleware(
     CORSMiddleware,
@@ -79,8 +79,10 @@ http_client: httpx.AsyncClient | None = None
 # ─── Auth ──────────────────────────────────────────────────────────────────────
 SESSION_COOKIE = "persepolis_session"
 SESSION_TTL = 60 * 60 * 24 * 7
-AUTH = {"password_hash": hashlib.sha256(f"{CONFIG['admin_password']}{CONFIG['secret']}".encode()).hexdigest()}
-SESSIONS: dict = {}
+ADMIN_PASSWORD = CONFIG["admin_password"]
+ACCESS_TOKEN = CONFIG["access_token"]
+AUTH = {"password_hash": hashlib.sha256(f"{ADMIN_PASSWORD}{CONFIG['secret']}".encode()).hexdigest()}
+SESSIONS: dict = {}  # token -> {"expiry": time, "is_admin": bool}
 SESSIONS_LOCK = asyncio.Lock()
 
 # ─── Settings ──────────────────────────────────────────────────────────────────
@@ -91,10 +93,28 @@ SETTINGS: dict = {
     "theme": "dark",
 }
 
-PROTOCOLS = ("vless-ws", "xhttp-packet-up", "xhttp-stream-up", "xhttp-stream-one")
+# ─── پروتکل‌های پشتیبانی شده ──────────────────────────────────────────────────
+PROTOCOLS = {
+    "vless-ws": {"name": "VLESS-WS", "icon": "🚀", "type": "ws", "alpn": "h2,http/1.1"},
+    "vless-grpc": {"name": "VLESS-gRPC", "icon": "⚡", "type": "grpc", "alpn": "h2"},
+    "vless-xhttp": {"name": "VLESS-XHTTP", "icon": "🛡️", "type": "xhttp", "alpn": "h2,http/1.1"},
+    "vless-http2": {"name": "VLESS-HTTP/2", "icon": "📶", "type": "tcp", "alpn": "h2"},
+    "trojan-ws": {"name": "Trojan-WS", "icon": "🔒", "type": "ws", "alpn": "h2,http/1.1"},
+    "shadowsocks": {"name": "Shadowsocks", "icon": "🌊", "type": "tcp", "alpn": ""},
+}
+
 DEFAULT_PROTOCOL = "vless-ws"
 DEFAULT_PORT = 443
 
+# ─── HTTP نسخه‌ها ────────────────────────────────────────────────────────────
+HTTP_VERSIONS = {
+    "h1": {"name": "HTTP/1.1", "alpn": "http/1.1"},
+    "h2": {"name": "HTTP/2", "alpn": "h2"},
+    "h3": {"name": "HTTP/3 (QUIC)", "alpn": "h3"},
+    "auto": {"name": "Auto", "alpn": "h2,http/1.1"},
+}
+
+# ─── انگشت‌نگاری ──────────────────────────────────────────────────────────────
 FINGERPRINTS = {
     "chrome": "🌐 Chrome",
     "firefox": "🦊 Firefox",
@@ -195,7 +215,8 @@ def is_link_allowed(link: dict | None) -> bool:
 
 def generate_vless_link(uuid: str, host: str, remark: str = "", protocol: str = DEFAULT_PROTOCOL, 
                         fingerprint: str = "chrome", port: int = DEFAULT_PORT, 
-                        sni: str = None, fake_port: bool = False) -> str:
+                        sni: str = None, http_version: str = "h2", fake_port: bool = False) -> str:
+    """ساخت لینک VLESS با پشتیبانی از پروتکل‌های مختلف و HTTP/2, HTTP/3"""
     if not remark:
         remark = "تختجمشید"
     
@@ -205,34 +226,64 @@ def generate_vless_link(uuid: str, host: str, remark: str = "", protocol: str = 
     if fake_port:
         port = 1
     
-    if protocol == "vless-ws":
-        path = f"/ws/{uuid}"
-        params = {
-            "encryption": "none",
-            "security": "tls",
-            "type": "ws",
-            "host": host,
-            "path": path,
-            "sni": sni,
-            "fp": fingerprint,
-            "alpn": "h2,http/1.1",
-        }
-    else:
-        mode = protocol.replace("xhttp-", "")
-        path = f"/xhttp-siz10/{mode}/{uuid}"
-        params = {
-            "encryption": "none",
-            "security": "tls",
-            "type": "xhttp",
-            "mode": mode,
-            "host": host,
-            "path": path,
-            "sni": sni,
-            "fp": fingerprint,
-            "alpn": "h2,http/1.1",
-        }
+    proto_info = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])
+    proto_type = proto_info["type"]
+    alpn = HTTP_VERSIONS.get(http_version, HTTP_VERSIONS["h2"])["alpn"]
+    
+    params = {
+        "encryption": "none",
+        "security": "tls",
+        "sni": sni,
+        "fp": fingerprint,
+        "alpn": alpn,
+    }
+    
+    if proto_type == "ws":
+        params["type"] = "ws"
+        params["host"] = host
+        params["path"] = f"/{proto_type}/{uuid}"
+        
+        if http_version == "h3":
+            params["quic"] = "true"
+            
+    elif proto_type == "grpc":
+        params["type"] = "grpc"
+        params["serviceName"] = f"{uuid}.service"
+        
+        if http_version == "h3":
+            params["quic"] = "true"
+            
+    elif proto_type == "xhttp":
+        mode = protocol.replace("vless-", "").replace("trojan-", "")
+        params["type"] = "xhttp"
+        params["mode"] = mode
+        params["host"] = host
+        params["path"] = f"/xhttp-siz10/{mode}/{uuid}"
+        
+        if http_version == "h3":
+            params["quic"] = "true"
+            
+    elif proto_type == "tcp":
+        params["type"] = "tcp"
+        if protocol == "shadowsocks":
+            params["type"] = "ss"
+            params["method"] = "chacha20-ietf-poly1305"
+            params["password"] = secrets.token_urlsafe(16)
+    
+    if protocol == "trojan-ws":
+        params["type"] = "ws"
+        params["host"] = host
+        params["path"] = f"/trojan/{uuid}"
+        params["password"] = secrets.token_urlsafe(16)
+    
     query = "&".join(f"{k}={quote(str(v))}" for k, v in params.items())
-    return f"vless://{uuid}@{host}:{port}?{query}#{quote(remark)}"
+    
+    if protocol == "trojan-ws":
+        return f"trojan://{params['password']}@{host}:{port}?{query}#{quote(remark)}"
+    elif protocol == "shadowsocks":
+        return f"ss://{quote(f'{params['method']}:{params['password']}')}@{host}:{port}#{quote(remark)}"
+    else:
+        return f"vless://{uuid}@{host}:{port}?{query}#{quote(remark)}"
 
 def log_activity(kind: str, message: str, level: str = "info"):
     activity_logs.append({
@@ -252,23 +303,33 @@ async def remove_device_connection(uuid: str, client_ip: str):
 
 # ─── Session Functions ──────────────────────────────────────────────────────
 
-async def create_session() -> str:
+async def create_session(is_admin: bool = False) -> str:
     token = secrets.token_urlsafe(32)
     async with SESSIONS_LOCK:
-        SESSIONS[token] = time.time() + SESSION_TTL
+        SESSIONS[token] = {
+            "expiry": time.time() + SESSION_TTL,
+            "is_admin": is_admin
+        }
     return token
 
-async def is_valid_session(token: str | None) -> bool:
+async def get_session_info(token: str | None) -> dict | None:
     if not token:
-        return False
+        return None
     async with SESSIONS_LOCK:
-        exp = SESSIONS.get(token)
-        if exp is None:
-            return False
-        if exp < time.time():
+        session = SESSIONS.get(token)
+        if session is None:
+            return None
+        if session["expiry"] < time.time():
             SESSIONS.pop(token, None)
-            return False
-        return True
+            return None
+        return session
+
+async def is_valid_session(token: str | None) -> bool:
+    return await get_session_info(token) is not None
+
+async def is_admin_session(token: str | None) -> bool:
+    info = await get_session_info(token)
+    return info is not None and info.get("is_admin", False)
 
 async def destroy_session(token: str | None):
     if not token:
@@ -280,6 +341,12 @@ async def require_auth(request: Request):
     token = request.cookies.get(SESSION_COOKIE)
     if not await is_valid_session(token):
         raise HTTPException(status_code=401, detail="unauthorized")
+    return token
+
+async def require_admin(request: Request):
+    token = request.cookies.get(SESSION_COOKIE)
+    if not await is_admin_session(token):
+        raise HTTPException(status_code=403, detail="admin access required")
     return token
 
 # ─── State Persistence ──────────────────────────────────────────────────────
@@ -344,8 +411,8 @@ async def startup():
     http_client = httpx.AsyncClient(limits=limits, timeout=timeout, follow_redirects=True)
     await load_state()
     
-    log_activity("system", "🏛️ Persepolis Gateway v10 راه‌اندازی شد", "ok")
-    logger.info(f"🏛️ Persepolis Gateway v10 started on port {CONFIG['port']}")
+    log_activity("system", "🏛️ Persepolis Gateway v12 راه‌اندازی شد", "ok")
+    logger.info(f"🏛️ Persepolis Gateway v12 started on port {CONFIG['port']}")
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -380,7 +447,8 @@ async def set_theme(request: Request, _=Depends(require_auth)):
     raise HTTPException(status_code=400, detail="تم نامعتبر")
 
 @app.post("/api/change-password")
-async def change_password(request: Request, _=Depends(require_auth)):
+async def change_password(request: Request, _=Depends(require_admin)):
+    """تغییر رمز - فقط ادمین"""
     body = await request.json()
     old = body.get("old_password", "").strip()
     new = body.get("new_password", "").strip()
@@ -456,7 +524,7 @@ async def dashboard_stats(_=Depends(require_auth)):
 async def get_inbound(_=Depends(require_auth)):
     return {
         "port": DEFAULT_PORT,
-        "protocol": SETTINGS.get("default_protocol", "vless"),
+        "protocol": SETTINGS.get("default_protocol", "vless-ws"),
         "host": get_host(),
         "is_active": True
     }
@@ -479,9 +547,15 @@ async def create_link(request: Request, _=Depends(require_auth)):
     
     note = (body.get("note") or "").strip()[:200]
     sub_id = body.get("sub_id") or None
-    protocol = body.get("protocol") or DEFAULT_PROTOCOL
+    
+    protocol = body.get("protocol", DEFAULT_PROTOCOL)
     if protocol not in PROTOCOLS:
         protocol = DEFAULT_PROTOCOL
+    
+    http_version = body.get("http_version", "h2")
+    if http_version not in HTTP_VERSIONS:
+        http_version = "h2"
+    
     max_devices = int(body.get("max_devices", 0))
     fingerprint = body.get("fingerprint", "chrome")
     if fingerprint not in FINGERPRINTS:
@@ -502,6 +576,7 @@ async def create_link(request: Request, _=Depends(require_auth)):
             "is_default": False,
             "sub_id": sub_id,
             "protocol": protocol,
+            "http_version": http_version,
             "max_devices": max_devices,
             "fingerprint": fingerprint,
             "password_hash": password_hash,
@@ -515,11 +590,14 @@ async def create_link(request: Request, _=Depends(require_auth)):
                     ids.append(uid)
 
     asyncio.create_task(save_state())
-    log_activity("link", f"کانفیگ «{label}» ساخته شد", "ok")
-    host = get_host()
     
+    proto_name = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])["name"]
+    http_name = HTTP_VERSIONS.get(http_version, HTTP_VERSIONS["h2"])["name"]
+    log_activity("link", f"کانفیگ «{label}» ساخته شد با {proto_name} + {http_name}", "ok")
+    
+    host = get_host()
     remark = f"🏛️ {label}"
-    main_link = generate_vless_link(uid, host, remark=remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, fake_port=False)
+    main_link = generate_vless_link(uid, host, remark=remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=False)
     
     link_data = {
         "uuid": uid,
@@ -540,7 +618,8 @@ async def list_links(_=Depends(require_auth)):
     
     result = []
     for uid, d in snap.items():
-        proto = d.get("protocol", DEFAULT_PROTOCOL)
+        protocol = d.get("protocol", DEFAULT_PROTOCOL)
+        http_version = d.get("http_version", "h2")
         fp = d.get("fingerprint", "chrome")
         label = d.get("label", "کاربر")
         remark = f"🏛️ {label}"
@@ -552,17 +631,23 @@ async def list_links(_=Depends(require_auth)):
                     last_connected = c.get("connected_at")
         
         active = d.get("active", True) and not is_link_expired(d)
+        proto_info = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])
+        http_info = HTTP_VERSIONS.get(http_version, HTTP_VERSIONS["h2"])
         
         result.append({
             "uuid": uid,
             **d,
-            "protocol": proto,
+            "protocol": protocol,
+            "protocol_name": proto_info["name"],
+            "protocol_icon": proto_info["icon"],
+            "http_version": http_version,
+            "http_name": http_info["name"],
             "fingerprint": fp,
             "max_devices": d.get("max_devices", 0),
             "expired": is_link_expired(d),
             "has_password": d.get("password_hash") is not None,
             "last_connected_at": last_connected,
-            "vless_link": generate_vless_link(uid, host, remark=remark, protocol=proto, fingerprint=fp, port=DEFAULT_PORT, fake_port=False),
+            "vless_link": generate_vless_link(uid, host, remark=remark, protocol=protocol, fingerprint=fp, port=DEFAULT_PORT, http_version=http_version, fake_port=False),
             "sub_url": f"https://{host}/sub/{uid}",
             "warning_config": "",
         })
@@ -612,6 +697,8 @@ async def update_link(uid: str, request: Request, _=Depends(require_auth)):
             link["fingerprint"] = body["fingerprint"]
         if "protocol" in body and body["protocol"] in PROTOCOLS:
             link["protocol"] = body["protocol"]
+        if "http_version" in body and body["http_version"] in HTTP_VERSIONS:
+            link["http_version"] = body["http_version"]
         new_sub = body.get("sub_id", "UNCHANGED")
         if new_sub != "UNCHANGED":
             link["sub_id"] = new_sub or None
@@ -770,16 +857,30 @@ async def api_login(request: Request):
     ip = client_ip(request)
     password = body.get("password", "")
     remember = body.get("remember", False)
+    is_token = body.get("is_token", False)
+    token_input = body.get("token", "").strip().upper()
     
-    if hash_password(str(password)) != AUTH["password_hash"]:
-        log_activity("auth", f"تلاش ورود ناموفق از {ip}", "err")
-        raise HTTPException(status_code=401, detail="رمز عبور اشتباه است")
+    is_admin = False
     
-    token = await create_session()
-    log_activity("auth", f"ورود موفق به پنل از {ip}", "ok")
+    if is_token:
+        # ورود با توکن
+        if token_input != ACCESS_TOKEN:
+            log_activity("auth", f"تلاش ورود ناموفق با توکن از {ip}", "err")
+            raise HTTPException(status_code=401, detail="توکن نامعتبر است")
+        is_admin = False
+        log_activity("auth", f"ورود موفق با توکن از {ip}", "ok")
+    else:
+        # ورود با رمز (فقط ادمین)
+        if hash_password(str(password)) != AUTH["password_hash"]:
+            log_activity("auth", f"تلاش ورود ناموفق با رمز از {ip}", "err")
+            raise HTTPException(status_code=401, detail="رمز عبور اشتباه است")
+        is_admin = True
+        log_activity("auth", f"ورود موفق به پنل از {ip} (ادمین)", "ok")
+    
+    token = await create_session(is_admin=is_admin)
     
     max_age = SESSION_TTL if remember else None
-    resp = JSONResponse({"ok": True})
+    resp = JSONResponse({"ok": True, "is_admin": is_admin})
     resp.set_cookie(SESSION_COOKIE, token, max_age=max_age, httponly=True, samesite="lax", path="/")
     return resp
 
@@ -792,12 +893,17 @@ async def api_logout(request: Request):
 
 @app.get("/api/me")
 async def api_me(request: Request):
-    return {"authenticated": await is_valid_session(request.cookies.get(SESSION_COOKIE))}
+    token = request.cookies.get(SESSION_COOKIE)
+    info = await get_session_info(token)
+    if info is None:
+        return {"authenticated": False, "is_admin": False}
+    return {"authenticated": True, "is_admin": info.get("is_admin", False)}
 
 # ─── API: Activity Logs ───────────────────────────────────────────────────────
 
 @app.get("/api/activity")
-async def get_activity_logs(_=Depends(require_auth)):
+async def get_activity_logs(_=Depends(require_admin)):
+    """فقط ادمین میتونه لاگ‌ها رو ببینه"""
     limit = 100
     logs = list(activity_logs)[-limit:]
     return {"logs": logs}
@@ -823,11 +929,12 @@ async def get_backup(_=Depends(require_auth)):
         "hourly_traffic": dict(hourly_traffic),
         "hourly_traffic_history": hist_dict,
         "exported_at": datetime.now().isoformat(),
-        "version": "10.0"
+        "version": "12.0"
     }
 
 @app.post("/api/backup/restore")
-async def restore_backup(request: Request, _=Depends(require_auth)):
+async def restore_backup(request: Request, _=Depends(require_admin)):
+    """فقط ادمین میتونه بکاپ بازیابی کنه"""
     global hourly_traffic_history
     try:
         body = await request.json()
@@ -1030,7 +1137,7 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
     connections[conn_id] = {
         "uuid": uuid,
         "ip": client_ip,
-        "transport": "vless-ws",
+        "transport": link.get("protocol", "vless-ws"),
         "connected_at": datetime.now().isoformat(),
         "bytes": 0,
     }
@@ -1188,6 +1295,7 @@ async def subscription_single(request: Request, uuid: str):
     host = get_host()
     label = link.get("label", "کاربر")
     protocol = link.get("protocol", DEFAULT_PROTOCOL)
+    http_version = link.get("http_version", "h2")
     fingerprint = link.get("fingerprint", "chrome")
     limit_bytes = link.get("limit_bytes", 0)
     used_bytes = link.get("used_bytes", 0)
@@ -1234,17 +1342,21 @@ async def subscription_single(request: Request, uuid: str):
             break
     
     # ساخت ۳ کانفیگ
-    main_remark = f"🏛️ {label}"
-    main_link = generate_vless_link(uuid, host, remark=main_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, fake_port=False)
+    proto_icon = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])["icon"]
+    proto_name = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])["name"]
+    http_name = HTTP_VERSIONS.get(http_version, HTTP_VERSIONS["h2"])["name"]
+    
+    main_remark = f"{proto_icon} {label} ({proto_name}+{http_name})"
+    main_link = generate_vless_link(uuid, host, remark=main_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=False)
     
     time_remark = f"⏳ {days_left}"
-    time_link = generate_vless_link(uuid, host, remark=time_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, fake_port=True)
+    time_link = generate_vless_link(uuid, host, remark=time_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=True)
     
     if limit_bytes > 0:
         volume_remark = f"📊 {remaining_val} {remaining_unit}" if remaining_bytes > 0 else "📊 0 B"
     else:
         volume_remark = "📊 ∞"
-    volume_link = generate_vless_link(uuid, host, remark=volume_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, fake_port=True)
+    volume_link = generate_vless_link(uuid, host, remark=volume_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=True)
     
     if not is_browser:
         config_lines = [main_link, time_link, volume_link]
@@ -1259,7 +1371,7 @@ async def subscription_single(request: Request, uuid: str):
                 "Cache-Control": "no-cache, no-store, must-revalidate",
                 "Pragma": "no-cache",
                 "Expires": "0",
-                "profile-title": quote(f"🏛️ {label}"),
+                "profile-title": quote(f"{proto_icon} {label}"),
                 "profile-update-interval": "1",
                 "profile-web-page-url": f"https://{host}/info/{uuid}",
             }
@@ -1304,6 +1416,9 @@ async def subscription_single(request: Request, uuid: str):
         "main_link": main_link,
         "remaining_val": remaining_val,
         "remaining_unit": remaining_unit,
+        "protocol_name": proto_name,
+        "protocol_icon": proto_icon,
+        "http_name": http_name,
     }
     
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
@@ -1318,9 +1433,12 @@ async def subscription_all(_=Depends(require_auth)):
         for uid, d in LINKS.items():
             if is_link_allowed(d):
                 fp = d.get("fingerprint", "chrome")
+                protocol = d.get("protocol", DEFAULT_PROTOCOL)
+                http_version = d.get("http_version", "h2")
                 label = d.get("label", "کاربر")
-                remark = f"🏛️ {label}"
-                lines.append(generate_vless_link(uid, host, remark=remark, protocol=d.get("protocol", DEFAULT_PROTOCOL), fingerprint=fp, port=DEFAULT_PORT, fake_port=False))
+                proto_icon = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])["icon"]
+                remark = f"{proto_icon} {label}"
+                lines.append(generate_vless_link(uid, host, remark=remark, protocol=protocol, fingerprint=fp, port=DEFAULT_PORT, http_version=http_version, fake_port=False))
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(content=content, media_type="text/plain")
 
@@ -1346,9 +1464,12 @@ async def sub_group_subscription(uuid_key: str, request: Request):
             link = LINKS.get(lid)
             if link and is_link_allowed(link):
                 fp = link.get("fingerprint", "chrome")
+                protocol = link.get("protocol", DEFAULT_PROTOCOL)
+                http_version = link.get("http_version", "h2")
                 label = link.get("label", "کاربر")
-                remark = f"🏛️ {label}"
-                lines.append(generate_vless_link(lid, host, remark=remark, protocol=link.get("protocol", DEFAULT_PROTOCOL), fingerprint=fp, port=DEFAULT_PORT, fake_port=False))
+                proto_icon = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])["icon"]
+                remark = f"{proto_icon} {label}"
+                lines.append(generate_vless_link(lid, host, remark=remark, protocol=protocol, fingerprint=fp, port=DEFAULT_PORT, http_version=http_version, fake_port=False))
 
     content = base64.b64encode("\n".join(lines).encode()).decode()
     return Response(
@@ -1426,6 +1547,7 @@ async def info_page(uuid: str, request: Request):
     host = get_host()
     label = link.get("label", "کاربر")
     protocol = link.get("protocol", DEFAULT_PROTOCOL)
+    http_version = link.get("http_version", "h2")
     fingerprint = link.get("fingerprint", "chrome")
     limit_bytes = link.get("limit_bytes", 0)
     used_bytes = link.get("used_bytes", 0)
@@ -1469,17 +1591,21 @@ async def info_page(uuid: str, request: Request):
     remaining_bytes = limit_bytes - used_bytes if limit_bytes > 0 else 0
     remaining_val, remaining_unit = fmt_bytes_short(remaining_bytes) if remaining_bytes > 0 else ("∞", "")
     
-    main_remark = f"🏛️ {label}"
-    main_link = generate_vless_link(uuid, host, remark=main_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, fake_port=False)
+    proto_icon = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])["icon"]
+    proto_name = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])["name"]
+    http_name = HTTP_VERSIONS.get(http_version, HTTP_VERSIONS["h2"])["name"]
+    
+    main_remark = f"{proto_icon} {label} ({proto_name}+{http_name})"
+    main_link = generate_vless_link(uuid, host, remark=main_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=False)
     
     time_remark = f"⏳ {days_left}"
-    time_link = generate_vless_link(uuid, host, remark=time_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, fake_port=True)
+    time_link = generate_vless_link(uuid, host, remark=time_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=True)
     
     if limit_bytes > 0:
         volume_remark = f"📊 {remaining_val} {remaining_unit}" if remaining_bytes > 0 else "📊 0 B"
     else:
         volume_remark = "📊 ∞"
-    volume_link = generate_vless_link(uuid, host, remark=volume_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, fake_port=True)
+    volume_link = generate_vless_link(uuid, host, remark=volume_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=True)
     
     active_connections_list = []
     for c in connections.values():
@@ -1520,6 +1646,9 @@ async def info_page(uuid: str, request: Request):
         "main_link": main_link,
         "remaining_val": remaining_val,
         "remaining_unit": remaining_unit,
+        "protocol_name": proto_name,
+        "protocol_icon": proto_icon,
+        "http_name": http_name,
     }
     
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
@@ -1546,7 +1675,7 @@ async def root():
     return HTMLResponse("""
     <!DOCTYPE html>
     <html>
-    <head><meta charset="UTF-8"><title>🏛️ Persepolis Gateway</title>
+    <head><meta charset="UTF-8"><title>🏛️ Persepolis Gateway v12</title>
     <style>
     body{font-family:sans-serif;background:#0a0a1a;color:#F5ECD7;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
     .card{text-align:center;padding:40px;background:rgba(20,15,10,0.7);border-radius:20px;border:1px solid rgba(212,175,55,0.2)}
@@ -1558,7 +1687,7 @@ async def root():
     <body>
     <div class="card">
         <h1>🏛️</h1>
-        <h2>Persepolis Gateway v10 Pro</h2>
+        <h2>Persepolis Gateway v12</h2>
         <p class="sub">پنل مدیریت فیلترشکن</p>
         <a href="/login">ورود به پنل →</a>
     </div>
