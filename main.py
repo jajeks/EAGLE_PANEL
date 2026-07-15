@@ -38,12 +38,11 @@ CONFIG = {
     "host": os.environ.get("RAILWAY_PUBLIC_DOMAIN", os.environ.get("RENDER_EXTERNAL_URL", "localhost")),
 }
 
-# ===== یوزرنیم و رمز ثابت =====
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "PERSEPOLIS"
 
 # ─── App ──────────────────────────────────────────────────────────────────────
-app = FastAPI(title="🏛️ Persepolis Gateway v13", docs_url=None, redoc_url=None)
+app = FastAPI(title="🏛️ Persepolis Gateway v14", docs_url=None, redoc_url=None)
 
 app.add_middleware(
     CORSMiddleware,
@@ -81,7 +80,7 @@ http_client: httpx.AsyncClient | None = None
 # ─── Auth ──────────────────────────────────────────────────────────────────────
 SESSION_COOKIE = "persepolis_session"
 SESSION_TTL = 60 * 60 * 24 * 7
-SESSIONS: dict = {}  # token -> {"expiry": time}
+SESSIONS: dict = {}
 SESSIONS_LOCK = asyncio.Lock()
 
 # ─── Settings ──────────────────────────────────────────────────────────────────
@@ -387,8 +386,8 @@ async def startup():
     http_client = httpx.AsyncClient(limits=limits, timeout=timeout, follow_redirects=True)
     await load_state()
     
-    log_activity("system", "🏛️ Persepolis Gateway v13 راه‌اندازی شد", "ok")
-    logger.info(f"🏛️ Persepolis Gateway v13 started on port {CONFIG['port']}")
+    log_activity("system", "🏛️ Persepolis Gateway v14 راه‌اندازی شد", "ok")
+    logger.info(f"🏛️ Persepolis Gateway v14 started on port {CONFIG['port']}")
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -808,7 +807,6 @@ async def api_login(request: Request):
     password = body.get("password", "")
     remember = body.get("remember", False)
     
-    # بررسی یوزرنیم و رمز
     if username != ADMIN_USERNAME or password != ADMIN_PASSWORD:
         log_activity("auth", f"تلاش ورود ناموفق از {ip}", "err")
         raise HTTPException(status_code=401, detail="یوزرنیم یا رمز عبور اشتباه است")
@@ -860,7 +858,7 @@ async def get_backup(_=Depends(require_auth)):
         "hourly_traffic": dict(hourly_traffic),
         "hourly_traffic_history": hist_dict,
         "exported_at": datetime.now().isoformat(),
-        "version": "13.0"
+        "version": "14.0"
     }
 
 @app.post("/api/backup/restore")
@@ -1143,7 +1141,7 @@ async def websocket_tunnel(ws: WebSocket, uuid: str):
         await remove_device_connection(uuid, client_ip)
         logger.info(f"🔌 WS closed [{conn_id}] total={len(connections)}")
 
-# ─── ===== ساب‌لینک با ۳ کانفیگ ===== ──────────────────────────────────
+# ─── ===== ساب‌لینک با طراحی جدید ===== ──────────────────────────────────
 
 @app.get("/sub/{uuid}")
 async def subscription_single(request: Request, uuid: str):
@@ -1272,9 +1270,11 @@ async def subscription_single(request: Request, uuid: str):
     proto_name = PROTOCOLS.get(protocol, PROTOCOLS["vless-ws"])["name"]
     http_name = HTTP_VERSIONS.get(http_version, HTTP_VERSIONS["h2"])["name"]
     
+    # ===== لینک اصلی =====
     main_remark = f"{proto_icon} {label} ({proto_name}+{http_name})"
     main_link = generate_vless_link(uuid, host, remark=main_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=False)
     
+    # ===== لینک‌های اضافی برای کلاینت =====
     time_remark = f"⏳ {days_left}"
     time_link = generate_vless_link(uuid, host, remark=time_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=True)
     
@@ -1284,6 +1284,7 @@ async def subscription_single(request: Request, uuid: str):
         volume_remark = "📊 ∞"
     volume_link = generate_vless_link(uuid, host, remark=volume_remark, protocol=protocol, fingerprint=fingerprint, port=DEFAULT_PORT, http_version=http_version, fake_port=True)
     
+    # ===== اگر کلاینت (غیر مرورگر) =====
     if not is_browser:
         config_lines = [main_link, time_link, volume_link]
         content = "\n".join(config_lines)
@@ -1303,6 +1304,7 @@ async def subscription_single(request: Request, uuid: str):
             }
         )
     
+    # ===== اگر مرورگر =====
     from pages import get_sub_page_html
     
     active_connections_list = []
@@ -1345,6 +1347,8 @@ async def subscription_single(request: Request, uuid: str):
         "protocol_name": proto_name,
         "protocol_icon": proto_icon,
         "http_name": http_name,
+        "fingerprint": fingerprint,
+        "label": label,
     }
     
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
@@ -1575,6 +1579,8 @@ async def info_page(uuid: str, request: Request):
         "protocol_name": proto_name,
         "protocol_icon": proto_icon,
         "http_name": http_name,
+        "fingerprint": fingerprint,
+        "label": label,
     }
     
     return HTMLResponse(content=get_sub_page_html(uuid, link_data))
@@ -1601,7 +1607,7 @@ async def root():
     return HTMLResponse("""
     <!DOCTYPE html>
     <html>
-    <head><meta charset="UTF-8"><title>🏛️ Persepolis Gateway v13</title>
+    <head><meta charset="UTF-8"><title>🏛️ Persepolis Gateway v14</title>
     <style>
     body{font-family:sans-serif;background:#0a0a1a;color:#F5ECD7;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
     .card{text-align:center;padding:40px;background:rgba(20,15,10,0.7);border-radius:20px;border:1px solid rgba(212,175,55,0.2)}
@@ -1613,7 +1619,7 @@ async def root():
     <body>
     <div class="card">
         <h1>🏛️</h1>
-        <h2>Persepolis Gateway v13</h2>
+        <h2>Persepolis Gateway v14</h2>
         <p class="sub">پنل مدیریت فیلترشکن</p>
         <a href="/login">ورود به پنل →</a>
     </div>
