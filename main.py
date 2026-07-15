@@ -38,11 +38,9 @@ CONFIG = {
     "host": os.environ.get("RAILWAY_PUBLIC_DOMAIN", os.environ.get("RENDER_EXTERNAL_URL", "localhost")),
 }
 
-# ===== دو نوع توکن =====
-# توکن کامل - همه چیز رو میبینه (ادمین)
-ADMIN_TOKEN = "PERSEPOLIS-ADMIN-2024"
-# توکن محدود - همه چیز بجز تنظیمات و لاگ
-USER_TOKEN = "PERSEPOLIS-USER-2024"
+# ===== یوزرنیم و رمز ثابت =====
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "PERSEPOLIS"
 
 # ─── App ──────────────────────────────────────────────────────────────────────
 app = FastAPI(title="🏛️ Persepolis Gateway v13", docs_url=None, redoc_url=None)
@@ -83,7 +81,7 @@ http_client: httpx.AsyncClient | None = None
 # ─── Auth ──────────────────────────────────────────────────────────────────────
 SESSION_COOKIE = "persepolis_session"
 SESSION_TTL = 60 * 60 * 24 * 7
-SESSIONS: dict = {}  # token -> {"expiry": time, "is_admin": bool}
+SESSIONS: dict = {}  # token -> {"expiry": time}
 SESSIONS_LOCK = asyncio.Lock()
 
 # ─── Settings ──────────────────────────────────────────────────────────────────
@@ -297,33 +295,26 @@ async def remove_device_connection(uuid: str, client_ip: str):
 
 # ─── Session Functions ──────────────────────────────────────────────────────
 
-async def create_session(is_admin: bool = False) -> str:
+async def create_session() -> str:
     token = secrets.token_urlsafe(32)
     async with SESSIONS_LOCK:
-        SESSIONS[token] = {
-            "expiry": time.time() + SESSION_TTL,
-            "is_admin": is_admin
-        }
+        SESSIONS[token] = time.time() + SESSION_TTL
     return token
 
 async def get_session_info(token: str | None) -> dict | None:
     if not token:
         return None
     async with SESSIONS_LOCK:
-        session = SESSIONS.get(token)
-        if session is None:
+        expiry = SESSIONS.get(token)
+        if expiry is None:
             return None
-        if session["expiry"] < time.time():
+        if expiry < time.time():
             SESSIONS.pop(token, None)
             return None
-        return session
+        return {"expiry": expiry}
 
 async def is_valid_session(token: str | None) -> bool:
     return await get_session_info(token) is not None
-
-async def is_admin_session(token: str | None) -> bool:
-    info = await get_session_info(token)
-    return info is not None and info.get("is_admin", False)
 
 async def destroy_session(token: str | None):
     if not token:
@@ -335,12 +326,6 @@ async def require_auth(request: Request):
     token = request.cookies.get(SESSION_COOKIE)
     if not await is_valid_session(token):
         raise HTTPException(status_code=401, detail="unauthorized")
-    return token
-
-async def require_admin(request: Request):
-    token = request.cookies.get(SESSION_COOKIE)
-    if not await is_admin_session(token):
-        raise HTTPException(status_code=403, detail="admin access required")
     return token
 
 # ─── State Persistence ──────────────────────────────────────────────────────
@@ -819,27 +804,21 @@ async def get_connections(_=Depends(require_auth)):
 async def api_login(request: Request):
     body = await request.json()
     ip = client_ip(request)
-    token_input = body.get("token", "").strip().upper()
+    username = body.get("username", "")
+    password = body.get("password", "")
     remember = body.get("remember", False)
     
-    is_admin = False
+    # بررسی یوزرنیم و رمز
+    if username != ADMIN_USERNAME or password != ADMIN_PASSWORD:
+        log_activity("auth", f"تلاش ورود ناموفق از {ip}", "err")
+        raise HTTPException(status_code=401, detail="یوزرنیم یا رمز عبور اشتباه است")
     
-    # چک کردن توکن
-    if token_input == ADMIN_TOKEN:
-        is_admin = True
-        log_activity("auth", f"ورود موفق با توکن کامل از {ip} (ادمین)", "ok")
-    elif token_input == USER_TOKEN:
-        is_admin = False
-        log_activity("auth", f"ورود موفق با توکن محدود از {ip} (کاربر)", "ok")
-    else:
-        log_activity("auth", f"تلاش ورود ناموفق با توکن از {ip}", "err")
-        raise HTTPException(status_code=401, detail="توکن نامعتبر است")
-    
-    session_token = await create_session(is_admin=is_admin)
+    token = await create_session()
+    log_activity("auth", f"ورود موفق به پنل از {ip}", "ok")
     
     max_age = SESSION_TTL if remember else None
-    resp = JSONResponse({"ok": True, "is_admin": is_admin})
-    resp.set_cookie(SESSION_COOKIE, session_token, max_age=max_age, httponly=True, samesite="lax", path="/")
+    resp = JSONResponse({"ok": True})
+    resp.set_cookie(SESSION_COOKIE, token, max_age=max_age, httponly=True, samesite="lax", path="/")
     return resp
 
 @app.post("/api/logout")
@@ -851,21 +830,17 @@ async def api_logout(request: Request):
 
 @app.get("/api/me")
 async def api_me(request: Request):
-    token = request.cookies.get(SESSION_COOKIE)
-    info = await get_session_info(token)
-    if info is None:
-        return {"authenticated": False, "is_admin": False}
-    return {"authenticated": True, "is_admin": info.get("is_admin", False)}
+    return {"authenticated": await is_valid_session(request.cookies.get(SESSION_COOKIE))}
 
-# ─── API: Activity Logs (فقط ادمین) ──────────────────────────────────────
+# ─── API: Activity Logs ───────────────────────────────────────────────────────
 
 @app.get("/api/activity")
-async def get_activity_logs(_=Depends(require_admin)):
+async def get_activity_logs(_=Depends(require_auth)):
     limit = 100
     logs = list(activity_logs)[-limit:]
     return {"logs": logs}
 
-# ─── Backup (همه میتونن دانلود کنن، فقط ادمین بازیابی) ──────────────────
+# ─── Backup ────────────────────────────────────────────────────────────────────
 
 @app.get("/api/backup")
 async def get_backup(_=Depends(require_auth)):
@@ -889,8 +864,7 @@ async def get_backup(_=Depends(require_auth)):
     }
 
 @app.post("/api/backup/restore")
-async def restore_backup(request: Request, _=Depends(require_admin)):
-    """فقط ادمین میتونه بکاپ بازیابی کنه"""
+async def restore_backup(request: Request, _=Depends(require_auth)):
     global hourly_traffic_history
     try:
         body = await request.json()
