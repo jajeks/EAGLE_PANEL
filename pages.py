@@ -1,10 +1,10 @@
-# pages.py - پنل تخت جمشید ۲.۰ (نسخه کامل و آماده)
+# pages.py - پنل تخت جمشید ۲.۰ (نسخه بهینه و واکنش‌گرا)
 
 LOGIN_HTML = r"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
 <title>🏛️ تخت جمشید · ورود</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -15,19 +15,19 @@ LOGIN_HTML = r"""<!DOCTYPE html>
 body{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);padding:20px;color:var(--t1);position:relative;overflow:hidden}
 .pattern-bg{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.025;background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5L35 15L45 15L38 22L41 32L30 27L19 32L22 22L15 15L25 15L30 5Z' fill='%23C9A84C'/%3E%3C/svg%3E");background-size:60px 60px}
 .particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.particle{position:absolute;width:3px;height:3px;background:radial-gradient(circle,#E8C84A,#C9A84C);border-radius:50%;box-shadow:0 0 6px rgba(201,168,76,0.3);animation:floatParticle var(--duration) linear infinite;animation-delay:var(--delay)}
+.particle{position:absolute;width:3px;height:3px;background:radial-gradient(circle,#E8C84A,#C9A84C);border-radius:50%;box-shadow:0 0 6px rgba(201,168,76,0.3);will-change:transform,opacity;animation:floatParticle var(--duration) linear infinite;animation-delay:var(--delay)}
 @keyframes floatParticle{0%{transform:translateY(0) translateX(0) scale(1);opacity:0}5%{opacity:0.7}90%{opacity:0.7}100%{transform:translateY(calc(-100vh - 50px)) translateX(var(--dx)) scale(0);opacity:0}}
-.glow-orb{position:fixed;border-radius:50%;filter:blur(150px);z-index:0;pointer-events:none;animation:orbFloat 8s ease-in-out infinite}
+.glow-orb{position:fixed;border-radius:50%;filter:blur(150px);z-index:0;pointer-events:none;will-change:transform;animation:orbFloat 8s ease-in-out infinite}
 .orb1{width:500px;height:500px;background:rgba(201,168,76,0.035);top:-200px;right:-100px}
 .orb2{width:400px;height:400px;background:rgba(232,200,74,0.025);bottom:-100px;left:-80px;animation-delay:2.5s}
 @keyframes orbFloat{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(40px,-30px) scale(1.08)}}
-.container{position:relative;z-index:10;display:grid;grid-template-columns:1fr 1fr;max-width:1100px;width:100%;background:var(--card);backdrop-filter:blur(30px);border-radius:24px;border:1px solid var(--border);overflow:hidden;box-shadow:var(--glow),0 25px 80px rgba(0,0,0,0.5);animation:cardIn 0.7s cubic-bezier(0.34,1.56,0.64,1)}
+.container{position:relative;z-index:10;display:grid;grid-template-columns:1fr 1fr;max-width:1100px;width:100%;background:var(--card);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-radius:24px;border:1px solid var(--border);overflow:hidden;box-shadow:var(--glow),0 25px 80px rgba(0,0,0,0.5);will-change:transform;animation:cardIn 0.7s cubic-bezier(0.34,1.56,0.64,1)}
 @keyframes cardIn{from{opacity:0;transform:translateY(40px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}
 .container::before{content:'';position:absolute;inset:0;border-radius:24px;padding:1px;background:linear-gradient(135deg,transparent,rgba(201,168,76,0.08),transparent,transparent,rgba(232,200,74,0.04),transparent);background-size:300% 300%;animation:holoShine 6s ease-in-out infinite;pointer-events:none;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude}
 @keyframes holoShine{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
 .login-section{padding:48px 40px;position:relative;z-index:1}
 .brand{display:flex;align-items:center;gap:12px;margin-bottom:32px}
-.brand-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#A8883A,#E8C84A);display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 0 40px rgba(201,168,76,0.2);animation:brandPulse 3s ease-in-out infinite}
+.brand-icon{width:44px;height:44px;border-radius:12px;background:linear-gradient(135deg,#C9A84C,#A8883A,#E8C84A);display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;box-shadow:0 0 40px rgba(201,168,76,0.2);animation:brandPulse 3s ease-in-out infinite}
 @keyframes brandPulse{0%,100%{box-shadow:0 0 40px rgba(201,168,76,0.2)}50%{box-shadow:0 0 60px rgba(201,168,76,0.35)}}
 .brand-text{font-size:16px;font-weight:800;background:linear-gradient(135deg,#E8C84A,#C9A84C,#A8883A);background-size:200% 200%;-webkit-background-clip:text;-webkit-text-fill-color:transparent;animation:gradientText 4s ease-in-out infinite}
 @keyframes gradientText{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
@@ -36,10 +36,10 @@ body{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-item
 .sub-text{font-size:13px;color:var(--t3);margin-bottom:28px}
 .field{margin-bottom:18px}
 .field label{display:block;font-size:10px;font-weight:600;color:var(--t2);margin-bottom:4px}
-.field input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,20,.3);color:var(--t1);font-family:inherit;font-size:14px;outline:none;transition:.3s}
+.field input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:rgba(0,0,20,.3);color:var(--t1);font-family:inherit;font-size:14px;outline:none;transition:.3s;-webkit-appearance:none}
 .field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,168,76,.08),0 0 30px rgba(201,168,76,.04);transform:scale(1.01)}
 .field input::placeholder{color:var(--t3)}
-.options{display:flex;justify-content:space-between;align-items:center;margin:14px 0 20px;font-size:12px}
+.options{display:flex;justify-content:space-between;align-items:center;margin:14px 0 20px;font-size:12px;flex-wrap:wrap;gap:8px}
 .options label{display:flex;align-items:center;gap:6px;color:var(--t2);cursor:pointer}
 .options label input[type="checkbox"]{accent-color:var(--accent);width:16px;height:16px;cursor:pointer}
 .btn-login{width:100%;padding:12px;border-radius:10px;border:none;cursor:pointer;background:linear-gradient(135deg,#C9A84C,#A8883A,#E8C84A);background-size:200% 200%;animation:gradientMove 4s ease infinite;color:#1a1208;font-family:inherit;font-size:15px;font-weight:700;transition:all .3s;box-shadow:0 4px 30px rgba(201,168,76,.25);position:relative;overflow:hidden}
@@ -64,12 +64,46 @@ body{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-item
 .feature .icon{font-size:28px;display:block;margin-bottom:4px}
 .feature .name{font-size:11px;font-weight:600;color:var(--t1)}
 .feature .desc{font-size:8px;color:var(--t3);margin-top:2px}
-.lang-toggle{position:fixed;top:20px;left:20px;z-index:50;display:flex;gap:6px;background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:10px;padding:4px;box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+.lang-toggle{position:fixed;top:20px;left:20px;z-index:50;display:flex;gap:6px;background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--border);border-radius:10px;padding:4px;box-shadow:0 8px 30px rgba(0,0,0,0.3)}
 .lang-toggle button{background:none;border:none;color:var(--t3);font-family:inherit;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;transition:.3s}
 .lang-toggle button.active{background:linear-gradient(135deg,#C9A84C,#A8883A);color:#1a1208}
 .lang-toggle button:hover:not(.active){color:var(--t1)}
-@media(max-width:900px){.container{grid-template-columns:1fr}.info-section{display:none}.login-section{padding:32px 24px}}
-@media(max-width:480px){.login-section{padding:24px 16px}.welcome{font-size:19px}}
+
+/* ===== واکنش‌گرایی ===== */
+@media(max-width:900px){
+  .container{grid-template-columns:1fr;border-radius:20px;max-width:480px}
+  .info-section{display:none}
+  .login-section{padding:32px 24px}
+  .lang-toggle{top:12px;left:12px}
+  .lang-toggle button{font-size:10px;padding:3px 8px}
+  .brand-icon{width:38px;height:38px;font-size:18px}
+  .brand-text{font-size:14px}
+  .welcome{font-size:20px}
+}
+@media(max-width:480px){
+  .login-section{padding:24px 16px}
+  .welcome{font-size:18px}
+  .sub-text{font-size:12px;margin-bottom:20px}
+  .field input{padding:10px 12px;font-size:13px}
+  .btn-login{font-size:14px;padding:10px}
+  .connect-btn{font-size:12px;padding:10px}
+  .brand{gap:10px;margin-bottom:24px}
+  .brand-icon{width:34px;height:34px;font-size:16px}
+  .brand-text{font-size:13px}
+  .lang-toggle{top:10px;left:10px;padding:3px;gap:4px}
+  .lang-toggle button{font-size:9px;padding:2px 6px}
+  .orb1,.orb2{display:none}
+  .particles .particle{display:none}
+  .particles .particle:nth-child(-n+10){display:block}
+}
+@media(max-width:380px){
+  .login-section{padding:16px 12px}
+  .welcome{font-size:16px}
+  .field{margin-bottom:12px}
+  .field input{padding:8px 10px;font-size:12px}
+  .options{font-size:11px;margin:10px 0 14px}
+  .btn-login{font-size:13px;padding:8px}
+}
 </style>
 </head>
 <body>
@@ -90,11 +124,11 @@ body{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-item
         <form id="login-form" onsubmit="handleLogin(event)">
             <div class="field">
                 <label id="label-username">نام کاربری</label>
-                <input type="text" id="username" placeholder="نام کاربری را وارد کنید" value="admin" dir="ltr">
+                <input type="text" id="username" placeholder="نام کاربری را وارد کنید" value="admin" dir="ltr" autocomplete="username">
             </div>
             <div class="field">
                 <label id="label-password">رمز عبور</label>
-                <input type="password" id="password" placeholder="رمز عبور را وارد کنید" dir="ltr">
+                <input type="password" id="password" placeholder="رمز عبور را وارد کنید" dir="ltr" autocomplete="current-password">
             </div>
             <div class="options"><label><input type="checkbox" id="remember"> <span id="remember-text">مرا به خاطر بسپار</span></label></div>
             <button class="btn-login" type="submit" id="login-btn"><i class="ti ti-login-2"></i> <span id="login-text">ورود</span></button>
@@ -114,27 +148,184 @@ body{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-item
     </div>
 </div>
 <script>
-function createParticles(){const c=document.getElementById('particles');for(let i=0;i<30;i++){const p=document.createElement('div');p.className='particle';const s=2+Math.random()*3;p.style.width=s+'px';p.style.height=s+'px';p.style.left=Math.random()*100+'%';p.style.top=Math.random()*100+'%';p.style.setProperty('--dx',(Math.random()-0.5)*200+'px');p.style.setProperty('--duration',15+Math.random()*25+'s');p.style.setProperty('--delay',Math.random()*20+'s');c.appendChild(p)}}createParticles();
-const translations={fa:{welcome:"خوش آمدید",sub:"وارد پنل مدیریت شوید",username:"نام کاربری",password:"رمز عبور",remember:"مرا به خاطر بسپار",login:"ورود",or:"یا",connect:"ورود با یک کلیک",secure:"امن",secure_d:"حریم خصوصی شما",fast:"سریع",fast_d:"سرعت برق آسا",global:"جهانی",global_d:"سرورهای جهانی",anon:"ناشناس",anon_d:"خصوصی بمانید",info_title:"🏛️ تخت جمشید",info_sub:"سریع‌ترین و امن‌ترین اتصال"},en:{welcome:"Welcome Back",sub:"Login to panel",username:"Username",password:"Password",remember:"Remember me",login:"Login",or:"OR",connect:"Quick Login",secure:"Secure",secure_d:"Your Privacy",fast:"Fast",fast_d:"Lightning Speed",global:"Global",global_d:"Worldwide Servers",anon:"Anonymous",anon_d:"Stay Private",info_title:"🏛️ Persepolis Panel",info_sub:"Fastest & Most Secure Connection"}};
-let currentLang=localStorage.getItem('persepolis-lang')||'fa';
-const ADMIN_USERNAME="admin",ADMIN_PASSWORD="PERSEPOLIS";
-function setLang(lang){currentLang=lang;localStorage.setItem('persepolis-lang',lang);document.querySelectorAll('.lang-toggle button').forEach(b=>b.classList.toggle('active',b.textContent.includes(lang==='fa'?'فارسی':'English')));updateTexts()}
-function updateTexts(){const t=translations[currentLang];document.getElementById('welcome-text').textContent=t.welcome;document.getElementById('sub-text').textContent=t.sub;document.getElementById('label-username').textContent=t.username;document.getElementById('label-password').textContent=t.password;document.getElementById('remember-text').textContent=t.remember;document.getElementById('login-text').textContent=t.login;document.getElementById('or-text').textContent=t.or;document.getElementById('connect-text').textContent=t.connect;document.getElementById('f-secure').textContent=t.secure;document.getElementById('f-secure-d').textContent=t.secure_d;document.getElementById('f-fast').textContent=t.fast;document.getElementById('f-fast-d').textContent=t.fast_d;document.getElementById('f-global').textContent=t.global;document.getElementById('f-global-d').textContent=t.global_d;document.getElementById('f-anon').textContent=t.anon;document.getElementById('f-anon-d').textContent=t.anon_d;document.getElementById('info-title').textContent=t.info_title;document.getElementById('info-sub').textContent=t.info_sub}
-async function handleLogin(e){e.preventDefault();const btn=document.getElementById('login-btn'),err=document.getElementById('error-box'),errText=document.getElementById('error-text');err.classList.remove('show');btn.disabled=true;btn.innerHTML='<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال ورود...';try{const username=document.getElementById('username').value,password=document.getElementById('password').value,remember=document.getElementById('remember').checked;const r=await fetch('/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username,password,remember})});if(!r.ok){const d=await r.json().catch(()=>({}));errText.textContent=d.detail||'یوزرنیم یا رمز عبور اشتباه است';err.classList.add('show');btn.disabled=false;btn.innerHTML='<i class="ti ti-login-2"></i> '+translations[currentLang].login;return}window.location.href='/dashboard'}catch(e){errText.textContent='خطا در ارتباط با سرور';err.classList.add('show');btn.disabled=false;btn.innerHTML='<i class="ti ti-login-2"></i> '+translations[currentLang].login}}
-function quickConnect(){document.getElementById('username').value=ADMIN_USERNAME;document.getElementById('password').value=ADMIN_PASSWORD;document.getElementById('remember').checked=true;document.getElementById('login-form').dispatchEvent(new Event('submit'))}
-document.getElementById('password').addEventListener('keydown',(e)=>{if(e.key==='Enter')document.getElementById('login-form').dispatchEvent(new Event('submit'))});
-document.getElementById('username').addEventListener('keydown',(e)=>{if(e.key==='Enter')document.getElementById('login-form').dispatchEvent(new Event('submit'))});
+// ===== بهینه‌سازی ذرات برای موبایل =====
+function createParticles() {
+    const container = document.getElementById('particles');
+    const isMobile = window.innerWidth < 480;
+    const count = isMobile ? 12 : 30;
+    
+    for (let i = 0; i < count; i++) {
+        const p = document.createElement('div');
+        p.className = 'particle';
+        const s = isMobile ? 2 + Math.random() * 2 : 2 + Math.random() * 3;
+        p.style.width = s + 'px';
+        p.style.height = s + 'px';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.top = Math.random() * 100 + '%';
+        p.style.setProperty('--dx', (Math.random() - 0.5) * 200 + 'px');
+        p.style.setProperty('--duration', (isMobile ? 20 : 15) + Math.random() * (isMobile ? 20 : 25) + 's');
+        p.style.setProperty('--delay', Math.random() * 20 + 's');
+        container.appendChild(p);
+    }
+}
+createParticles();
+
+// ===== ترجمه‌ها =====
+const translations = {
+    fa: {
+        welcome: "خوش آمدید",
+        sub: "وارد پنل مدیریت شوید",
+        username: "نام کاربری",
+        password: "رمز عبور",
+        remember: "مرا به خاطر بسپار",
+        login: "ورود",
+        or: "یا",
+        connect: "ورود با یک کلیک",
+        secure: "امن",
+        secure_d: "حریم خصوصی شما",
+        fast: "سریع",
+        fast_d: "سرعت برق آسا",
+        global: "جهانی",
+        global_d: "سرورهای جهانی",
+        anon: "ناشناس",
+        anon_d: "خصوصی بمانید",
+        info_title: "🏛️ تخت جمشید",
+        info_sub: "سریع‌ترین و امن‌ترین اتصال"
+    },
+    en: {
+        welcome: "Welcome Back",
+        sub: "Login to panel",
+        username: "Username",
+        password: "Password",
+        remember: "Remember me",
+        login: "Login",
+        or: "OR",
+        connect: "Quick Login",
+        secure: "Secure",
+        secure_d: "Your Privacy",
+        fast: "Fast",
+        fast_d: "Lightning Speed",
+        global: "Global",
+        global_d: "Worldwide Servers",
+        anon: "Anonymous",
+        anon_d: "Stay Private",
+        info_title: "🏛️ Persepolis Panel",
+        info_sub: "Fastest & Most Secure Connection"
+    }
+};
+
+let currentLang = localStorage.getItem('persepolis-lang') || 'fa';
+const ADMIN_USERNAME = "admin";
+const ADMIN_PASSWORD = "PERSEPOLIS";
+
+function setLang(lang) {
+    currentLang = lang;
+    localStorage.setItem('persepolis-lang', lang);
+    document.querySelectorAll('.lang-toggle button').forEach(b => 
+        b.classList.toggle('active', b.textContent.includes(lang === 'fa' ? 'فارسی' : 'English'))
+    );
+    updateTexts();
+}
+
+function updateTexts() {
+    const t = translations[currentLang];
+    if (!t) return;
+    document.getElementById('welcome-text').textContent = t.welcome;
+    document.getElementById('sub-text').textContent = t.sub;
+    document.getElementById('label-username').textContent = t.username;
+    document.getElementById('label-password').textContent = t.password;
+    document.getElementById('remember-text').textContent = t.remember;
+    document.getElementById('login-text').textContent = t.login;
+    document.getElementById('or-text').textContent = t.or;
+    document.getElementById('connect-text').textContent = t.connect;
+    document.getElementById('f-secure').textContent = t.secure;
+    document.getElementById('f-secure-d').textContent = t.secure_d;
+    document.getElementById('f-fast').textContent = t.fast;
+    document.getElementById('f-fast-d').textContent = t.fast_d;
+    document.getElementById('f-global').textContent = t.global;
+    document.getElementById('f-global-d').textContent = t.global_d;
+    document.getElementById('f-anon').textContent = t.anon;
+    document.getElementById('f-anon-d').textContent = t.anon_d;
+    document.getElementById('info-title').textContent = t.info_title;
+    document.getElementById('info-sub').textContent = t.info_sub;
+}
+
+async function handleLogin(e) {
+    e.preventDefault();
+    const btn = document.getElementById('login-btn');
+    const err = document.getElementById('error-box');
+    const errText = document.getElementById('error-text');
+    err.classList.remove('show');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="ti ti-loader-2" style="animation:spin 1s linear infinite"></i> در حال ورود...';
+
+    try {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        const remember = document.getElementById('remember').checked;
+
+        const r = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password, remember })
+        });
+
+        if (!r.ok) {
+            const d = await r.json().catch(() => ({}));
+            errText.textContent = d.detail || 'یوزرنیم یا رمز عبور اشتباه است';
+            err.classList.add('show');
+            btn.disabled = false;
+            btn.innerHTML = '<i class="ti ti-login-2"></i> ' + translations[currentLang].login;
+            return;
+        }
+        window.location.href = '/dashboard';
+    } catch (e) {
+        errText.textContent = 'خطا در ارتباط با سرور';
+        err.classList.add('show');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-login-2"></i> ' + translations[currentLang].login;
+    }
+}
+
+function quickConnect() {
+    document.getElementById('username').value = ADMIN_USERNAME;
+    document.getElementById('password').value = ADMIN_PASSWORD;
+    document.getElementById('remember').checked = true;
+    document.getElementById('login-form').dispatchEvent(new Event('submit'));
+}
+
+document.getElementById('password').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('login-form').dispatchEvent(new Event('submit'));
+});
+document.getElementById('username').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') document.getElementById('login-form').dispatchEvent(new Event('submit'));
+});
+
+// ===== بهینه‌سازی برای موبایل =====
+window.addEventListener('resize', () => {
+    const isMobile = window.innerWidth < 480;
+    const particles = document.querySelectorAll('.particle');
+    particles.forEach((p, i) => {
+        if (isMobile && i >= 12) {
+            p.style.display = 'none';
+        } else {
+            p.style.display = 'block';
+        }
+    });
+});
+
 setLang(currentLang);
 </script>
 </body></html>"""
 
 # ============================================================
-# DASHBOARD_HTML - داشبورد با تمام تغییرات
+# DASHBOARD_HTML - نسخه بهینه با تمام ویژگی‌ها
 # ============================================================
 DASHBOARD_HTML = r"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>🏛️ تخت جمشید · خانه</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -147,24 +338,30 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/l10n/fa.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-:root{--bg:#0a0508;--bg2:#12080a;--bg3:#1a0f0a;--card:rgba(10,5,8,0.8);--card-b:rgba(201,168,76,0.06);--card-bh:rgba(201,168,76,0.12);--accent:#C9A84C;--accent2:#E8C84A;--accent3:#A8883A;--green:#10B981;--green-bg:rgba(16,185,129,0.08);--green-t:#34D399;--red:#EF4444;--red-bg:rgba(239,68,68,0.08);--red-t:#F87171;--amber:#F59E0B;--amber-bg:rgba(245,158,11,0.08);--amber-t:#FCD34D;--t1:#F5ECD7;--t2:#C9A84C;--t3:#8A7A4A;--sidebar-w:180px;--radius:16px;--shadow:0 8px 32px rgba(0,0,0,0.5),0 0 60px rgba(201,168,76,0.02)}
-body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;display:flex;font-size:13px;position:relative;overflow-x:hidden}
+
+/* ===== متغیرها ===== */
+:root{--bg:#0a0508;--bg2:#12080a;--bg3:#1a0f0a;--card:rgba(10,5,8,0.8);--card-b:rgba(201,168,76,0.06);--card-bh:rgba(201,168,76,0.12);--accent:#C9A84C;--accent2:#E8C84A;--accent3:#A8883A;--green:#10B981;--green-bg:rgba(16,185,129,0.08);--green-t:#34D399;--red:#EF4444;--red-bg:rgba(239,68,68,0.08);--red-t:#F87171;--amber:#F59E0B;--amber-bg:rgba(245,158,11,0.08);--amber-t:#FCD34D;--t1:#F5ECD7;--t2:#C9A84C;--t3:#8A7A4A;--sidebar-w:180px;--radius:16px;--shadow:0 8px 32px rgba(0,0,0,0.5),0 0 60px rgba(201,168,76,0.02);--safe-bottom:env(safe-area-inset-bottom,0px)}
+body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;display:flex;font-size:13px;position:relative;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+
+/* ===== پس‌زمینه ===== */
 .pattern-bg{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:0.02;background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M30 5L35 15L45 15L38 22L41 32L30 27L19 32L22 22L15 15L25 15L30 5Z' fill='%23C9A84C'/%3E%3C/svg%3E");background-size:60px 60px}
 .particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
-.particle{position:absolute;width:3px;height:3px;background:linear-gradient(135deg,#C9A84C,#E8C84A);border-radius:50%;box-shadow:0 0 8px rgba(201,168,76,0.2);animation:floatParticle 20s linear infinite}
+.particle{position:absolute;width:3px;height:3px;background:linear-gradient(135deg,#C9A84C,#E8C84A);border-radius:50%;box-shadow:0 0 8px rgba(201,168,76,0.2);will-change:transform,opacity;animation:floatParticle 20s linear infinite}
 @keyframes floatParticle{0%{transform:translateY(0) translateX(0) scale(1);opacity:0}10%{opacity:0.6}90%{opacity:0.6}100%{transform:translateY(-100vh) translateX(var(--dx)) scale(0);opacity:0}}
-.glow-orb{position:fixed;border-radius:50%;filter:blur(150px);z-index:0;pointer-events:none;animation:orbFloat 8s ease-in-out infinite}
+.glow-orb{position:fixed;border-radius:50%;filter:blur(150px);z-index:0;pointer-events:none;will-change:transform;animation:orbFloat 8s ease-in-out infinite}
 .glow-left{width:600px;height:600px;background:rgba(201,168,76,0.02);top:-300px;left:-200px}
 .glow-right{width:500px;height:500px;background:rgba(232,200,74,0.02);bottom:-200px;right:-100px;animation-delay:2s}
 @keyframes orbFloat{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(50px,-30px) scale(1.1)}}
-.sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--card);backdrop-filter:blur(30px);border-left:1px solid var(--card-b);display:flex;flex-direction:column;flex-shrink:0;position:fixed;right:0;top:0;bottom:0;z-index:200;transition:transform .4s cubic-bezier(0.34,1.56,0.64,1);box-shadow:var(--shadow)}
+
+/* ===== سایدبار ===== */
+.sidebar{width:var(--sidebar-w);min-height:100vh;background:var(--card);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-left:1px solid var(--card-b);display:flex;flex-direction:column;flex-shrink:0;position:fixed;right:0;top:0;bottom:0;z-index:200;transition:transform .4s cubic-bezier(0.34,1.56,0.64,1);box-shadow:var(--shadow);will-change:transform}
 .sidebar::before{content:'';position:absolute;inset:0;background:linear-gradient(180deg,rgba(201,168,76,0.02) 0%,transparent 50%,rgba(201,168,76,0.01) 100%);pointer-events:none}
 .logo{display:flex;align-items:center;gap:10px;padding:16px 12px 12px;border-bottom:1px solid var(--card-b)}
 .logo-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#C9A84C,#A8883A,#E8C84A);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;box-shadow:0 0 30px rgba(201,168,76,0.15);animation:logoPulse 3s ease-in-out infinite}
 @keyframes logoPulse{0%,100%{box-shadow:0 0 30px rgba(201,168,76,0.15)}50%{box-shadow:0 0 50px rgba(201,168,76,0.25)}}
 .logo-name{font-size:13px;font-weight:800;background:linear-gradient(135deg,#E8C84A,#C9A84C);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
 .logo-sub{font-size:7px;color:var(--t3);letter-spacing:1px}
-.nav-wrap{flex:1;overflow-y:auto;padding:6px 0}
+.nav-wrap{flex:1;overflow-y:auto;padding:6px 0;-webkit-overflow-scrolling:touch}
 .nav-it{display:flex;align-items:center;gap:8px;padding:8px 10px;color:var(--t3);font-size:11px;cursor:pointer;border-right:2px solid transparent;transition:all .3s cubic-bezier(0.34,1.56,0.64,1);margin:1px 4px;border-radius:6px;position:relative;overflow:hidden}
 .nav-it::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(201,168,76,0.05),transparent);opacity:0;transition:.3s}
 .nav-it:hover::before{opacity:1}
@@ -176,38 +373,34 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .sb-foot{padding:10px 12px;border-top:1px solid var(--card-b)}
 .logout-btn{display:flex;align-items:center;justify-content:center;gap:6px;background:var(--red-bg);color:var(--red-t);border-radius:6px;padding:6px;font-size:10px;font-weight:500;font-family:inherit;border:1px solid rgba(239,68,68,0.1);cursor:pointer;width:100%;transition:.3s}
 .logout-btn:hover{background:rgba(239,68,68,0.15);transform:scale(1.02)}
-.mob-top{display:none;position:fixed;top:0;right:0;left:0;height:48px;background:var(--card);backdrop-filter:blur(30px);border-bottom:1px solid var(--card-b);z-index:150;align-items:center;justify-content:space-between;padding:0 10px}
+
+/* ===== هدر موبایل ===== */
+.mob-top{display:none;position:fixed;top:0;right:0;left:0;height:48px;background:var(--card);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-bottom:1px solid var(--card-b);z-index:150;align-items:center;justify-content:space-between;padding:0 10px}
 .mob-top .ml{display:flex;align-items:center;gap:6px}
 .mob-logo{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,#C9A84C,#A8883A);display:flex;align-items:center;justify-content:center;font-size:13px}
 .mob-title{color:var(--t1);font-size:11px;font-weight:700}
 .menu-btn{background:rgba(201,168,76,0.05);border:1px solid var(--card-b);color:var(--t2);width:30px;height:30px;border-radius:6px;font-size:14px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.3s}
 .menu-btn:hover{background:rgba(201,168,76,0.1);transform:scale(1.05)}
-.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:190;backdrop-filter:blur(6px)}
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:190;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
 .overlay.show{display:block}
-.main{margin-right:var(--sidebar-w);flex:1;padding:16px 20px 80px;min-width:0;transition:margin .4s;position:relative;z-index:1}
+
+/* ===== محتوای اصلی ===== */
+.main{margin-right:var(--sidebar-w);flex:1;padding:16px 20px calc(80px + var(--safe-bottom));min-width:0;transition:margin .4s;position:relative;z-index:1}
 .pg{display:none;animation:pageIn .4s cubic-bezier(0.34,1.56,0.64,1)}
 .pg.on{display:block}
 @keyframes pageIn{from{opacity:0;transform:translateY(20px) scale(0.97)}to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* ===== تاپبار ===== */
 .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
 .tb-title{font-size:17px;font-weight:800;color:var(--t1);display:flex;align-items:center;gap:6px}
 .tb-title i{color:var(--accent);font-size:19px;animation:titleIcon 3s ease-in-out infinite}
 @keyframes titleIcon{0%,100%{transform:rotate(0deg)}50%{transform:rotate(-5deg)}}
 .tb-sub{font-size:10px;color:var(--t3);margin-top:1px}
 .tb-right{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.badge{font-size:8px;padding:2px 8px;border-radius:12px;font-weight:700;display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
-.bg-green{background:var(--green-bg);color:var(--green-t)}
-.bg-blue{background:rgba(201,168,76,0.1);color:var(--accent)}
-.bg-fire{background:rgba(201,168,76,0.08);color:#E8C84A}
-.bg-amber{background:var(--amber-bg);color:var(--amber-t)}
-.bg-red{background:var(--red-bg);color:var(--red-t)}
-.dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;display:inline-block}
-.dg{background:var(--green);animation:dotPulse 1.5s ease-in-out infinite}
-.dr{background:var(--red);animation:dotPulse 1.8s ease-in-out infinite}
-.da{background:var(--amber);animation:dotPulse 2s ease-in-out infinite}
-.db{background:var(--accent);animation:dotPulse 1.2s ease-in-out infinite}
-@keyframes dotPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(0.7)}}
+
+/* ===== کارت‌های آمار ===== */
 .stats-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px}
-.stat-card{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--card-b);border-radius:var(--radius);padding:12px 8px;transition:all .4s cubic-bezier(0.34,1.56,0.64,1);text-align:center;position:relative;overflow:hidden;animation:cardSlideIn .5s ease backwards}
+.stat-card{background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--card-b);border-radius:var(--radius);padding:12px 8px;transition:all .4s cubic-bezier(0.34,1.56,0.64,1);text-align:center;position:relative;overflow:hidden;animation:cardSlideIn .5s ease backwards;will-change:transform}
 .stat-card:nth-child(1){animation-delay:0.05s}
 .stat-card:nth-child(2){animation-delay:0.10s}
 .stat-card:nth-child(3){animation-delay:0.15s}
@@ -222,7 +415,9 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .stat-card .number.small{font-size:13px}
 .stat-card .label{font-size:9px;color:var(--t3);margin-top:2px;font-weight:500}
 .stat-card .sub{font-size:7px;color:var(--t3);margin-top:0px;opacity:.6}
-.chart-section{background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:16px;margin:12px 0;backdrop-filter:blur(20px);transition:all .3s}
+
+/* ===== نمودار ===== */
+.chart-section{background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:16px;margin:12px 0;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);transition:all .3s}
 .chart-section:hover{border-color:var(--card-bh);transform:translateY(-2px)}
 .chart-section .chart-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:8px}
 .chart-section .chart-title{font-size:13px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:6px}
@@ -230,11 +425,8 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 @keyframes titlePulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
 .chart-section .chart-sub{font-size:9px;color:var(--t3)}
 .chart-section .chart-actions{display:flex;gap:4px;flex-wrap:wrap}
-.stat-mini{background:var(--card);border:1px solid var(--card-b);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;transition:all .3s cubic-bezier(0.34,1.56,0.64,1)}
-.stat-mini:hover{transform:translateY(-2px);border-color:var(--card-bh)}
-.stat-mini-icon{font-size:16px}
-.stat-mini-num{font-size:16px;font-weight:800;color:var(--t1)}
-.stat-mini-label{font-size:9px;color:var(--t3)}
+
+/* ===== جدول کاربران ===== */
 .users-table{width:100%;border-collapse:collapse;font-size:12px}
 .users-table thead th{padding:10px 12px;text-align:right;color:var(--t2);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--card-b);background:rgba(201,168,76,0.02)}
 .users-table tbody td{padding:8px 12px;border-bottom:1px solid var(--card-b);color:var(--t1);vertical-align:middle}
@@ -249,19 +441,18 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .users-table .status-badge.active{background:var(--green-bg);color:var(--green-t)}
 .users-table .status-badge.expired{background:var(--red-bg);color:var(--red-t)}
 .users-table .status-badge.disabled{background:var(--amber-bg);color:var(--amber-t)}
-.users-table .usage-bar{display:flex;align-items:center;gap:6px}
+.users-table .usage-bar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .users-table .usage-bar .bar{width:80px;height:4px;border-radius:4px;background:rgba(201,168,76,0.05);overflow:hidden;position:relative}
 .users-table .usage-bar .bar .fill{height:100%;border-radius:4px;background:linear-gradient(90deg,#10B981,#F59E0B,#EF4444);background-size:200% 100%;animation:waveFill 2s ease-in-out infinite;transition:width .8s cubic-bezier(0.34,1.56,0.64,1)}
 @keyframes waveFill{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
 .users-table .usage-text{font-size:9px;color:var(--t2);white-space:nowrap}
-.users-table .action-btns{display:flex;gap:3px;justify-content:center;flex-wrap:wrap}
-.users-table .action-btns .btn{padding:2px 6px;font-size:8px;border-radius:4px}
-.user-name-cell{display:flex;align-items:center;gap:6px}
 .user-name-cell .avatar{width:24px;height:24px;border-radius:8px;background:linear-gradient(135deg,#C9A84C,#A8883A);display:flex;align-items:center;justify-content:center;font-size:10px;color:#1a1208;flex-shrink:0;transition:all .3s}
 .user-name-cell:hover .avatar{transform:scale(1.1) rotate(-5deg)}
 .user-name-cell .name{font-weight:600;color:var(--t1)}
 .user-name-cell .uuid-short{font-size:7px;color:var(--t3);font-family:monospace}
-.btn{font-family:inherit;font-size:10px;font-weight:600;border-radius:6px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border:none;transition:all .3s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap}
+
+/* ===== دکمه‌ها ===== */
+.btn{font-family:inherit;font-size:10px;font-weight:600;border-radius:6px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;border:none;transition:all .3s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;touch-action:manipulation}
 .btn i{font-size:11px;transition:transform .3s}
 .btn:hover i{transform:scale(1.1)}
 .btn-p{background:linear-gradient(135deg,#C9A84C,#A8883A,#E8C84A);background-size:200% 200%;animation:btnGradient 4s ease infinite;color:#1a1208;box-shadow:0 3px 15px rgba(201,168,76,.2)}
@@ -276,12 +467,15 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .btn-amber{background:var(--amber-bg);color:var(--amber-t);border:1px solid rgba(245,158,11,0.1)}
 .btn-amber:hover{background:rgba(245,158,11,0.15);transform:translateY(-1px)}
 .btn-sm{padding:2px 6px;font-size:8px;border-radius:4px}
-.btn-icon{width:22px;height:22px;padding:0;justify-content:center}
 .btn-generate{background:rgba(201,168,76,0.08);color:var(--accent);border:1px solid rgba(201,168,76,0.1);padding:6px 10px;flex-shrink:0}
 .btn-generate:hover{background:rgba(201,168,76,0.15);transform:scale(1.05)}
-.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(8px)}
+.btn-success{background:var(--green-bg);border:1px solid rgba(16,185,129,0.08);color:var(--green-t)}
+.btn-success:hover{background:rgba(16,185,129,0.12);transform:translateY(-2px)}
+
+/* ===== مدال‌ها ===== */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:500;align-items:center;justify-content:center;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .modal-bg.open{display:flex}
-.modal{background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--card-b);border-radius:14px;padding:20px 18px;max-width:560px;width:calc(100% - 20px);max-height:90vh;overflow-y:auto;position:relative;animation:modalIn .5s cubic-bezier(0.34,1.56,0.64,1);box-shadow:var(--shadow)}
+.modal{background:var(--card);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border:1px solid var(--card-b);border-radius:14px;padding:20px 18px;max-width:560px;width:calc(100% - 20px);max-height:90vh;overflow-y:auto;position:relative;animation:modalIn .5s cubic-bezier(0.34,1.56,0.64,1);box-shadow:var(--shadow);-webkit-overflow-scrolling:touch}
 @keyframes modalIn{from{opacity:0;transform:scale(0.9) translateY(30px)}to{opacity:1;transform:scale(1) translateY(0)}}
 .modal-close{position:absolute;top:10px;left:10px;background:rgba(201,168,76,0.05);border:1px solid var(--card-b);color:var(--t2);width:24px;height:24px;border-radius:6px;font-size:12px;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;transition:.3s}
 .modal-close:hover{background:var(--red-bg);color:var(--red-t);transform:rotate(90deg)}
@@ -289,68 +483,132 @@ body{font-family:'Vazirmatn',sans-serif;background:var(--bg);color:var(--t1);min
 .modal-title i{color:var(--accent);font-size:15px}
 .fg{display:flex;flex-direction:column;gap:2px;margin-bottom:8px}
 .fg label{font-size:8px;color:var(--t3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;display:flex;align-items:center;gap:3px}
-.fi{width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--card-b);background:rgba(0,0,20,.2);color:var(--t1);font-family:inherit;font-size:10px;outline:none;transition:.3s}
+.fi{width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--card-b);background:rgba(0,0,20,.2);color:var(--t1);font-family:inherit;font-size:10px;outline:none;transition:.3s;-webkit-appearance:none}
 .fi:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,168,76,.06)}
 .fi::placeholder{color:var(--t3)}
 select.fi{appearance:none;cursor:pointer}
 .fi-date{color:var(--t1);background:rgba(0,0,20,.2);border:1px solid var(--card-b);border-radius:6px;padding:6px 10px;width:100%;font-family:inherit;font-size:10px;outline:none;transition:.3s;cursor:pointer}
 .fi-date:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,168,76,.06)}
-.fg-row{display:flex;gap:6px;align-items:center}
-.fg-row .fg{flex:1}
+
+/* ===== اتصالات ===== */
 .conn-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px}
-.conn-card{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--card-b);border-radius:10px;padding:10px 12px;transition:.3s}
+.conn-card{background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--card-b);border-radius:10px;padding:10px 12px;transition:.3s}
 .conn-card:hover{border-color:var(--card-bh);transform:translateY(-2px)}
 .conn-card .ip{font-family:monospace;font-size:11px;font-weight:700;color:var(--t1);display:flex;align-items:center;gap:4px}
 .conn-card .label{font-size:8px;color:var(--t3);margin-top:1px}
 .conn-card .conn-info{display:flex;justify-content:space-between;margin-top:4px;font-size:8px;color:var(--t2);gap:3px;flex-wrap:wrap}
 .conn-status-dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:#34D399;animation:pulse 1.5s infinite;margin-left:3px}
-.settings-card{background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--card-b);border-radius:var(--radius);padding:14px 16px;max-width:480px;margin-bottom:10px;position:relative;overflow:hidden;transition:all .3s}
+
+/* ===== تنظیمات ===== */
+.settings-card{background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--card-b);border-radius:var(--radius);padding:14px 16px;max-width:480px;margin-bottom:10px;position:relative;overflow:hidden;transition:all .3s}
 .settings-card:hover{border-color:var(--card-bh)}
 .settings-card::before{content:'';position:absolute;top:-50%;right:-50%;width:150px;height:150px;background:radial-gradient(circle,rgba(201,168,76,0.02),transparent 70%);pointer-events:none}
 .settings-card .title{font-size:13px;font-weight:700;color:var(--t1);margin-bottom:10px;display:flex;align-items:center;gap:6px}
 .settings-card .title i{color:var(--accent)}
-.settings-card .field{margin-bottom:8px}
-.settings-card .field label{font-size:9px;color:var(--t3);display:block;margin-bottom:2px;font-weight:600}
-.settings-card .field input{width:100%;padding:6px 10px;border-radius:6px;border:1px solid var(--card-b);background:rgba(0,0,20,.2);color:var(--t1);font-family:inherit;font-size:11px;outline:none;transition:.3s}
-.settings-card .field input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,168,76,.06)}
-.settings-card .btn{width:100%;justify-content:center;margin-top:3px;font-size:11px;padding:6px}
 .settings-card .toggle-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--card-b)}
 .settings-card .toggle-row .toggle-label{font-size:11px;color:var(--t2);display:flex;align-items:center;gap:5px}
 .switch{position:relative;width:36px;height:20px;background:var(--t3);border-radius:10px;cursor:pointer;transition:.4s;flex-shrink:0}
 .switch.on{background:linear-gradient(135deg,#C9A84C,#A8883A)}
 .switch .slider{position:absolute;top:2px;right:2px;width:16px;height:16px;background:#1a1208;border-radius:50%;transition:.4s cubic-bezier(0.34,1.56,0.64,1);box-shadow:0 2px 4px rgba(0,0,0,0.2)}
 .switch.on .slider{right:18px}
-.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(50px);background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--card-b);color:var(--t1);border-radius:8px;padding:8px 16px;font-size:11px;opacity:0;transition:all .4s cubic-bezier(0.34,1.56,0.64,1);z-index:999;pointer-events:none;box-shadow:var(--shadow);display:flex;align-items:center;gap:5px}
+
+/* ===== نوتیفیکیشن ===== */
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%) translateY(50px);background:var(--card);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border:1px solid var(--card-b);color:var(--t1);border-radius:8px;padding:8px 16px;font-size:11px;opacity:0;transition:all .4s cubic-bezier(0.34,1.56,0.64,1);z-index:999;pointer-events:none;box-shadow:var(--shadow);display:flex;align-items:center;gap:5px;max-width:90%}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .toast.ok{border-color:rgba(16,185,129,.2);background:var(--green-bg);color:var(--green-t)}
 .toast.err{border-color:rgba(239,68,68,.2);background:var(--red-bg);color:var(--red-t)}
 .toast.warn{border-color:rgba(245,158,11,.2);background:var(--amber-bg);color:var(--amber-t)}
-.empty{text-align:center;padding:30px 15px;color:var(--t3)}
-.empty i{font-size:28px;opacity:.3;display:block;margin-bottom:6px}
-.empty p{font-size:10px}
-.bottom-nav{display:none;position:fixed;bottom:0;right:0;left:0;background:var(--card);backdrop-filter:blur(30px);border-top:1px solid var(--card-b);z-index:300;padding:4px 2px 6px;justify-content:space-around;align-items:center}
+
+/* ===== ناوبری پایین موبایل ===== */
+.bottom-nav{display:none;position:fixed;bottom:0;right:0;left:0;background:var(--card);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border-top:1px solid var(--card-b);z-index:300;padding:4px 2px calc(6px + var(--safe-bottom));justify-content:space-around;align-items:center}
 .bottom-nav .nav-item{display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--t3);font-size:7px;cursor:pointer;padding:3px 6px;border-radius:6px;transition:all .3s;border:none;background:none;font-family:inherit;min-width:40px;position:relative}
 .bottom-nav .nav-item i{font-size:16px;transition:all .3s}
 .bottom-nav .nav-item:hover{color:var(--t2);transform:translateY(-2px)}
 .bottom-nav .nav-item.active{color:var(--accent)}
 .bottom-nav .nav-item.active i{transform:scale(1.1)}
-.weather-widget{display:flex;align-items:center;gap:8px;background:rgba(201,168,76,0.03);border:1px solid var(--card-b);border-radius:8px;padding:4px 12px;font-size:11px}
-.weather-widget .temp{font-weight:700;color:var(--t1)}
-.weather-widget .condition{color:var(--t3);font-size:9px}
-.flatpickr-calendar{background:var(--card)!important;backdrop-filter:blur(30px)!important;border:1px solid var(--card-b)!important;border-radius:12px!important;box-shadow:var(--shadow)!important}
-.flatpickr-calendar .flatpickr-months .flatpickr-month{color:var(--t1)!important}
-.flatpickr-calendar .flatpickr-weekday{color:var(--t2)!important}
-.flatpickr-calendar .flatpickr-day{color:var(--t1)!important;border-radius:6px!important}
-.flatpickr-calendar .flatpickr-day:hover{background:rgba(201,168,76,0.1)!important}
-.flatpickr-calendar .flatpickr-day.selected{background:linear-gradient(135deg,#C9A84C,#A8883A)!important;color:#1a1208!important;border-color:#C9A84C!important}
-.flatpickr-calendar .flatpickr-day.today{border-color:var(--accent)!important}
+.bottom-nav .nav-item .badge-dot{position:absolute;top:0;right:50%;width:6px;height:6px;background:var(--red);border-radius:50%;animation:pulse 1.5s infinite}
+
+/* ===== تم‌ها ===== */
 body.light-theme{--bg:#f0ece6;--bg2:#e8e4de;--card:rgba(255,252,245,0.85);--card-b:rgba(201,168,76,0.1);--t1:#1a1208;--t2:#8A7A4A;--t3:#6A5A3A}
 body.royal-theme{--bg:#1a0808;--card:rgba(30,8,8,0.85);--card-b:rgba(184,146,46,0.08);--accent:#B8922E;--accent2:#D4A843;--t1:#F5E8D7;--t2:#C4A35A;--t3:#8A7A4A}
 body.fire-theme{--bg:#1a0805;--card:rgba(30,12,8,0.85);--card-b:rgba(232,90,42,0.08);--accent:#E85A2A;--accent2:#F5A060;--t1:#F5E0D0;--t2:#D4A843;--t3:#8A6A4A}
 body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,0.08);--accent:#4A8AC8;--accent2:#6AAAE8;--t1:#D4E8F5;--t2:#6A9AC8;--t3:#4A7A9A}
-@media(max-width:768px){.bottom-nav{display:flex!important}.main{padding-bottom:65px!important;margin-right:0!important;padding-top:55px!important}.sidebar{transform:translateX(100%);padding-bottom:60px}.sidebar.open{transform:translateX(0)}.mob-top{display:flex}.stats-grid{grid-template-columns:repeat(3,1fr)}.stat-mini{grid-template-columns:1fr 1fr}}
-@media(max-width:480px){.stats-grid{grid-template-columns:1fr 1fr}.main{padding:50px 8px 65px}.bottom-nav .nav-item{min-width:32px;padding:2px 4px}.bottom-nav .nav-item i{font-size:14px}.bottom-nav .nav-item span{font-size:6px}.users-table thead th{font-size:7px;padding:6px 4px}.users-table tbody td{font-size:9px;padding:6px 4px}.users-table .usage-bar .bar{width:40px}.stat-mini{padding:6px 8px}.stat-mini-num{font-size:13px}}
-@media(min-width:769px){.bottom-nav{display:none!important}}
+
+/* ===== واکنش‌گرایی ===== */
+@media(max-width:992px){
+  .stats-grid{grid-template-columns:repeat(3,1fr)}
+  .stat-card .number{font-size:15px}
+}
+@media(max-width:768px){
+  .bottom-nav{display:flex!important}
+  .main{padding-bottom:calc(65px + var(--safe-bottom))!important;margin-right:0!important;padding-top:55px!important;padding-left:12px!important;padding-right:12px!important}
+  .sidebar{transform:translateX(100%);padding-bottom:60px}
+  .sidebar.open{transform:translateX(0)}
+  .mob-top{display:flex}
+  .stats-grid{grid-template-columns:repeat(3,1fr);gap:6px}
+  .stat-card{padding:8px 4px}
+  .stat-card .number{font-size:14px}
+  .stat-card .icon{font-size:14px}
+  .stat-mini{grid-template-columns:1fr 1fr}
+  .users-table thead th{font-size:7px;padding:6px 4px}
+  .users-table tbody td{font-size:9px;padding:6px 4px}
+  .users-table .usage-bar .bar{width:40px}
+  .tb-title{font-size:15px}
+  .chart-section{padding:10px}
+  .chart-section .chart-header{flex-direction:column;align-items:flex-start}
+  .settings-card{padding:10px 12px;max-width:100%}
+}
+@media(max-width:480px){
+  .stats-grid{grid-template-columns:1fr 1fr;gap:4px}
+  .stat-card{padding:6px 2px;border-radius:10px}
+  .stat-card .number{font-size:13px}
+  .stat-card .icon{font-size:12px;margin-bottom:1px}
+  .stat-card .label{font-size:7px}
+  .stat-card .sub{font-size:6px}
+  .main{padding:48px 6px 70px}
+  .bottom-nav .nav-item{min-width:32px;padding:2px 4px}
+  .bottom-nav .nav-item i{font-size:14px}
+  .bottom-nav .nav-item span{font-size:6px}
+  .tb-title{font-size:13px}
+  .tb-title i{font-size:15px}
+  .topbar{gap:4px}
+  .btn{font-size:8px;padding:3px 6px}
+  .btn-sm{padding:1px 4px;font-size:7px}
+  .users-table thead th{font-size:6px;padding:4px 2px}
+  .users-table tbody td{font-size:7px;padding:4px 2px}
+  .users-table .usage-bar .bar{width:30px;height:3px}
+  .users-table .usage-text{font-size:7px}
+  .user-name-cell .avatar{width:18px;height:18px;font-size:7px}
+  .user-name-cell .name{font-size:8px}
+  .user-name-cell .uuid-short{font-size:6px}
+  .modal{padding:14px 12px}
+  .modal-title{font-size:12px}
+  .fi{font-size:9px;padding:4px 6px}
+  .fg label{font-size:7px}
+  .conn-grid{grid-template-columns:1fr 1fr;gap:4px}
+  .conn-card{padding:6px 8px}
+  .conn-card .ip{font-size:9px}
+  .conn-card .label{font-size:7px}
+  .conn-card .conn-info{font-size:7px}
+  .settings-card{padding:8px 10px}
+  .settings-card .title{font-size:11px}
+  .settings-card .toggle-row .toggle-label{font-size:10px}
+  .glow-left,.glow-right{display:none}
+  .particles .particle{display:none}
+  .particles .particle:nth-child(-n+8){display:block}
+}
+@media(max-width:360px){
+  .stats-grid{grid-template-columns:1fr 1fr;gap:3px}
+  .stat-card{padding:4px 2px}
+  .stat-card .number{font-size:11px}
+  .stat-card .icon{font-size:10px}
+  .main{padding:44px 4px 60px}
+  .tb-title{font-size:11px}
+  .users-table .usage-bar .bar{width:20px}
+}
+@media(min-width:769px){
+  .bottom-nav{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -360,7 +618,8 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
 <div class="glow-orb glow-right"></div>
 <div class="toast" id="toast"></div>
 
-<!-- Modal User -->
+<!-- ===== مدال‌ها ===== -->
+<!-- مدال ساخت کاربر -->
 <div class="modal-bg" id="modal-user">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-user')"><i class="ti ti-x"></i></button>
@@ -410,11 +669,11 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
       </select>
     </div>
     <div class="fg"><label><i class="ti ti-lock"></i> <span id="f-label-password">رمز (اختیاری)</span></label><input class="fi" id="user-password" type="password" placeholder="برای ویرایش/حذف" dir="ltr"></div>
-    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="saveUser()" style="flex:2"><i class="ti ti-check"></i> <span id="btn-create-user">ساخت کاربر</span></button><button class="btn btn-o" onclick="closeModal('modal-user')" style="flex:1"><span id="btn-cancel">انصراف</span></button></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" onclick="saveUser()" style="flex:2"><i class="ti ti-check"></i> <span id="btn-create-user">ساخت کاربر</span></button><button class="btn btn-o" onclick="closeModal('modal-user')" style="flex:1"><span id="btn-cancel">انصراف</span></button></div>
   </div>
 </div>
 
-<!-- Modal Edit -->
+<!-- مدال ویرایش کاربر -->
 <div class="modal-bg" id="modal-edit">
   <div class="modal">
     <button class="modal-close" onclick="closeModal('modal-edit')"><i class="ti ti-x"></i></button>
@@ -458,11 +717,11 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
         <option value="auto">🔄 Auto</option>
       </select>
     </div>
-    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-p" onclick="saveEdit()" style="flex:2"><i class="ti ti-check"></i> <span id="btn-save">ذخیره</span></button><button class="btn btn-o" onclick="closeModal('modal-edit')" style="flex:1"><span id="btn-cancel2">انصراف</span></button></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-p" onclick="saveEdit()" style="flex:2"><i class="ti ti-check"></i> <span id="btn-save">ذخیره</span></button><button class="btn btn-o" onclick="closeModal('modal-edit')" style="flex:1"><span id="btn-cancel2">انصراف</span></button></div>
   </div>
 </div>
 
-<!-- Modal Delete -->
+<!-- مدال حذف کاربر -->
 <div class="modal-bg" id="modal-delete">
   <div class="modal" style="max-width:340px">
     <button class="modal-close" onclick="closeModal('modal-delete')"><i class="ti ti-x"></i></button>
@@ -470,11 +729,11 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
     <input type="hidden" id="delete-uuid">
     <p style="font-size:10px;color:var(--t2);margin-bottom:10px" id="delete-desc">برای حذف، رمز کانفیگ را وارد کنید.</p>
     <div class="fg"><label><i class="ti ti-lock"></i> <span id="d-label-password">رمز</span></label><input class="fi" id="delete-password" type="password" placeholder="رمز کانفیگ" dir="ltr"></div>
-    <div style="display:flex;gap:6px;margin-top:10px"><button class="btn btn-d" onclick="confirmDelete()" style="flex:2"><i class="ti ti-trash"></i> <span id="btn-delete">حذف</span></button><button class="btn btn-o" onclick="closeModal('modal-delete')" style="flex:1"><span id="btn-cancel3">انصراف</span></button></div>
+    <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap"><button class="btn btn-d" onclick="confirmDelete()" style="flex:2"><i class="ti ti-trash"></i> <span id="btn-delete">حذف</span></button><button class="btn btn-o" onclick="closeModal('modal-delete')" style="flex:1"><span id="btn-cancel3">انصراف</span></button></div>
   </div>
 </div>
 
-<!-- Modal QR Code -->
+<!-- مدال QR -->
 <div class="modal-bg" id="modal-qr">
   <div class="modal" style="max-width:400px;text-align:center">
     <button class="modal-close" onclick="closeModal('modal-qr')"><i class="ti ti-x"></i></button>
@@ -485,12 +744,30 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
   </div>
 </div>
 
+<!-- مدال تیکت پشتیبانی -->
+<div class="modal-bg" id="modal-ticket">
+  <div class="modal" style="max-width:500px">
+    <button class="modal-close" onclick="closeModal('modal-ticket')"><i class="ti ti-x"></i></button>
+    <div class="modal-title"><i class="ti ti-ticket"></i> <span id="ticket-title">تیکت پشتیبانی</span></div>
+    <div id="ticket-list" style="max-height:200px;overflow-y:auto;margin-bottom:10px;font-size:10px;"></div>
+    <div class="fg"><label><i class="ti ti-message"></i> <span id="ticket-label">متن تیکت</span></label>
+      <textarea class="fi" id="ticket-text" rows="3" placeholder="مشکل خود را توضیح دهید..." style="resize:vertical;font-family:inherit;"></textarea>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="btn btn-p" onclick="sendTicket()" style="flex:2"><i class="ti ti-send"></i> <span id="ticket-send">ارسال</span></button>
+      <button class="btn btn-o" onclick="closeModal('modal-ticket')" style="flex:1"><span id="ticket-close">بستن</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== هدر موبایل ===== -->
 <div class="mob-top">
   <div class="ml"><div class="mob-logo">🏛️</div><span class="mob-title">تخت جمشید</span></div>
   <button class="menu-btn" id="open-sb"><i class="ti ti-menu-2"></i></button>
 </div>
 <div class="overlay" id="overlay"></div>
 
+<!-- ===== سایدبار ===== -->
 <aside class="sidebar" id="sb">
   <div class="logo"><div class="logo-icon">🏛️</div><div><div class="logo-name">تخت جمشید</div><div class="logo-sub">𐎠𐎼𐎫𐎠 𐏐 𐎧𐏁𐎠𐎹𐎰𐎡𐎹</div></div></div>
   <div class="nav-wrap">
@@ -498,6 +775,7 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
     <div class="nav-it" data-pg="users"><i class="ti ti-users"></i> <span id="nav-users">کاربران</span></div>
     <div class="nav-it" data-pg="inbound"><i class="ti ti-plug"></i> <span id="nav-inbound">اینباند</span></div>
     <div class="nav-it" data-pg="connections"><i class="ti ti-plug-connected"></i> <span id="nav-connections">اتصالات</span></div>
+    <div class="nav-it" data-pg="tickets"><i class="ti ti-ticket"></i> <span id="nav-tickets">تیکت‌ها</span></div>
     <div class="nav-it" data-pg="settings"><i class="ti ti-settings"></i> <span id="nav-settings">تنظیمات</span></div>
     <div class="nav-it" data-pg="logs"><i class="ti ti-notes"></i> <span id="nav-logs">لاگ‌ها</span></div>
     <div class="nav-it" data-pg="backup"><i class="ti ti-database"></i> <span id="nav-backup">بکاپ</span></div>
@@ -505,22 +783,26 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
   <div class="sb-foot"><button class="logout-btn" onclick="logout()"><i class="ti ti-logout"></i> <span id="nav-logout">خروج</span></button></div>
 </aside>
 
+<!-- ===== ناوبری پایین موبایل ===== -->
 <div class="bottom-nav" id="bottomNav">
   <button class="nav-item active" data-pg="dashboard" onclick="navTo('dashboard')"><i class="ti ti-layout-dashboard"></i><span id="b-home">خانه</span></button>
   <button class="nav-item" data-pg="users" onclick="navTo('users')"><i class="ti ti-users"></i><span id="b-users">کاربران</span></button>
   <button class="nav-item" data-pg="inbound" onclick="navTo('inbound')"><i class="ti ti-plug"></i><span id="b-inbound">اینباند</span></button>
+  <button class="nav-item" data-pg="tickets" onclick="navTo('tickets')"><i class="ti ti-ticket"></i><span id="b-tickets">تیکت</span></button>
   <button class="nav-item" data-pg="settings" onclick="navTo('settings')"><i class="ti ti-settings"></i><span id="b-settings">تنظیمات</span></button>
 </div>
 
+<!-- ===== محتوای اصلی ===== -->
 <main class="main">
+
 <!-- صفحه خانه -->
 <section class="pg on" id="pg-dashboard">
   <div class="topbar">
     <div><div class="tb-title"><i class="ti ti-layout-dashboard"></i> <span id="dash-title">خانه</span></div><div class="tb-sub" id="last-update">بروزرسانی: لحظه‌ای</div></div>
     <div class="tb-right">
-      <div class="weather-widget" id="weatherWidget"><span>🌤️</span><span class="temp" id="weatherTemp">۲۲°</span><span class="condition" id="weatherCondition">آفتابی</span></div>
       <span class="badge bg-fire" id="online-badge"><span class="dot dg"></span> ۰ آنلاین</span>
       <button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> <span id="dash-add-user">کاربر</span></button>
+      <button class="btn btn-sm btn-pur" onclick="openModal('modal-ticket')"><i class="ti ti-ticket"></i> <span id="dash-ticket">تیکت</span></button>
     </div>
   </div>
   
@@ -533,6 +815,7 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
     <div class="stat-card"><span class="icon">👥</span><div class="number" id="stat-users">۰</div><div class="label" id="s-users">کاربران</div><div class="sub" id="stat-users-active">۰ فعال</div></div>
   </div>
 
+  <!-- نمودار مصرف -->
   <div class="chart-section">
     <div class="chart-header">
       <div>
@@ -568,9 +851,9 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
     <div class="stat-mini"><span class="stat-mini-icon">🔴</span><span class="stat-mini-num" id="users-expired">0</span><span class="stat-mini-label" id="u-expired">منقضی</span></div>
     <div class="stat-mini"><span class="stat-mini-icon">📊</span><span class="stat-mini-num" id="users-traffic">0</span><span class="stat-mini-label" id="u-traffic">مصرف کل</span></div>
   </div>
-  <div style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);overflow:hidden;backdrop-filter:blur(20px)">
-    <div style="overflow-x:auto;"><table class="users-table" id="users-table"><thead><tr><th id="th-name">نام</th><th id="th-account">اکانت</th><th id="th-status">وضعیت</th><th id="th-usage">مصرف دیتا</th><th id="th-duration">مدت</th><th style="text-align:center;" id="th-actions">عملیات</th></tr></thead><tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);" id="no-users">هیچ کاربری وجود ندارد</td></tr></tbody></table></div>
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--card-b);flex-wrap:wrap;gap:8px;"><div style="font-size:9px;color:var(--t3);"><span id="users-count-label">۰ کاربر</span></div><div style="display:flex;gap:6px;"><button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> <span id="add-user-btn">افزودن کاربر جدید</span></button></div></div>
+  <div style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);overflow:hidden;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px)">
+    <div style="overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;"><table class="users-table" id="users-table"><thead><tr><th id="th-name">نام</th><th id="th-account">اکانت</th><th id="th-status">وضعیت</th><th id="th-usage">مصرف دیتا</th><th id="th-duration">مدت</th><th style="text-align:center;" id="th-actions">عملیات</th></tr></thead><tbody id="users-tbody"><tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);" id="no-users">هیچ کاربری وجود ندارد</td></tr></tbody></table></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;border-top:1px solid var(--card-b);flex-wrap:wrap;gap:8px;"><div style="font-size:9px;color:var(--t3);"><span id="users-count-label">۰ کاربر</span></div><div style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn btn-p btn-sm" onclick="openModal('modal-user')"><i class="ti ti-plus"></i> <span id="add-user-btn">افزودن کاربر جدید</span></button></div></div>
   </div>
 </section>
 
@@ -593,10 +876,19 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
   <div id="conns-grid" class="conn-grid"><div class="empty"><i class="ti ti-plug-off"></i><p id="no-conn">هیچ اتصالی وجود ندارد</p></div></div>
 </section>
 
+<!-- صفحه تیکت‌ها -->
+<section class="pg" id="pg-tickets">
+  <div class="topbar"><div><div class="tb-title"><i class="ti ti-ticket"></i> <span id="tickets-title">تیکت‌ها</span></div><div class="tb-sub" id="tickets-sub">پشتیبانی و درخواست‌ها</div></div><div class="tb-right"><button class="btn btn-p btn-sm" onclick="openModal('modal-ticket')"><i class="ti ti-plus"></i> <span id="tickets-new">تیکت جدید</span></button></div></div>
+  <div id="tickets-container" style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:8px 10px;max-height:400px;overflow-y:auto;-webkit-overflow-scrolling:touch;">
+    <div class="empty"><i class="ti ti-ticket"></i><p id="no-tickets">هیچ تیکتی وجود ندارد</p></div>
+  </div>
+</section>
+
 <!-- صفحه تنظیمات -->
 <section class="pg" id="pg-settings">
   <div class="topbar"><div><div class="tb-title"><i class="ti ti-settings"></i> <span id="settings-title">تنظیمات</span></div><div class="tb-sub" id="settings-sub">مدیریت پنل</div></div></div>
   
+  <!-- تم پنل -->
   <div class="settings-card"><div class="title"><i class="ti ti-color-swatch"></i> <span id="set-theme-title">تم پنل</span></div>
     <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin-top:4px;">
       <button class="btn" onclick="applyTheme('')" id="theme-dark-btn" style="font-size:9px;padding:4px 6px;background:var(--card);border:1px solid var(--card-b);color:var(--t1)">🌙 <span id="set-dark">تاریک</span></button>
@@ -608,20 +900,41 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
     <div style="font-size:9px;color:var(--t3);margin-top:6px;">💡 <span id="set-current-theme">تم فعلی</span>: <span id="current-theme-label">تاریک</span></div>
   </div>
   
+  <!-- زبان پنل -->
   <div class="settings-card"><div class="title"><i class="ti ti-language"></i> <span id="set-lang-title">زبان پنل</span></div>
     <div style="display:flex;gap:6px;margin-top:4px"><button class="btn btn-pur" onclick="setLang('fa')" style="flex:1;font-size:11px;padding:6px 12px" id="lang-fa-btn">🇮🇷 فارسی</button><button class="btn btn-o" onclick="setLang('en')" style="flex:1;font-size:11px;padding:6px 12px" id="lang-en-btn">🇬🇧 English</button></div>
     <div style="font-size:9px;color:var(--t3);margin-top:6px">💡 <span id="set-current-lang">زبان فعلی</span>: <span id="current-lang-label">فارسی</span></div>
   </div>
   
+  <!-- تم RGB -->
   <div class="settings-card"><div class="title"><i class="ti ti-color-swatch"></i> <span id="set-rgb-title">تم RGB</span></div>
     <div class="toggle-row"><div class="toggle-label"><i class="ti ti-color-palette" style="background:linear-gradient(135deg,#ff0000,#00ff00,#0000ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent"></i> RGB</div><div class="switch" id="rgb-switch" onclick="toggleRGB()"><div class="slider"></div></div></div>
+  </div>
+  
+  <!-- مدیریت سرور -->
+  <div class="settings-card"><div class="title"><i class="ti ti-server"></i> <span id="set-server-title">مدیریت سرور</span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:4px;">
+      <button class="btn btn-amber" onclick="restartServer()" style="flex:1;font-size:10px;padding:6px 12px;"><i class="ti ti-refresh"></i> <span id="set-restart">راه‌اندازی مجدد</span></button>
+      <button class="btn btn-o" onclick="reloadServer()" style="flex:1;font-size:10px;padding:6px 12px;"><i class="ti ti-reload"></i> <span id="set-reload">بارگذاری مجدد</span></button>
+    </div>
+    <div style="font-size:9px;color:var(--t3);margin-top:6px;">🟢 <span id="set-server-status">سرور فعال</span></div>
+  </div>
+  
+  <!-- لینک‌های سریع -->
+  <div class="settings-card"><div class="title"><i class="ti ti-link"></i> <span id="set-links-title">لینک‌های سریع</span></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px;">
+      <button class="btn btn-o btn-sm" onclick="navigator.clipboard.writeText(window.location.origin+'/sub-all')" style="font-size:8px;padding:4px 6px;"><i class="ti ti-copy"></i> ساب‌همه</button>
+      <button class="btn btn-o btn-sm" onclick="window.open('/dashboard','_blank')" style="font-size:8px;padding:4px 6px;"><i class="ti ti-external-link"></i> پنل</button>
+      <button class="btn btn-o btn-sm" onclick="navigator.clipboard.writeText(window.location.origin+'/login')" style="font-size:8px;padding:4px 6px;"><i class="ti ti-copy"></i> لینک ورود</button>
+      <button class="btn btn-o btn-sm" onclick="window.open('/stats','_blank')" style="font-size:8px;padding:4px 6px;"><i class="ti ti-chart-bar"></i> آمار</button>
+    </div>
   </div>
 </section>
 
 <!-- صفحه لاگ‌ها -->
 <section class="pg" id="pg-logs">
   <div class="topbar"><div><div class="tb-title"><i class="ti ti-notes"></i> <span id="logs-title">لاگ‌ها</span></div><div class="tb-sub" id="logs-count">۰ لاگ</div></div><div class="tb-right"><button class="btn btn-sm btn-o" onclick="loadLogs()"><i class="ti ti-refresh"></i></button></div></div>
-  <div style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:8px 10px;max-height:400px;overflow-y:auto"><div id="logs-container" style="font-family:monospace;font-size:9px;color:var(--t2);direction:ltr;text-align:left;line-height:1.5"></div></div>
+  <div style="background:var(--card);border:1px solid var(--card-b);border-radius:var(--radius);padding:8px 10px;max-height:400px;overflow-y:auto;-webkit-overflow-scrolling:touch;"><div id="logs-container" style="font-family:monospace;font-size:9px;color:var(--t2);direction:ltr;text-align:left;line-height:1.5"></div></div>
 </section>
 
 <!-- صفحه بکاپ -->
@@ -634,26 +947,42 @@ body.star-theme{--bg:#05080a;--card:rgba(5,10,15,0.85);--card-b:rgba(60,120,200,
 </main>
 
 <script>
-// ===== ذرات طلایی =====
+// ===== بهینه‌سازی ذرات برای موبایل =====
 function createParticles() {
     const container = document.getElementById('particles');
-    for (let i = 0; i < 25; i++) {
+    const isMobile = window.innerWidth < 480;
+    const count = isMobile ? 8 : 25;
+    
+    for (let i = 0; i < count; i++) {
         const p = document.createElement('div');
         p.className = 'particle';
-        const s = 2 + Math.random() * 3;
+        const s = isMobile ? 2 : 2 + Math.random() * 3;
         p.style.width = s + 'px';
         p.style.height = s + 'px';
         p.style.left = Math.random() * 100 + '%';
         p.style.top = Math.random() * 100 + '%';
         p.style.setProperty('--dx', (Math.random() - 0.5) * 150 + 'px');
-        p.style.animationDuration = 15 + Math.random() * 20 + 's';
+        p.style.animationDuration = (isMobile ? 25 : 15) + Math.random() * (isMobile ? 20 : 20) + 's';
         p.style.animationDelay = Math.random() * 15 + 's';
         container.appendChild(p);
     }
 }
 createParticles();
 
-// ===== تم‌های جدید =====
+// ===== بهینه‌سازی برای موبایل =====
+window.addEventListener('resize', () => {
+    const isMobile = window.innerWidth < 480;
+    const particles = document.querySelectorAll('.particle');
+    particles.forEach((p, i) => {
+        if (isMobile && i >= 8) {
+            p.style.display = 'none';
+        } else {
+            p.style.display = 'block';
+        }
+    });
+});
+
+// ===== تم‌ها =====
 const THEMES = {
     '': { name: 'تاریک', class: '' },
     'light-theme': { name: 'روشن', class: 'light-theme' },
@@ -668,9 +997,8 @@ function applyTheme(themeClass) {
     const name = THEMES[themeClass]?.name || 'تاریک';
     document.getElementById('current-theme-label').textContent = name;
     
-    // بروزرسانی دکمه‌ها
-    document.querySelectorAll('.settings-card .btn[id^="theme-"]').forEach(b => b.className = 'btn btn-o');
     const map = {'': 'theme-dark-btn', 'light-theme': 'theme-light-btn', 'royal-theme': 'theme-royal-btn', 'fire-theme': 'theme-fire-btn', 'star-theme': 'theme-star-btn'};
+    document.querySelectorAll('.settings-card .btn[id^="theme-"]').forEach(b => b.className = 'btn btn-o');
     if (map[themeClass]) document.getElementById(map[themeClass]).className = 'btn btn-pur';
 }
 
@@ -679,111 +1007,254 @@ function loadTheme() {
     applyTheme(saved);
 }
 
-// ===== ویجت آب و هوا =====
-function updateWeather() {
-    const conditions = [
-        { icon: '☀️', temp: '۲۸°', condition: 'آفتابی' },
-        { icon: '⛅', temp: '۲۴°', condition: 'نیمه ابری' },
-        { icon: '🌤️', temp: '۲۶°', condition: 'آفتابی' },
-        { icon: '🌙', temp: '۲۰°', condition: 'شب صاف' },
-        { icon: '☁️', temp: '۲۲°', condition: 'ابری' }
-    ];
-    const w = conditions[Math.floor(Math.random() * conditions.length)];
-    document.getElementById('weatherTemp').textContent = w.temp;
-    document.getElementById('weatherCondition').textContent = w.condition;
-    document.querySelector('.weather-widget span:first-child').textContent = w.icon;
+// ===== تم RGB خودکار بر اساس زمان =====
+function updateAutoTheme() {
+    const hour = new Date().getHours();
+    const isDay = hour >= 6 && hour < 18;
+    if (!localStorage.getItem('persepolis-theme-manual')) {
+        applyTheme(isDay ? 'light-theme' : '');
+    }
 }
-updateWeather();
-setInterval(updateWeather, 60000);
+// هر ساعت چک کن
+setInterval(updateAutoTheme, 3600000);
 
-// ===== ترجمه‌ها و بقیه توابع مثل قبل =====
+// ===== سیستم نوتیفیکیشن با صدا =====
+let notificationSound = null;
+try {
+    notificationSound = new Audio('data:audio/wav;base64,UklGRnoAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoAAACBhYqFhYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFiYWFhYWFhYWFhYWFhYWFhYWFhYWFhYWAAAA');
+} catch(e) {}
+
+function showNotification(title, message, type = 'info') {
+    const toast = document.getElementById('toast');
+    const colors = {
+        info: 'var(--accent)',
+        warning: '#F59E0B',
+        danger: '#EF4444',
+        success: '#10B981'
+    };
+    toast.innerHTML = `<strong>${title}</strong> ${message}`;
+    toast.className = 'toast show ' + type;
+    toast.style.borderColor = colors[type] || 'var(--accent)';
+    
+    // صدا
+    if (notificationSound) {
+        try { notificationSound.play().catch(() => {}); } catch(e) {}
+    }
+    
+    clearTimeout(toast._timeout);
+    toast._timeout = setTimeout(() => toast.classList.remove('show'), 4000);
+}
+
+// ===== هشدار مصرف خودکار =====
+let alertSent = {};
+
+function checkUsageAlerts() {
+    fetch('/api/links')
+        .then(r => r.json())
+        .then(data => {
+            data.links.forEach(link => {
+                const used = link.used_bytes || 0;
+                const limit = link.limit_bytes || 0;
+                if (limit === 0) return;
+                const pct = (used / limit) * 100;
+                const key = link.uuid;
+                
+                if (pct > 90 && !alertSent[key + '_90']) {
+                    alertSent[key + '_90'] = true;
+                    showNotification('🚨 هشدار مصرف!', `${link.label} به ۹۰٪ رسید`, 'danger');
+                } else if (pct > 80 && !alertSent[key + '_80']) {
+                    alertSent[key + '_80'] = true;
+                    showNotification('⚠️ هشدار مصرف', `${link.label} به ۸۰٪ رسید`, 'warning');
+                } else if (pct < 70) {
+                    alertSent[key + '_80'] = false;
+                    alertSent[key + '_90'] = false;
+                }
+            });
+        })
+        .catch(() => {});
+}
+setInterval(checkUsageAlerts, 30000);
+
+// ===== تیکت‌ها =====
+let tickets = JSON.parse(localStorage.getItem('persepolis_tickets') || '[]');
+
+function loadTickets() {
+    const container = document.getElementById('tickets-container');
+    if (!tickets.length) {
+        container.innerHTML = '<div class="empty"><i class="ti ti-ticket"></i><p id="no-tickets">هیچ تیکتی وجود ندارد</p></div>';
+        return;
+    }
+    container.innerHTML = tickets.map((t, i) => {
+        const statusColors = {
+            'باز': '#34D399',
+            'در حال بررسی': '#F59E0B',
+            'بسته شده': '#F87171'
+        };
+        const statusDot = statusColors[t.status] || '#34D399';
+        const time = new Date(t.time).toLocaleString('fa-IR');
+        return `<div style="background:rgba(201,168,76,0.02);border:1px solid var(--card-b);border-radius:8px;padding:8px 10px;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+            <div style="flex:1;min-width:100px;">
+                <div style="font-size:10px;font-weight:600;color:var(--t1)">${esc(t.message)}</div>
+                <div style="font-size:7px;color:var(--t3)">${time}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+                <span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${statusDot}"></span>
+                <span style="font-size:8px;color:var(--t2)">${t.status}</span>
+                <button class="btn btn-sm btn-pur" onclick="updateTicket(${i})" style="font-size:7px;padding:1px 4px;">✏️</button>
+                <button class="btn btn-sm btn-d" onclick="deleteTicket(${i})" style="font-size:7px;padding:1px 4px;">🗑️</button>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function sendTicket() {
+    const text = document.getElementById('ticket-text').value.trim();
+    if (!text) { toast('لطفا متن تیکت را وارد کنید', 'warn'); return; }
+    tickets.push({
+        message: text,
+        status: 'باز',
+        time: new Date().toISOString()
+    });
+    localStorage.setItem('persepolis_tickets', JSON.stringify(tickets));
+    document.getElementById('ticket-text').value = '';
+    loadTickets();
+    closeModal('modal-ticket');
+    showNotification('✅ تیکت ثبت شد', 'در حال بررسی', 'success');
+}
+
+function updateTicket(index) {
+    const statuses = ['باز', 'در حال بررسی', 'بسته شده'];
+    const current = tickets[index].status;
+    const idx = statuses.indexOf(current);
+    tickets[index].status = statuses[(idx + 1) % statuses.length];
+    localStorage.setItem('persepolis_tickets', JSON.stringify(tickets));
+    loadTickets();
+}
+
+function deleteTicket(index) {
+    if (!confirm('حذف تیکت؟')) return;
+    tickets.splice(index, 1);
+    localStorage.setItem('persepolis_tickets', JSON.stringify(tickets));
+    loadTickets();
+}
+
+// ===== مدیریت سرور =====
+function restartServer() {
+    if (!confirm('آیا از راه‌اندازی مجدد سرور اطمینان دارید؟')) return;
+    showNotification('🔄 در حال راه‌اندازی مجدد...', 'لطفاً صبر کنید', 'warning');
+    fetch('/api/server/restart', { method: 'POST' })
+        .then(() => {
+            showNotification('✅ سرور راه‌اندازی مجدد شد', 'پنل دوباره آماده است', 'success');
+            setTimeout(() => location.reload(), 3000);
+        })
+        .catch(() => showNotification('❌ خطا', 'امکان راه‌اندازی مجدد وجود ندارد', 'danger'));
+}
+
+function reloadServer() {
+    showNotification('🔄 در حال بارگذاری مجدد...', '', 'warning');
+    fetch('/api/server/reload', { method: 'POST' })
+        .then(() => showNotification('✅ سرور بارگذاری مجدد شد', '', 'success'))
+        .catch(() => showNotification('❌ خطا', '', 'danger'));
+}
+
+// ===== ترجمه‌ها =====
 const translations = {
-  fa: {
-    nav_home: 'خانه', nav_users: 'کاربران', nav_inbound: 'اینباند',
-    nav_connections: 'اتصالات', nav_settings: 'تنظیمات', nav_logs: 'لاگ‌ها',
-    nav_backup: 'بکاپ', nav_logout: 'خروج',
-    dash_title: 'خانه', dash_add_user: 'کاربر',
-    s_traffic: 'ترافیک', s_requests: 'درخواست‌ها', s_uptime: 'آپتایم',
-    s_disk: 'فضای دیسک', s_speed: 'سرعت', s_users: 'کاربران',
-    s_count: 'تعداد', s_time: 'زمان', s_live: 'لحظه‌ای',
-    chart_title: 'مصرف روزانه', chart_sub: 'آخرین ۷ روز',
-    recent_users: 'کاربران اخیر',
-    users_title: 'کاربران', users_sub: 'لیست کانفیگ‌ها، سهمیه و انقضا',
-    u_total: 'کل کاربران', u_active: 'فعال', u_expired: 'منقضی', u_traffic: 'مصرف کل',
-    th_name: 'نام', th_account: 'اکانت', th_status: 'وضعیت', th_usage: 'مصرف دیتا',
-    th_duration: 'مدت', th_actions: 'عملیات',
-    add_user_btn: 'افزودن کاربر جدید', no_users: 'هیچ کاربری وجود ندارد',
-    inbound_title: 'اینباند', inbound_sub: 'تنظیمات ورودی',
-    inb_port: 'پورت', inb_protocol: 'پروتکل', inb_host: 'هاست', inb_status: 'وضعیت',
-    conn_title: 'اتصالات', conn_active: 'فعال', no_conn: 'هیچ اتصالی وجود ندارد',
-    settings_title: 'تنظیمات', settings_sub: 'مدیریت پنل',
-    set_theme: 'تم پنل', set_dark: 'تاریک', set_light: 'روشن',
-    set_current_theme: 'تم فعلی', set_lang: 'زبان پنل', set_current_lang: 'زبان فعلی',
-    set_rgb: 'تم RGB',
-    backup_title: 'بکاپ', backup_sub: 'ذخیره و بازیابی',
-    backup_download: 'بکاپ‌گیری', backup_download_btn: 'دانلود', backup_restore_btn: 'بازیابی',
-    logs_title: 'لاگ‌ها',
-    modal_user_title: 'ساخت کاربر جدید',
-    f_label_name: 'نام کاربری', f_label_quota: 'حجم (GB)',
-    f_label_expiry: 'انقضا', f_label_devices: 'دستگاه',
-    f_label_fingerprint: 'انگشت‌نگاری', f_label_protocol: 'پروتکل',
-    f_label_http: 'HTTP نسخه', f_label_password: 'رمز (اختیاری)',
-    btn_create_user: 'ساخت کاربر', btn_cancel: 'انصراف',
-    modal_edit_title: 'ویرایش کاربر',
-    e_label_name: 'نام', e_label_password: 'رمز جدید',
-    e_label_quota: 'حجم (GB)', e_label_expiry: 'انقضا',
-    e_label_devices: 'دستگاه', e_label_status: 'وضعیت',
-    e_label_fingerprint: 'انگشت‌نگاری', e_label_protocol: 'پروتکل',
-    e_label_http: 'HTTP نسخه',
-    btn_save: 'ذخیره',
-    modal_delete_title: 'حذف کاربر', delete_desc: 'برای حذف، رمز کانفیگ را وارد کنید.',
-    d_label_password: 'رمز', btn_delete: 'حذف',
-    qr_title: 'QR Code', qr_desc: 'اسکن کنید تا ساب‌لینک اضافه شود',
-    qr_download: 'دانلود QR'
-  },
-  en: {
-    nav_home: 'Home', nav_users: 'Users', nav_inbound: 'Inbound',
-    nav_connections: 'Connections', nav_settings: 'Settings', nav_logs: 'Logs',
-    nav_backup: 'Backup', nav_logout: 'Logout',
-    dash_title: 'Dashboard', dash_add_user: 'User',
-    s_traffic: 'Traffic', s_requests: 'Requests', s_uptime: 'Uptime',
-    s_disk: 'Disk', s_speed: 'Speed', s_users: 'Users',
-    s_count: 'Count', s_time: 'Time', s_live: 'Live',
-    chart_title: 'Daily Usage', chart_sub: 'Last 7 days',
-    recent_users: 'Recent Users',
-    users_title: 'Users', users_sub: 'Link list, quota and expiry',
-    u_total: 'Total Users', u_active: 'Active', u_expired: 'Expired', u_traffic: 'Total Usage',
-    th_name: 'Name', th_account: 'Account', th_status: 'Status', th_usage: 'Data Usage',
-    th_duration: 'Duration', th_actions: 'Actions',
-    add_user_btn: 'Add New User', no_users: 'No users found',
-    inbound_title: 'Inbound', inbound_sub: 'Inbound Settings',
-    inb_port: 'Port', inb_protocol: 'Protocol', inb_host: 'Host', inb_status: 'Status',
-    conn_title: 'Connections', conn_active: 'Active', no_conn: 'No active connections',
-    settings_title: 'Settings', settings_sub: 'Panel Settings',
-    set_theme: 'Theme', set_dark: 'Dark', set_light: 'Light',
-    set_current_theme: 'Current Theme', set_lang: 'Language', set_current_lang: 'Current Language',
-    set_rgb: 'RGB Mode',
-    backup_title: 'Backup', backup_sub: 'Save & Restore',
-    backup_download: 'Backup', backup_download_btn: 'Download', backup_restore_btn: 'Restore',
-    logs_title: 'Logs',
-    modal_user_title: 'Create New User',
-    f_label_name: 'Username', f_label_quota: 'Quota (GB)',
-    f_label_expiry: 'Expiry', f_label_devices: 'Devices',
-    f_label_fingerprint: 'Fingerprint', f_label_protocol: 'Protocol',
-    f_label_http: 'HTTP Version', f_label_password: 'Password (Optional)',
-    btn_create_user: 'Create User', btn_cancel: 'Cancel',
-    modal_edit_title: 'Edit User',
-    e_label_name: 'Name', e_label_password: 'New Password',
-    e_label_quota: 'Quota (GB)', e_label_expiry: 'Expiry',
-    e_label_devices: 'Devices', e_label_status: 'Status',
-    e_label_fingerprint: 'Fingerprint', e_label_protocol: 'Protocol',
-    e_label_http: 'HTTP Version',
-    btn_save: 'Save',
-    modal_delete_title: 'Delete User', delete_desc: 'Enter the config password to delete.',
-    d_label_password: 'Password', btn_delete: 'Delete',
-    qr_title: 'QR Code', qr_desc: 'Scan to add subscription',
-    qr_download: 'Download QR'
-  }
+    fa: {
+        nav_home: 'خانه', nav_users: 'کاربران', nav_inbound: 'اینباند',
+        nav_connections: 'اتصالات', nav_settings: 'تنظیمات', nav_logs: 'لاگ‌ها',
+        nav_backup: 'بکاپ', nav_logout: 'خروج', nav_tickets: 'تیکت‌ها',
+        dash_title: 'خانه', dash_add_user: 'کاربر', dash_ticket: 'تیکت',
+        s_traffic: 'ترافیک', s_requests: 'درخواست‌ها', s_uptime: 'آپتایم',
+        s_disk: 'فضای دیسک', s_speed: 'سرعت', s_users: 'کاربران',
+        s_count: 'تعداد', s_time: 'زمان', s_live: 'لحظه‌ای',
+        chart_title: 'مصرف روزانه', chart_sub: 'آخرین ۷ روز',
+        recent_users: 'کاربران اخیر',
+        users_title: 'کاربران', users_sub: 'لیست کانفیگ‌ها، سهمیه و انقضا',
+        u_total: 'کل کاربران', u_active: 'فعال', u_expired: 'منقضی', u_traffic: 'مصرف کل',
+        th_name: 'نام', th_account: 'اکانت', th_status: 'وضعیت', th_usage: 'مصرف دیتا',
+        th_duration: 'مدت', th_actions: 'عملیات',
+        add_user_btn: 'افزودن کاربر جدید', no_users: 'هیچ کاربری وجود ندارد',
+        inbound_title: 'اینباند', inbound_sub: 'تنظیمات ورودی',
+        inb_port: 'پورت', inb_protocol: 'پروتکل', inb_host: 'هاست', inb_status: 'وضعیت',
+        conn_title: 'اتصالات', conn_active: 'فعال', no_conn: 'هیچ اتصالی وجود ندارد',
+        settings_title: 'تنظیمات', settings_sub: 'مدیریت پنل',
+        set_theme: 'تم پنل', set_dark: 'تاریک', set_light: 'روشن',
+        set_current_theme: 'تم فعلی', set_lang: 'زبان پنل', set_current_lang: 'زبان فعلی',
+        set_rgb: 'تم RGB', set_server: 'مدیریت سرور', set_restart: 'راه‌اندازی مجدد',
+        set_reload: 'بارگذاری مجدد', set_server_status: 'سرور فعال',
+        set_links: 'لینک‌های سریع',
+        backup_title: 'بکاپ', backup_sub: 'ذخیره و بازیابی',
+        backup_download: 'بکاپ‌گیری', backup_download_btn: 'دانلود', backup_restore_btn: 'بازیابی',
+        logs_title: 'لاگ‌ها',
+        tickets_title: 'تیکت‌ها', tickets_sub: 'پشتیبانی و درخواست‌ها', tickets_new: 'تیکت جدید',
+        ticket_title: 'تیکت پشتیبانی', ticket_label: 'متن تیکت', ticket_send: 'ارسال', ticket_close: 'بستن',
+        modal_user_title: 'ساخت کاربر جدید',
+        f_label_name: 'نام کاربری', f_label_quota: 'حجم (GB)',
+        f_label_expiry: 'انقضا', f_label_devices: 'دستگاه',
+        f_label_fingerprint: 'انگشت‌نگاری', f_label_protocol: 'پروتکل',
+        f_label_http: 'HTTP نسخه', f_label_password: 'رمز (اختیاری)',
+        btn_create_user: 'ساخت کاربر', btn_cancel: 'انصراف',
+        modal_edit_title: 'ویرایش کاربر',
+        e_label_name: 'نام', e_label_password: 'رمز جدید',
+        e_label_quota: 'حجم (GB)', e_label_expiry: 'انقضا',
+        e_label_devices: 'دستگاه', e_label_status: 'وضعیت',
+        e_label_fingerprint: 'انگشت‌نگاری', e_label_protocol: 'پروتکل',
+        e_label_http: 'HTTP نسخه',
+        btn_save: 'ذخیره',
+        modal_delete_title: 'حذف کاربر', delete_desc: 'برای حذف، رمز کانفیگ را وارد کنید.',
+        d_label_password: 'رمز', btn_delete: 'حذف',
+        qr_title: 'QR Code', qr_desc: 'اسکن کنید تا ساب‌لینک اضافه شود',
+        qr_download: 'دانلود QR',
+        no_tickets: 'هیچ تیکتی وجود ندارد'
+    },
+    en: {
+        nav_home: 'Home', nav_users: 'Users', nav_inbound: 'Inbound',
+        nav_connections: 'Connections', nav_settings: 'Settings', nav_logs: 'Logs',
+        nav_backup: 'Backup', nav_logout: 'Logout', nav_tickets: 'Tickets',
+        dash_title: 'Dashboard', dash_add_user: 'User', dash_ticket: 'Ticket',
+        s_traffic: 'Traffic', s_requests: 'Requests', s_uptime: 'Uptime',
+        s_disk: 'Disk', s_speed: 'Speed', s_users: 'Users',
+        s_count: 'Count', s_time: 'Time', s_live: 'Live',
+        chart_title: 'Daily Usage', chart_sub: 'Last 7 days',
+        recent_users: 'Recent Users',
+        users_title: 'Users', users_sub: 'Link list, quota and expiry',
+        u_total: 'Total Users', u_active: 'Active', u_expired: 'Expired', u_traffic: 'Total Usage',
+        th_name: 'Name', th_account: 'Account', th_status: 'Status', th_usage: 'Data Usage',
+        th_duration: 'Duration', th_actions: 'Actions',
+        add_user_btn: 'Add New User', no_users: 'No users found',
+        inbound_title: 'Inbound', inbound_sub: 'Inbound Settings',
+        inb_port: 'Port', inb_protocol: 'Protocol', inb_host: 'Host', inb_status: 'Status',
+        conn_title: 'Connections', conn_active: 'Active', no_conn: 'No active connections',
+        settings_title: 'Settings', settings_sub: 'Panel Settings',
+        set_theme: 'Theme', set_dark: 'Dark', set_light: 'Light',
+        set_current_theme: 'Current Theme', set_lang: 'Language', set_current_lang: 'Current Language',
+        set_rgb: 'RGB Mode', set_server: 'Server Management', set_restart: 'Restart',
+        set_reload: 'Reload', set_server_status: 'Server Active',
+        set_links: 'Quick Links',
+        backup_title: 'Backup', backup_sub: 'Save & Restore',
+        backup_download: 'Backup', backup_download_btn: 'Download', backup_restore_btn: 'Restore',
+        logs_title: 'Logs',
+        tickets_title: 'Tickets', tickets_sub: 'Support & Requests', tickets_new: 'New Ticket',
+        ticket_title: 'Support Ticket', ticket_label: 'Ticket Message', ticket_send: 'Send', ticket_close: 'Close',
+        modal_user_title: 'Create New User',
+        f_label_name: 'Username', f_label_quota: 'Quota (GB)',
+        f_label_expiry: 'Expiry', f_label_devices: 'Devices',
+        f_label_fingerprint: 'Fingerprint', f_label_protocol: 'Protocol',
+        f_label_http: 'HTTP Version', f_label_password: 'Password (Optional)',
+        btn_create_user: 'Create User', btn_cancel: 'Cancel',
+        modal_edit_title: 'Edit User',
+        e_label_name: 'Name', e_label_password: 'New Password',
+        e_label_quota: 'Quota (GB)', e_label_expiry: 'Expiry',
+        e_label_devices: 'Devices', e_label_status: 'Status',
+        e_label_fingerprint: 'Fingerprint', e_label_protocol: 'Protocol',
+        e_label_http: 'HTTP Version',
+        btn_save: 'Save',
+        modal_delete_title: 'Delete User', delete_desc: 'Enter the config password to delete.',
+        d_label_password: 'Password', btn_delete: 'Delete',
+        qr_title: 'QR Code', qr_desc: 'Scan to add subscription',
+        qr_download: 'Download QR',
+        no_tickets: 'No tickets found'
+    }
 };
 
 let currentLang = localStorage.getItem('persepolis-lang') || 'fa';
@@ -797,132 +1268,149 @@ let editExpiryPicker = null;
 function t(key) { return translations[currentLang]?.[key] || key; }
 
 function setLang(lang) {
-  currentLang = lang;
-  localStorage.setItem('persepolis-lang', lang);
-  document.getElementById('lang-fa-btn').className = 'btn ' + (lang === 'fa' ? 'btn-pur' : 'btn-o');
-  document.getElementById('lang-en-btn').className = 'btn ' + (lang === 'en' ? 'btn-pur' : 'btn-o');
-  document.getElementById('current-lang-label').textContent = lang === 'fa' ? 'فارسی' : 'English';
-  updateUITexts();
-  if (expiryPicker) expiryPicker.set('locale', lang === 'fa' ? 'fa' : 'en');
-  if (editExpiryPicker) editExpiryPicker.set('locale', lang === 'fa' ? 'fa' : 'en');
+    currentLang = lang;
+    localStorage.setItem('persepolis-lang', lang);
+    document.getElementById('lang-fa-btn').className = 'btn ' + (lang === 'fa' ? 'btn-pur' : 'btn-o');
+    document.getElementById('lang-en-btn').className = 'btn ' + (lang === 'en' ? 'btn-pur' : 'btn-o');
+    document.getElementById('current-lang-label').textContent = lang === 'fa' ? 'فارسی' : 'English';
+    updateUITexts();
+    if (expiryPicker) expiryPicker.set('locale', lang === 'fa' ? 'fa' : 'en');
+    if (editExpiryPicker) editExpiryPicker.set('locale', lang === 'fa' ? 'fa' : 'en');
 }
 
 function updateUITexts() {
-  const t = translations[currentLang];
-  if (!t) return;
-  document.getElementById('nav-home').textContent = t.nav_home;
-  document.getElementById('nav-users').textContent = t.nav_users;
-  document.getElementById('nav-inbound').textContent = t.nav_inbound;
-  document.getElementById('nav-connections').textContent = t.nav_connections;
-  document.getElementById('nav-settings').textContent = t.nav_settings;
-  document.getElementById('nav-logs').textContent = t.nav_logs;
-  document.getElementById('nav-backup').textContent = t.nav_backup;
-  document.getElementById('nav-logout').textContent = t.nav_logout;
-  document.getElementById('b-home').textContent = t.nav_home;
-  document.getElementById('b-users').textContent = t.nav_users;
-  document.getElementById('b-inbound').textContent = t.nav_inbound;
-  document.getElementById('b-settings').textContent = t.nav_settings;
-  document.getElementById('dash-title').textContent = t.dash_title;
-  document.getElementById('dash-add-user').textContent = t.dash_add_user;
-  document.getElementById('s-traffic').textContent = t.s_traffic;
-  document.getElementById('s-requests').textContent = t.s_requests;
-  document.getElementById('s-uptime').textContent = t.s_uptime;
-  document.getElementById('s-disk').textContent = t.s_disk;
-  document.getElementById('s-speed').textContent = t.s_speed;
-  document.getElementById('s-users').textContent = t.s_users;
-  document.getElementById('s-count').textContent = t.s_count;
-  document.getElementById('s-time').textContent = t.s_time;
-  document.getElementById('s-live').textContent = t.s_live;
-  document.getElementById('chart-title-text').textContent = t.chart_title;
-  document.getElementById('chart-sub-text').textContent = t.chart_sub;
-  document.getElementById('recent-users-title').textContent = t.recent_users;
-  document.getElementById('users-title').textContent = t.users_title;
-  document.getElementById('users-sub').textContent = t.users_sub;
-  document.getElementById('u-total').textContent = t.u_total;
-  document.getElementById('u-active').textContent = t.u_active;
-  document.getElementById('u-expired').textContent = t.u_expired;
-  document.getElementById('u-traffic').textContent = t.u_traffic;
-  document.getElementById('th-name').textContent = t.th_name;
-  document.getElementById('th-account').textContent = t.th_account;
-  document.getElementById('th-status').textContent = t.th_status;
-  document.getElementById('th-usage').textContent = t.th_usage;
-  document.getElementById('th-duration').textContent = t.th_duration;
-  document.getElementById('th-actions').textContent = t.th_actions;
-  document.getElementById('add-user-btn').textContent = t.add_user_btn;
-  document.getElementById('no-users').textContent = t.no_users;
-  document.getElementById('inbound-title').textContent = t.inbound_title;
-  document.getElementById('inbound-sub').textContent = t.inbound_sub;
-  document.getElementById('inb-port-label').textContent = t.inb_port;
-  document.getElementById('inb-protocol-label').textContent = t.inb_protocol;
-  document.getElementById('inb-host-label').textContent = t.inb_host;
-  document.getElementById('inb-status-label').textContent = t.inb_status;
-  document.getElementById('inb-status-title').textContent = t.inb_status;
-  document.getElementById('conn-title').textContent = t.conn_title;
-  document.getElementById('conn-active-label').textContent = t.conn_active;
-  document.getElementById('no-conn').textContent = t.no_conn;
-  document.getElementById('settings-title').textContent = t.settings_title;
-  document.getElementById('settings-sub').textContent = t.settings_sub;
-  document.getElementById('set-theme-title').textContent = t.set_theme;
-  document.getElementById('set-dark').textContent = t.set_dark;
-  document.getElementById('set-light').textContent = t.set_light;
-  document.getElementById('set-current-theme').textContent = t.set_current_theme;
-  document.getElementById('set-lang-title').textContent = t.set_lang;
-  document.getElementById('set-current-lang').textContent = t.set_current_lang;
-  document.getElementById('set-rgb-title').textContent = t.set_rgb;
-  document.getElementById('backup-title').textContent = t.backup_title;
-  document.getElementById('backup-sub').textContent = t.backup_sub;
-  document.getElementById('backup-download-title').textContent = t.backup_download;
-  document.getElementById('backup-download-btn').textContent = t.backup_download_btn;
-  document.getElementById('backup-restore-btn').textContent = t.backup_restore_btn;
-  document.getElementById('logs-title').textContent = t.logs_title;
-  document.getElementById('modal-user-title').textContent = t.modal_user_title;
-  document.getElementById('f-label-name').textContent = t.f_label_name;
-  document.getElementById('f-label-quota').textContent = t.f_label_quota;
-  document.getElementById('f-label-expiry').textContent = t.f_label_expiry;
-  document.getElementById('f-label-devices').textContent = t.f_label_devices;
-  document.getElementById('f-label-fingerprint').textContent = t.f_label_fingerprint;
-  document.getElementById('f-label-protocol').textContent = t.f_label_protocol;
-  document.getElementById('f-label-http').textContent = t.f_label_http;
-  document.getElementById('f-label-password').textContent = t.f_label_password;
-  document.getElementById('btn-create-user').textContent = t.btn_create_user;
-  document.getElementById('btn-cancel').textContent = t.btn_cancel;
-  document.getElementById('modal-edit-title').textContent = t.modal_edit_title;
-  document.getElementById('e-label-name').textContent = t.e_label_name;
-  document.getElementById('e-label-password').textContent = t.e_label_password;
-  document.getElementById('e-label-quota').textContent = t.e_label_quota;
-  document.getElementById('e-label-expiry').textContent = t.e_label_expiry;
-  document.getElementById('e-label-devices').textContent = t.e_label_devices;
-  document.getElementById('e-label-status').textContent = t.e_label_status;
-  document.getElementById('e-label-fingerprint').textContent = t.e_label_fingerprint;
-  document.getElementById('e-label-protocol').textContent = t.e_label_protocol;
-  document.getElementById('e-label-http').textContent = t.e_label_http;
-  document.getElementById('btn-save').textContent = t.btn_save;
-  document.getElementById('btn-cancel2').textContent = t.btn_cancel;
-  document.getElementById('modal-delete-title').textContent = t.modal_delete_title;
-  document.getElementById('delete-desc').textContent = t.delete_desc;
-  document.getElementById('d-label-password').textContent = t.d_label_password;
-  document.getElementById('btn-delete').textContent = t.btn_delete;
-  document.getElementById('btn-cancel3').textContent = t.btn_cancel;
-  document.getElementById('qr-title').textContent = t.qr_title;
-  document.getElementById('qr-desc').textContent = t.qr_desc;
-  document.getElementById('qr-download').textContent = t.qr_download;
+    const t = translations[currentLang];
+    if (!t) return;
+    document.getElementById('nav-home').textContent = t.nav_home;
+    document.getElementById('nav-users').textContent = t.nav_users;
+    document.getElementById('nav-inbound').textContent = t.nav_inbound;
+    document.getElementById('nav-connections').textContent = t.nav_connections;
+    document.getElementById('nav-settings').textContent = t.nav_settings;
+    document.getElementById('nav-logs').textContent = t.nav_logs;
+    document.getElementById('nav-backup').textContent = t.nav_backup;
+    document.getElementById('nav-logout').textContent = t.nav_logout;
+    document.getElementById('nav-tickets').textContent = t.nav_tickets;
+    document.getElementById('b-home').textContent = t.nav_home;
+    document.getElementById('b-users').textContent = t.nav_users;
+    document.getElementById('b-inbound').textContent = t.nav_inbound;
+    document.getElementById('b-tickets').textContent = t.nav_tickets;
+    document.getElementById('b-settings').textContent = t.nav_settings;
+    document.getElementById('dash-title').textContent = t.dash_title;
+    document.getElementById('dash-add-user').textContent = t.dash_add_user;
+    document.getElementById('dash-ticket').textContent = t.dash_ticket;
+    document.getElementById('s-traffic').textContent = t.s_traffic;
+    document.getElementById('s-requests').textContent = t.s_requests;
+    document.getElementById('s-uptime').textContent = t.s_uptime;
+    document.getElementById('s-disk').textContent = t.s_disk;
+    document.getElementById('s-speed').textContent = t.s_speed;
+    document.getElementById('s-users').textContent = t.s_users;
+    document.getElementById('s-count').textContent = t.s_count;
+    document.getElementById('s-time').textContent = t.s_time;
+    document.getElementById('s-live').textContent = t.s_live;
+    document.getElementById('chart-title-text').textContent = t.chart_title;
+    document.getElementById('chart-sub-text').textContent = t.chart_sub;
+    document.getElementById('recent-users-title').textContent = t.recent_users;
+    document.getElementById('users-title').textContent = t.users_title;
+    document.getElementById('users-sub').textContent = t.users_sub;
+    document.getElementById('u-total').textContent = t.u_total;
+    document.getElementById('u-active').textContent = t.u_active;
+    document.getElementById('u-expired').textContent = t.u_expired;
+    document.getElementById('u-traffic').textContent = t.u_traffic;
+    document.getElementById('th-name').textContent = t.th_name;
+    document.getElementById('th-account').textContent = t.th_account;
+    document.getElementById('th-status').textContent = t.th_status;
+    document.getElementById('th-usage').textContent = t.th_usage;
+    document.getElementById('th-duration').textContent = t.th_duration;
+    document.getElementById('th-actions').textContent = t.th_actions;
+    document.getElementById('add-user-btn').textContent = t.add_user_btn;
+    document.getElementById('no-users').textContent = t.no_users;
+    document.getElementById('inbound-title').textContent = t.inbound_title;
+    document.getElementById('inbound-sub').textContent = t.inbound_sub;
+    document.getElementById('inb-port-label').textContent = t.inb_port;
+    document.getElementById('inb-protocol-label').textContent = t.inb_protocol;
+    document.getElementById('inb-host-label').textContent = t.inb_host;
+    document.getElementById('inb-status-label').textContent = t.inb_status;
+    document.getElementById('inb-status-title').textContent = t.inb_status;
+    document.getElementById('conn-title').textContent = t.conn_title;
+    document.getElementById('conn-active-label').textContent = t.conn_active;
+    document.getElementById('no-conn').textContent = t.no_conn;
+    document.getElementById('settings-title').textContent = t.settings_title;
+    document.getElementById('settings-sub').textContent = t.settings_sub;
+    document.getElementById('set-theme-title').textContent = t.set_theme;
+    document.getElementById('set-dark').textContent = t.set_dark;
+    document.getElementById('set-light').textContent = t.set_light;
+    document.getElementById('set-current-theme').textContent = t.set_current_theme;
+    document.getElementById('set-lang-title').textContent = t.set_lang;
+    document.getElementById('set-current-lang').textContent = t.set_current_lang;
+    document.getElementById('set-rgb-title').textContent = t.set_rgb;
+    document.getElementById('set-server-title').textContent = t.set_server;
+    document.getElementById('set-restart').textContent = t.set_restart;
+    document.getElementById('set-reload').textContent = t.set_reload;
+    document.getElementById('set-server-status').textContent = t.set_server_status;
+    document.getElementById('set-links-title').textContent = t.set_links;
+    document.getElementById('backup-title').textContent = t.backup_title;
+    document.getElementById('backup-sub').textContent = t.backup_sub;
+    document.getElementById('backup-download-title').textContent = t.backup_download;
+    document.getElementById('backup-download-btn').textContent = t.backup_download_btn;
+    document.getElementById('backup-restore-btn').textContent = t.backup_restore_btn;
+    document.getElementById('logs-title').textContent = t.logs_title;
+    document.getElementById('tickets-title').textContent = t.tickets_title;
+    document.getElementById('tickets-sub').textContent = t.tickets_sub;
+    document.getElementById('tickets-new').textContent = t.tickets_new;
+    document.getElementById('no-tickets').textContent = t.no_tickets;
+    document.getElementById('ticket-title').textContent = t.ticket_title;
+    document.getElementById('ticket-label').textContent = t.ticket_label;
+    document.getElementById('ticket-send').textContent = t.ticket_send;
+    document.getElementById('ticket-close').textContent = t.ticket_close;
+    document.getElementById('modal-user-title').textContent = t.modal_user_title;
+    document.getElementById('f-label-name').textContent = t.f_label_name;
+    document.getElementById('f-label-quota').textContent = t.f_label_quota;
+    document.getElementById('f-label-expiry').textContent = t.f_label_expiry;
+    document.getElementById('f-label-devices').textContent = t.f_label_devices;
+    document.getElementById('f-label-fingerprint').textContent = t.f_label_fingerprint;
+    document.getElementById('f-label-protocol').textContent = t.f_label_protocol;
+    document.getElementById('f-label-http').textContent = t.f_label_http;
+    document.getElementById('f-label-password').textContent = t.f_label_password;
+    document.getElementById('btn-create-user').textContent = t.btn_create_user;
+    document.getElementById('btn-cancel').textContent = t.btn_cancel;
+    document.getElementById('modal-edit-title').textContent = t.modal_edit_title;
+    document.getElementById('e-label-name').textContent = t.e_label_name;
+    document.getElementById('e-label-password').textContent = t.e_label_password;
+    document.getElementById('e-label-quota').textContent = t.e_label_quota;
+    document.getElementById('e-label-expiry').textContent = t.e_label_expiry;
+    document.getElementById('e-label-devices').textContent = t.e_label_devices;
+    document.getElementById('e-label-status').textContent = t.e_label_status;
+    document.getElementById('e-label-fingerprint').textContent = t.e_label_fingerprint;
+    document.getElementById('e-label-protocol').textContent = t.e_label_protocol;
+    document.getElementById('e-label-http').textContent = t.e_label_http;
+    document.getElementById('btn-save').textContent = t.btn_save;
+    document.getElementById('btn-cancel2').textContent = t.btn_cancel;
+    document.getElementById('modal-delete-title').textContent = t.modal_delete_title;
+    document.getElementById('delete-desc').textContent = t.delete_desc;
+    document.getElementById('d-label-password').textContent = t.d_label_password;
+    document.getElementById('btn-delete').textContent = t.btn_delete;
+    document.getElementById('btn-cancel3').textContent = t.btn_cancel;
+    document.getElementById('qr-title').textContent = t.qr_title;
+    document.getElementById('qr-desc').textContent = t.qr_desc;
+    document.getElementById('qr-download').textContent = t.qr_download;
 }
 
-// ===== بقیه توابع (همون‌هایی که قبلا داشتی) =====
+// ===== توابع عمومی =====
 function toast(msg, type) {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast show' + (type ? ' ' + type : '');
-  setTimeout(() => t.classList.remove('show'), 2500);
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show' + (type ? ' ' + type : '');
+    clearTimeout(t._timeout);
+    t._timeout = setTimeout(() => t.classList.remove('show'), 2500);
 }
 
 function fmtB(b) {
-  if (!b || b === 0) return '0 B';
-  if (b < 1024) return b + ' B';
-  if (b < 1024**2) return (b/1024).toFixed(1) + ' KB';
-  if (b < 1024**3) return (b/1024**2).toFixed(1) + ' MB';
-  if (b < 1024**4) return (b/1024**3).toFixed(2) + ' GB';
-  return (b/1024**4).toFixed(2) + ' TB';
+    if (!b || b === 0) return '0 B';
+    if (b < 1024) return b + ' B';
+    if (b < 1024**2) return (b/1024).toFixed(1) + ' KB';
+    if (b < 1024**3) return (b/1024**2).toFixed(1) + ' MB';
+    if (b < 1024**4) return (b/1024**3).toFixed(2) + ' GB';
+    return (b/1024**4).toFixed(2) + ' TB';
 }
 
 function esc(s) { return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
@@ -931,27 +1419,35 @@ function openModal(id) { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 async function authF(url, opts = {}) {
-  const r = await fetch(url, opts);
-  if (r.status === 401) { location.href = '/login'; throw new Error('unauthorized'); }
-  return r;
+    const r = await fetch(url, opts);
+    if (r.status === 401) { location.href = '/login'; throw new Error('unauthorized'); }
+    return r;
 }
 
 async function logout() {
-  try { await fetch('/api/logout', { method: 'POST' }); } catch(e) {}
-  location.href = '/login';
+    try { await fetch('/api/logout', { method: 'POST' }); } catch(e) {}
+    location.href = '/login';
 }
 
 function navTo(name) {
-  document.querySelectorAll('.nav-it').forEach(n => n.classList.toggle('on', n.dataset.pg === name));
-  document.querySelectorAll('.pg').forEach(p => p.classList.toggle('on', p.id === 'pg-' + name));
-  document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.toggle('active', n.dataset.pg === name));
-  closeSb();
-  const loaders = { dashboard: loadDashboard, users: loadUsers, inbound: loadInbound, connections: loadConnections, logs: loadLogs, settings: () => {} };
-  if (loaders[name]) loaders[name]();
+    document.querySelectorAll('.nav-it').forEach(n => n.classList.toggle('on', n.dataset.pg === name));
+    document.querySelectorAll('.pg').forEach(p => p.classList.toggle('on', p.id === 'pg-' + name));
+    document.querySelectorAll('.bottom-nav .nav-item').forEach(n => n.classList.toggle('active', n.dataset.pg === name));
+    closeSb();
+    const loaders = {
+        dashboard: loadDashboard,
+        users: loadUsers,
+        inbound: loadInbound,
+        connections: loadConnections,
+        tickets: loadTickets,
+        logs: loadLogs,
+        settings: () => {}
+    };
+    if (loaders[name]) loaders[name]();
 }
 
 document.querySelectorAll('.nav-it, .bottom-nav .nav-item').forEach(el => {
-  el.addEventListener('click', () => navTo(el.dataset.pg));
+    el.addEventListener('click', () => navTo(el.dataset.pg));
 });
 
 const sb = document.getElementById('sb'), overlay = document.getElementById('overlay');
@@ -962,532 +1458,534 @@ overlay.addEventListener('click', closeSb);
 
 // ===== نمودار مصرف =====
 async function loadChart(period) {
-  chartPeriod = period || '7d';
-  document.querySelectorAll('#chart-7d, #chart-30d, #chart-90d').forEach(btn => btn.className = 'btn btn-sm btn-o');
-  const btnMap = {'7d':'chart-7d','30d':'chart-30d','90d':'chart-90d'};
-  if (btnMap[period]) document.getElementById(btnMap[period]).className = 'btn btn-sm btn-pur';
-  
-  try {
-    const r = await authF('/api/stats');
-    const data = await r.json();
-    const hourly = data.hourly || {};
-    const dailyData = {};
-    let days = 7;
-    if (period === '30d') days = 30;
-    if (period === '90d') days = 90;
+    chartPeriod = period || '7d';
+    document.querySelectorAll('#chart-7d, #chart-30d, #chart-90d').forEach(btn => btn.className = 'btn btn-sm btn-o');
+    const btnMap = {'7d':'chart-7d','30d':'chart-30d','90d':'chart-90d'};
+    if (btnMap[period]) document.getElementById(btnMap[period]).className = 'btn btn-sm btn-pur';
     
-    for (const [hour, bytes] of Object.entries(hourly)) {
-      const [h] = hour.split(':');
-      const date = new Date();
-      date.setHours(parseInt(h), 0, 0, 0);
-      const key = date.toISOString().split('T')[0];
-      if (!dailyData[key]) dailyData[key] = 0;
-      dailyData[key] += bytes;
-    }
-    
-    const sortedKeys = Object.keys(dailyData).sort();
-    const lastDays = sortedKeys.slice(-days);
-    const labels = [], values = [];
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days + 1);
-    startDate.setHours(0, 0, 0, 0);
-    
-    for (let i = 0; i < days; i++) {
-      const d = new Date(startDate);
-      d.setDate(d.getDate() + i);
-      const key = d.toISOString().split('T')[0];
-      labels.push(key);
-      values.push(dailyData[key] || 0);
-    }
-    
-    const mbValues = values.map(v => Number((v / (1024 * 1024)).toFixed(2)));
-    const labelsFa = labels.map(d => {
-      const date = new Date(d);
-      return date.toLocaleDateString(currentLang === 'fa' ? 'fa-IR' : 'en-US', { weekday: 'short', day: 'numeric' });
-    });
-    
-    if (trafficChart) trafficChart.destroy();
-    const ctx = document.getElementById('trafficChart').getContext('2d');
-    trafficChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labelsFa,
-        datasets: [{
-          label: currentLang === 'fa' ? 'مصرف (MB)' : 'Usage (MB)',
-          data: mbValues,
-          borderColor: '#C9A84C',
-          backgroundColor: 'rgba(201,168,76,0.1)',
-          borderWidth: 2,
-          fill: true,
-          tension: 0.4,
-          pointBackgroundColor: '#C9A84C',
-          pointBorderColor: '#1a1208',
-          pointBorderWidth: 1,
-          pointRadius: 2,
-          pointHoverRadius: 5
-        }]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return context.parsed.y + ' MB'; } } } },
-        scales: {
-          y: { beginAtZero: true, ticks: { color: '#8A7A4A', font: { size: 8 }, callback: function(value) { return value + ' MB'; } }, grid: { color: 'rgba(201,168,76,0.05)' } },
-          x: { ticks: { color: '#8A7A4A', font: { size: 8 } }, grid: { display: false } }
-        },
-        interaction: { intersect: false, mode: 'index' }
-      }
-    });
-  } catch(e) { console.error(e); }
+    try {
+        const r = await authF('/api/stats');
+        const data = await r.json();
+        const hourly = data.hourly || {};
+        const dailyData = {};
+        let days = 7;
+        if (period === '30d') days = 30;
+        if (period === '90d') days = 90;
+        
+        for (const [hour, bytes] of Object.entries(hourly)) {
+            const [h] = hour.split(':');
+            const date = new Date();
+            date.setHours(parseInt(h), 0, 0, 0);
+            const key = date.toISOString().split('T')[0];
+            if (!dailyData[key]) dailyData[key] = 0;
+            dailyData[key] += bytes;
+        }
+        
+        const sortedKeys = Object.keys(dailyData).sort();
+        const lastDays = sortedKeys.slice(-days);
+        const labels = [], values = [];
+        const startDate = new Date();
+        startDate.setDate(startDate.getDate() - days + 1);
+        startDate.setHours(0, 0, 0, 0);
+        
+        for (let i = 0; i < days; i++) {
+            const d = new Date(startDate);
+            d.setDate(d.getDate() + i);
+            const key = d.toISOString().split('T')[0];
+            labels.push(key);
+            values.push(dailyData[key] || 0);
+        }
+        
+        const mbValues = values.map(v => Number((v / (1024 * 1024)).toFixed(2)));
+        const labelsFa = labels.map(d => {
+            const date = new Date(d);
+            return date.toLocaleDateString(currentLang === 'fa' ? 'fa-IR' : 'en-US', { weekday: 'short', day: 'numeric' });
+        });
+        
+        if (trafficChart) trafficChart.destroy();
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        trafficChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labelsFa,
+                datasets: [{
+                    label: currentLang === 'fa' ? 'مصرف (MB)' : 'Usage (MB)',
+                    data: mbValues,
+                    borderColor: '#C9A84C',
+                    backgroundColor: 'rgba(201,168,76,0.1)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#C9A84C',
+                    pointBorderColor: '#1a1208',
+                    pointBorderWidth: 1,
+                    pointRadius: 2,
+                    pointHoverRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: function(context) { return context.parsed.y + ' MB'; } } } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { color: '#8A7A4A', font: { size: 8 }, callback: function(value) { return value + ' MB'; } }, grid: { color: 'rgba(201,168,76,0.05)' } },
+                    x: { ticks: { color: '#8A7A4A', font: { size: 8 } }, grid: { display: false } }
+                },
+                interaction: { intersect: false, mode: 'index' }
+            }
+        });
+    } catch(e) { console.error(e); }
 }
 
 // ===== بارگذاری داشبورد =====
 async function loadDashboard() {
-  try {
-    const r = await authF('/api/dashboard/stats');
-    const data = await r.json();
-    document.getElementById('stat-traffic').textContent = (data.traffic.total / (1024 * 1024)).toFixed(1);
-    document.getElementById('stat-requests').textContent = data.requests || 0;
-    document.getElementById('stat-uptime').textContent = data.uptime || '00:00:00';
-    document.getElementById('stat-disk').textContent = data.disk.total_fmt || '0 GB';
-    document.getElementById('stat-disk-used').textContent = (currentLang === 'fa' ? 'استفاده: ' : 'Used: ') + (data.disk.used_fmt || '0');
-    document.getElementById('stat-speed').textContent = data.speed.download_fmt || '0 B/s';
-    document.getElementById('stat-users').textContent = data.links_count || 0;
-    document.getElementById('stat-users-active').textContent = (data.active_links || 0) + (currentLang === 'fa' ? ' فعال' : ' active');
-    document.getElementById('online-badge').innerHTML = '<span class="dot dg"></span> ' + (data.connections || 0) + (currentLang === 'fa' ? ' آنلاین' : ' online');
-    document.getElementById('last-update').textContent = (currentLang === 'fa' ? 'بروزرسانی: ' : 'Updated: ') + new Date().toLocaleTimeString(currentLang === 'fa' ? 'fa-IR' : 'en-US');
-    
-    const usersR = await authF('/api/links');
-    const usersData = await usersR.json();
-    const links = usersData.links || [];
-    const recent = links.slice(0, 4);
-    const grid = document.getElementById('recent-users');
-    if (!recent.length) {
-      grid.innerHTML = '<div class="empty" style="padding:10px"><i class="ti ti-users"></i><p style="font-size:9px">' + (currentLang === 'fa' ? 'هیچ کاربری وجود ندارد' : 'No users') + '</p></div>';
-    } else {
-      grid.innerHTML = recent.map(l => `<div style="background:rgba(201,168,76,0.02);border-radius:4px;padding:4px 6px;display:flex;justify-content:space-between;align-items:center;transition:transform .3s"><div><div style="font-size:9px;font-weight:600;color:var(--t1)">${esc(l.label)}</div><div style="font-size:7px;color:var(--t3)">${l.active ? '🟢' : '🔴'}</div></div><div style="font-size:8px;color:var(--t2)">${fmtB(l.used_bytes||0)}</div></div>`).join('');
-    }
-    loadChart(chartPeriod);
-  } catch(e) { console.error(e); }
+    try {
+        const r = await authF('/api/dashboard/stats');
+        const data = await r.json();
+        document.getElementById('stat-traffic').textContent = (data.traffic.total / (1024 * 1024)).toFixed(1);
+        document.getElementById('stat-requests').textContent = data.requests || 0;
+        document.getElementById('stat-uptime').textContent = data.uptime || '00:00:00';
+        document.getElementById('stat-disk').textContent = data.disk.total_fmt || '0 GB';
+        document.getElementById('stat-disk-used').textContent = (currentLang === 'fa' ? 'استفاده: ' : 'Used: ') + (data.disk.used_fmt || '0');
+        document.getElementById('stat-speed').textContent = data.speed.download_fmt || '0 B/s';
+        document.getElementById('stat-users').textContent = data.links_count || 0;
+        document.getElementById('stat-users-active').textContent = (data.active_links || 0) + (currentLang === 'fa' ? ' فعال' : ' active');
+        document.getElementById('online-badge').innerHTML = '<span class="dot dg"></span> ' + (data.connections || 0) + (currentLang === 'fa' ? ' آنلاین' : ' online');
+        document.getElementById('last-update').textContent = (currentLang === 'fa' ? 'بروزرسانی: ' : 'Updated: ') + new Date().toLocaleTimeString(currentLang === 'fa' ? 'fa-IR' : 'en-US');
+        
+        const usersR = await authF('/api/links');
+        const usersData = await usersR.json();
+        const links = usersData.links || [];
+        const recent = links.slice(0, 4);
+        const grid = document.getElementById('recent-users');
+        if (!recent.length) {
+            grid.innerHTML = '<div class="empty" style="padding:10px"><i class="ti ti-users"></i><p style="font-size:9px">' + (currentLang === 'fa' ? 'هیچ کاربری وجود ندارد' : 'No users') + '</p></div>';
+        } else {
+            grid.innerHTML = recent.map(l => `<div style="background:rgba(201,168,76,0.02);border-radius:4px;padding:4px 6px;display:flex;justify-content:space-between;align-items:center;transition:transform .3s"><div><div style="font-size:9px;font-weight:600;color:var(--t1)">${esc(l.label)}</div><div style="font-size:7px;color:var(--t3)">${l.active ? '🟢' : '🔴'}</div></div><div style="font-size:8px;color:var(--t2)">${fmtB(l.used_bytes||0)}</div></div>`).join('');
+        }
+        loadChart(chartPeriod);
+    } catch(e) { console.error(e); }
 }
 
 // ===== بارگذاری اینباند =====
 async function loadInbound() {
-  try {
-    const r = await authF('/api/inbound');
-    const data = await r.json();
-    document.getElementById('inbound-port').textContent = data.port || 443;
-    document.getElementById('inbound-protocol').textContent = (data.protocol || 'vless-ws').toUpperCase();
-    document.getElementById('inbound-host').textContent = data.host || '—';
-  } catch(e) { console.error(e); }
+    try {
+        const r = await authF('/api/inbound');
+        const data = await r.json();
+        document.getElementById('inbound-port').textContent = data.port || 443;
+        document.getElementById('inbound-protocol').textContent = (data.protocol || 'vless-ws').toUpperCase();
+        document.getElementById('inbound-host').textContent = data.host || '—';
+    } catch(e) { console.error(e); }
 }
 
 // ===== بارگذاری کاربران =====
 async function loadUsers() {
-  try {
-    const r = await authF('/api/links');
-    const { links = [] } = await r.json();
-    const tbody = document.getElementById('users-tbody');
-    const total = links.length;
-    const active = links.filter(l => l.active && !l.expired).length;
-    const expired = links.filter(l => l.expired).length;
-    const totalTraffic = links.reduce((sum, l) => sum + (l.used_bytes || 0), 0);
-    
-    document.getElementById('users-total').textContent = total;
-    document.getElementById('users-active').textContent = active;
-    document.getElementById('users-expired').textContent = expired;
-    document.getElementById('users-traffic').textContent = fmtB(totalTraffic);
-    document.getElementById('users-count-label').textContent = total + (currentLang === 'fa' ? ' کاربر' : ' users');
-    
-    if (!links.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);">' + (currentLang === 'fa' ? 'هیچ کاربری وجود ندارد' : 'No users found') + '</td></tr>';
-      return;
-    }
-    
-    const fpEmoji = { chrome: '🌐', firefox: '🦊', safari: '🧭', edge: '🌊', ios: '📱', android: '🤖', safari_ios: '🍏', random: '🎲', none: '🚫' };
-    const protocolIcons = { 'vless-ws':'🚀', 'vless-grpc':'⚡', 'vless-xhttp':'🛡️', 'vless-http2':'📶', 'trojan-ws':'🔒', 'shadowsocks':'🌊' };
-    
-    tbody.innerHTML = links.map(l => {
-      const isActive = l.active && !l.expired;
-      const statusClass = isActive ? 'active' : (l.expired ? 'expired' : 'disabled');
-      const statusText = isActive ? (currentLang === 'fa' ? 'فعال' : 'Active') : (l.expired ? (currentLang === 'fa' ? 'منقضی' : 'Expired') : (currentLang === 'fa' ? 'غیرفعال' : 'Disabled'));
-      const pct = l.limit_bytes === 0 ? 0 : Math.min(100, (l.used_bytes / l.limit_bytes) * 100);
-      const usedFmt = fmtB(l.used_bytes || 0);
-      const limitFmt = l.limit_bytes === 0 ? '∞' : fmtB(l.limit_bytes);
-      const fp = l.fingerprint || 'chrome';
-      const fpName = { chrome: 'Chrome', firefox: 'Firefox', safari: 'Safari', edge: 'Edge', ios: 'iOS', android: 'Android', safari_ios: 'Safari iOS', random: 'Random', none: 'None' }[fp] || fp;
-      const protocol = l.protocol || 'vless-ws';
-      const protoIcon = protocolIcons[protocol] || '🚀';
-      const protoName = { 'vless-ws':'VLESS-WS', 'vless-grpc':'VLESS-gRPC', 'vless-xhttp':'VLESS-XHTTP', 'vless-http2':'VLESS-HTTP/2', 'trojan-ws':'Trojan-WS', 'shadowsocks':'Shadowsocks' }[protocol] || protocol;
-      const httpVer = l.http_version || 'h2';
-      const httpName = { 'h1':'HTTP/1.1', 'h2':'HTTP/2', 'h3':'HTTP/3', 'auto':'Auto' }[httpVer] || httpVer;
-      let duration = '∞';
-      if (l.expires_at) {
-        try {
-          const exp = new Date(l.expires_at);
-          const now = new Date();
-          const days = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
-          duration = days > 0 ? days + (currentLang === 'fa' ? ' روز' : ' days') : (currentLang === 'fa' ? 'منقضی' : 'Expired');
-        } catch(e) { duration = '—'; }
-      }
-      const avatarLetter = (l.label || 'U')[0].toUpperCase();
-      return `<tr><td><div class="user-name-cell"><div class="avatar">${avatarLetter}</div><div><div class="name">${esc(l.label)}</div><div class="uuid-short">${l.uuid.slice(0,8)}… ${protoIcon} ${protoName}</div></div></div></td><td style="font-size:9px;color:var(--t2);">${fpEmoji[fp] || '🌐'} ${fpName}<br><span style="font-size:7px;color:var(--t3)">${httpName}</span></td><td><span class="status-badge ${statusClass}"><span class="status-dot"></span>${statusText}</span></td><td><div class="usage-bar"><span class="usage-text">${usedFmt} / ${limitFmt}</span><div class="bar"><div class="fill" style="width:${pct}%"></div></div></div></td><td style="font-size:10px;color:var(--t2);">${duration}</td><td><div class="action-btns"><button class="btn btn-pur btn-sm" onclick="showQR('${l.sub_url}')" title="QR Code"><i class="ti ti-qrcode"></i></button><button class="btn btn-pur btn-sm" onclick="navigator.clipboard.writeText('${esc(l.sub_url)}').then(()=>toast('${currentLang === 'fa' ? '✅ کپی ساب' : '✅ Copied'}','ok'))" title="کپی ساب"><i class="ti ti-link"></i></button><button class="btn btn-amber btn-sm" onclick="resetUsage('${l.uuid}')" title="ریست مصرف"><i class="ti ti-rotate"></i></button><button class="btn btn-pur btn-sm" onclick="openEditModal('${l.uuid}')" title="ویرایش"><i class="ti ti-edit"></i></button><button class="btn btn-d btn-sm" onclick="openDeleteModal('${l.uuid}')" title="حذف"><i class="ti ti-trash"></i></button></div></td></tr>`;
-    }).join('');
-  } catch(e) { console.error(e); }
+    try {
+        const r = await authF('/api/links');
+        const { links = [] } = await r.json();
+        const tbody = document.getElementById('users-tbody');
+        const total = links.length;
+        const active = links.filter(l => l.active && !l.expired).length;
+        const expired = links.filter(l => l.expired).length;
+        const totalTraffic = links.reduce((sum, l) => sum + (l.used_bytes || 0), 0);
+        
+        document.getElementById('users-total').textContent = total;
+        document.getElementById('users-active').textContent = active;
+        document.getElementById('users-expired').textContent = expired;
+        document.getElementById('users-traffic').textContent = fmtB(totalTraffic);
+        document.getElementById('users-count-label').textContent = total + (currentLang === 'fa' ? ' کاربر' : ' users');
+        
+        if (!links.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;color:var(--t3);">' + (currentLang === 'fa' ? 'هیچ کاربری وجود ندارد' : 'No users found') + '</td></tr>';
+            return;
+        }
+        
+        const fpEmoji = { chrome: '🌐', firefox: '🦊', safari: '🧭', edge: '🌊', ios: '📱', android: '🤖', safari_ios: '🍏', random: '🎲', none: '🚫' };
+        const protocolIcons = { 'vless-ws':'🚀', 'vless-grpc':'⚡', 'vless-xhttp':'🛡️', 'vless-http2':'📶', 'trojan-ws':'🔒', 'shadowsocks':'🌊' };
+        
+        tbody.innerHTML = links.map(l => {
+            const isActive = l.active && !l.expired;
+            const statusClass = isActive ? 'active' : (l.expired ? 'expired' : 'disabled');
+            const statusText = isActive ? (currentLang === 'fa' ? 'فعال' : 'Active') : (l.expired ? (currentLang === 'fa' ? 'منقضی' : 'Expired') : (currentLang === 'fa' ? 'غیرفعال' : 'Disabled'));
+            const pct = l.limit_bytes === 0 ? 0 : Math.min(100, (l.used_bytes / l.limit_bytes) * 100);
+            const usedFmt = fmtB(l.used_bytes || 0);
+            const limitFmt = l.limit_bytes === 0 ? '∞' : fmtB(l.limit_bytes);
+            const fp = l.fingerprint || 'chrome';
+            const fpName = { chrome: 'Chrome', firefox: 'Firefox', safari: 'Safari', edge: 'Edge', ios: 'iOS', android: 'Android', safari_ios: 'Safari iOS', random: 'Random', none: 'None' }[fp] || fp;
+            const protocol = l.protocol || 'vless-ws';
+            const protoIcon = protocolIcons[protocol] || '🚀';
+            const protoName = { 'vless-ws':'VLESS-WS', 'vless-grpc':'VLESS-gRPC', 'vless-xhttp':'VLESS-XHTTP', 'vless-http2':'VLESS-HTTP/2', 'trojan-ws':'Trojan-WS', 'shadowsocks':'Shadowsocks' }[protocol] || protocol;
+            const httpVer = l.http_version || 'h2';
+            const httpName = { 'h1':'HTTP/1.1', 'h2':'HTTP/2', 'h3':'HTTP/3', 'auto':'Auto' }[httpVer] || httpVer;
+            let duration = '∞';
+            if (l.expires_at) {
+                try {
+                    const exp = new Date(l.expires_at);
+                    const now = new Date();
+                    const days = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+                    duration = days > 0 ? days + (currentLang === 'fa' ? ' روز' : ' days') : (currentLang === 'fa' ? 'منقضی' : 'Expired');
+                } catch(e) { duration = '—'; }
+            }
+            const avatarLetter = (l.label || 'U')[0].toUpperCase();
+            return `<tr><td><div class="user-name-cell"><div class="avatar">${avatarLetter}</div><div><div class="name">${esc(l.label)}</div><div class="uuid-short">${l.uuid.slice(0,8)}… ${protoIcon} ${protoName}</div></div></div></td><td style="font-size:9px;color:var(--t2);">${fpEmoji[fp] || '🌐'} ${fpName}<br><span style="font-size:7px;color:var(--t3)">${httpName}</span></td><td><span class="status-badge ${statusClass}"><span class="status-dot"></span>${statusText}</span></td><td><div class="usage-bar"><span class="usage-text">${usedFmt} / ${limitFmt}</span><div class="bar"><div class="fill" style="width:${pct}%"></div></div></div></td><td style="font-size:10px;color:var(--t2);">${duration}</td><td><div class="action-btns" style="display:flex;gap:2px;flex-wrap:wrap;"><button class="btn btn-pur btn-sm" onclick="showQR('${l.sub_url}')" title="QR Code"><i class="ti ti-qrcode"></i></button><button class="btn btn-pur btn-sm" onclick="navigator.clipboard.writeText('${esc(l.sub_url)}').then(()=>toast('${currentLang === 'fa' ? '✅ کپی ساب' : '✅ Copied'}','ok'))" title="کپی ساب"><i class="ti ti-link"></i></button><button class="btn btn-amber btn-sm" onclick="resetUsage('${l.uuid}')" title="ریست مصرف"><i class="ti ti-rotate"></i></button><button class="btn btn-pur btn-sm" onclick="openEditModal('${l.uuid}')" title="ویرایش"><i class="ti ti-edit"></i></button><button class="btn btn-d btn-sm" onclick="openDeleteModal('${l.uuid}')" title="حذف"><i class="ti ti-trash"></i></button></div></td></tr>`;
+        }).join('');
+    } catch(e) { console.error(e); }
 }
 
 // ===== QR Code =====
 function showQR(url) {
-  const container = document.getElementById('qrcode-container');
-  container.innerHTML = '';
-  if (qrCodeInstance) { qrCodeInstance.clear(); qrCodeInstance = null; }
-  qrCodeInstance = new QRCode(container, {
-    text: url,
-    width: 200,
-    height: 200,
-    colorDark: '#C9A84C',
-    colorLight: '#0a0508',
-    correctLevel: QRCode.CorrectLevel.H
-  });
-  openModal('modal-qr');
-  container.dataset.url = url;
+    const container = document.getElementById('qrcode-container');
+    container.innerHTML = '';
+    if (qrCodeInstance) { qrCodeInstance.clear(); qrCodeInstance = null; }
+    qrCodeInstance = new QRCode(container, {
+        text: url,
+        width: 200,
+        height: 200,
+        colorDark: '#C9A84C',
+        colorLight: '#0a0508',
+        correctLevel: QRCode.CorrectLevel.H
+    });
+    openModal('modal-qr');
+    container.dataset.url = url;
 }
 
 function downloadQR() {
-  const canvas = document.querySelector('#qrcode-container canvas');
-  if (!canvas) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); return; }
-  const link = document.createElement('a');
-  link.download = 'qrcode.png';
-  link.href = canvas.toDataURL('image/png');
-  link.click();
-  toast('✅ ' + (currentLang === 'fa' ? 'QR دانلود شد' : 'QR downloaded'), 'ok');
+    const canvas = document.querySelector('#qrcode-container canvas');
+    if (!canvas) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); return; }
+    const link = document.createElement('a');
+    link.download = 'qrcode.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+    toast('✅ ' + (currentLang === 'fa' ? 'QR دانلود شد' : 'QR downloaded'), 'ok');
 }
 
 // ===== مدیریت کاربران =====
 function generateRandomUsername() {
-  const prefixes = ['Cyber', 'Tech', 'Shadow', 'Neon', 'Nova', 'Apex', 'Zen', 'Vex', 'Zion', 'Knight', 'Phoenix', 'Falcon', 'Titan', 'Ghost', 'Raven', 'Wolf', 'Eagle', 'Hawk', 'Storm', 'Blaze', 'Quantum', 'Echo', 'Omega', 'Alpha', 'Delta', 'Sigma', 'Cipher', 'Dragon', 'Tiger', 'Viper'];
-  const suffixes = ['X', 'Z', 'Y', 'V', 'W', 'K', 'G', 'P', 'R', 'M', 'H', 'T', 'N', 'S', 'D', 'F', 'Q', 'L', 'J', 'C'];
-  const middle = ['flow', 'star', 'dark', 'light', 'storm', 'fire', 'ice', 'wind', 'cloud', 'shadow', 'nova', 'neon', 'cyber', 'ghost', 'raven', 'wolf', 'titan', 'zen', 'vex', 'apex', 'surge', 'pulse', 'cipher'];
-  
-  let username = '';
-  const useMiddle = Math.random() > 0.4;
-  if (useMiddle) {
-    username = prefixes[Math.floor(Math.random() * prefixes.length)] + middle[Math.floor(Math.random() * middle.length)] + Math.floor(Math.random() * 100);
-  } else {
-    username = prefixes[Math.floor(Math.random() * prefixes.length)] + suffixes[Math.floor(Math.random() * suffixes.length)] + Math.floor(Math.random() * 1000);
-  }
-  document.getElementById('user-label').value = username;
-  toast('✅ ' + (currentLang === 'fa' ? 'نام کاربری ساخته شد' : 'Username generated'), 'ok');
+    const prefixes = ['Cyber', 'Tech', 'Shadow', 'Neon', 'Nova', 'Apex', 'Zen', 'Vex', 'Zion', 'Knight', 'Phoenix', 'Falcon', 'Titan', 'Ghost', 'Raven', 'Wolf', 'Eagle', 'Hawk', 'Storm', 'Blaze', 'Quantum', 'Echo', 'Omega', 'Alpha', 'Delta', 'Sigma', 'Cipher', 'Dragon', 'Tiger', 'Viper'];
+    const suffixes = ['X', 'Z', 'Y', 'V', 'W', 'K', 'G', 'P', 'R', 'M', 'H', 'T', 'N', 'S', 'D', 'F', 'Q', 'L', 'J', 'C'];
+    const middle = ['flow', 'star', 'dark', 'light', 'storm', 'fire', 'ice', 'wind', 'cloud', 'shadow', 'nova', 'neon', 'cyber', 'ghost', 'raven', 'wolf', 'titan', 'zen', 'vex', 'apex', 'surge', 'pulse', 'cipher'];
+    
+    let username = '';
+    const useMiddle = Math.random() > 0.4;
+    if (useMiddle) {
+        username = prefixes[Math.floor(Math.random() * prefixes.length)] + middle[Math.floor(Math.random() * middle.length)] + Math.floor(Math.random() * 100);
+    } else {
+        username = prefixes[Math.floor(Math.random() * prefixes.length)] + suffixes[Math.floor(Math.random() * suffixes.length)] + Math.floor(Math.random() * 1000);
+    }
+    document.getElementById('user-label').value = username;
+    toast('✅ ' + (currentLang === 'fa' ? 'نام کاربری ساخته شد' : 'Username generated'), 'ok');
 }
 
 function initDatePickers() {
-  if (expiryPicker) expiryPicker.destroy();
-  expiryPicker = flatpickr("#user-expiry-date", {
-    locale: currentLang === 'fa' ? 'fa' : 'en',
-    dateFormat: "Y-m-d",
-    minDate: "today",
-    disableMobile: true,
-    placeholder: currentLang === 'fa' ? 'انتخاب تاریخ انقضا' : 'Select expiry date',
-    allowInput: true,
-  });
-  if (editExpiryPicker) editExpiryPicker.destroy();
-  editExpiryPicker = flatpickr("#edit-expiry-date", {
-    locale: currentLang === 'fa' ? 'fa' : 'en',
-    dateFormat: "Y-m-d",
-    minDate: "today",
-    disableMobile: true,
-    placeholder: currentLang === 'fa' ? 'انتخاب تاریخ انقضا' : 'Select expiry date',
-    allowInput: true,
-  });
+    if (expiryPicker) expiryPicker.destroy();
+    expiryPicker = flatpickr("#user-expiry-date", {
+        locale: currentLang === 'fa' ? 'fa' : 'en',
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        disableMobile: true,
+        placeholder: currentLang === 'fa' ? 'انتخاب تاریخ انقضا' : 'Select expiry date',
+        allowInput: true,
+    });
+    if (editExpiryPicker) editExpiryPicker.destroy();
+    editExpiryPicker = flatpickr("#edit-expiry-date", {
+        locale: currentLang === 'fa' ? 'fa' : 'en',
+        dateFormat: "Y-m-d",
+        minDate: "today",
+        disableMobile: true,
+        placeholder: currentLang === 'fa' ? 'انتخاب تاریخ انقضا' : 'Select expiry date',
+        allowInput: true,
+    });
 }
 
 async function saveUser() {
-  const label = document.getElementById('user-label').value.trim() || 'کاربر';
-  const quota = parseFloat(document.getElementById('user-quota').value) || 0;
-  const expiryDate = document.getElementById('user-expiry-date').value;
-  const devices = parseInt(document.getElementById('user-devices').value) || 0;
-  const password = document.getElementById('user-password').value.trim();
-  const fingerprint = document.getElementById('user-fingerprint').value || 'chrome';
-  const protocol = document.getElementById('user-protocol').value || 'vless-ws';
-  const http_version = document.getElementById('user-http').value || 'h2';
-  
-  let expires_days = 0;
-  if (expiryDate) {
-    const exp = new Date(expiryDate);
-    const now = new Date();
-    expires_days = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
-    if (expires_days < 0) expires_days = 0;
-  }
-  
-  try {
-    const r = await authF('/api/links', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label, limit_value: quota, limit_unit: 'GB', expires_days, max_devices: devices, password, fingerprint, protocol, http_version })
-    });
-    if (!r.ok) throw new Error();
-    document.getElementById('user-label').value = 'کاربر';
-    document.getElementById('user-quota').value = '2';
-    document.getElementById('user-expiry-date').value = '';
-    document.getElementById('user-devices').value = '1';
-    document.getElementById('user-password').value = '';
-    document.getElementById('user-fingerprint').value = 'chrome';
-    document.getElementById('user-protocol').value = 'vless-ws';
-    document.getElementById('user-http').value = 'h2';
-    closeModal('modal-user');
-    toast('✅ ' + (currentLang === 'fa' ? 'کاربر ساخته شد' : 'User created'), 'ok');
-    loadUsers();
-    loadDashboard();
-  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+    const label = document.getElementById('user-label').value.trim() || 'کاربر';
+    const quota = parseFloat(document.getElementById('user-quota').value) || 0;
+    const expiryDate = document.getElementById('user-expiry-date').value;
+    const devices = parseInt(document.getElementById('user-devices').value) || 0;
+    const password = document.getElementById('user-password').value.trim();
+    const fingerprint = document.getElementById('user-fingerprint').value || 'chrome';
+    const protocol = document.getElementById('user-protocol').value || 'vless-ws';
+    const http_version = document.getElementById('user-http').value || 'h2';
+    
+    let expires_days = 0;
+    if (expiryDate) {
+        const exp = new Date(expiryDate);
+        const now = new Date();
+        expires_days = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+        if (expires_days < 0) expires_days = 0;
+    }
+    
+    try {
+        const r = await authF('/api/links', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label, limit_value: quota, limit_unit: 'GB', expires_days, max_devices: devices, password, fingerprint, protocol, http_version })
+        });
+        if (!r.ok) throw new Error();
+        document.getElementById('user-label').value = 'کاربر';
+        document.getElementById('user-quota').value = '2';
+        document.getElementById('user-expiry-date').value = '';
+        document.getElementById('user-devices').value = '1';
+        document.getElementById('user-password').value = '';
+        document.getElementById('user-fingerprint').value = 'chrome';
+        document.getElementById('user-protocol').value = 'vless-ws';
+        document.getElementById('user-http').value = 'h2';
+        closeModal('modal-user');
+        toast('✅ ' + (currentLang === 'fa' ? 'کاربر ساخته شد' : 'User created'), 'ok');
+        loadUsers();
+        loadDashboard();
+    } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
 }
 
 async function openEditModal(uuid) {
-  try {
-    const r = await authF('/api/links');
-    const { links = [] } = await r.json();
-    const link = links.find(l => l.uuid === uuid);
-    if (!link) { toast((currentLang === 'fa' ? 'کاربر یافت نشد' : 'User not found'), 'err'); return; }
-    document.getElementById('edit-uuid').value = uuid;
-    document.getElementById('edit-label').value = link.label || '';
-    document.getElementById('edit-password').value = '';
-    document.getElementById('edit-quota').value = link.limit_bytes === 0 ? '' : (link.limit_bytes / (1024 ** 3)).toFixed(1);
-    
-    if (link.expires_at) {
-      const expDate = new Date(link.expires_at);
-      const dateStr = expDate.toISOString().split('T')[0];
-      document.getElementById('edit-expiry-date').value = dateStr;
-      if (editExpiryPicker) editExpiryPicker.setDate(dateStr);
-    } else {
-      document.getElementById('edit-expiry-date').value = '';
-      if (editExpiryPicker) editExpiryPicker.clear();
-    }
-    
-    document.getElementById('edit-devices').value = link.max_devices || 0;
-    document.getElementById('edit-status').value = link.active ? 'true' : 'false';
-    document.getElementById('edit-fingerprint').value = link.fingerprint || 'chrome';
-    document.getElementById('edit-protocol').value = link.protocol || 'vless-ws';
-    document.getElementById('edit-http').value = link.http_version || 'h2';
-    document.getElementById('edit-password-section').style.display = link.has_password ? 'block' : 'none';
-    openModal('modal-edit');
-  } catch(e) { toast((currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+    try {
+        const r = await authF('/api/links');
+        const { links = [] } = await r.json();
+        const link = links.find(l => l.uuid === uuid);
+        if (!link) { toast((currentLang === 'fa' ? 'کاربر یافت نشد' : 'User not found'), 'err'); return; }
+        document.getElementById('edit-uuid').value = uuid;
+        document.getElementById('edit-label').value = link.label || '';
+        document.getElementById('edit-password').value = '';
+        document.getElementById('edit-quota').value = link.limit_bytes === 0 ? '' : (link.limit_bytes / (1024 ** 3)).toFixed(1);
+        
+        if (link.expires_at) {
+            const expDate = new Date(link.expires_at);
+            const dateStr = expDate.toISOString().split('T')[0];
+            document.getElementById('edit-expiry-date').value = dateStr;
+            if (editExpiryPicker) editExpiryPicker.setDate(dateStr);
+        } else {
+            document.getElementById('edit-expiry-date').value = '';
+            if (editExpiryPicker) editExpiryPicker.clear();
+        }
+        
+        document.getElementById('edit-devices').value = link.max_devices || 0;
+        document.getElementById('edit-status').value = link.active ? 'true' : 'false';
+        document.getElementById('edit-fingerprint').value = link.fingerprint || 'chrome';
+        document.getElementById('edit-protocol').value = link.protocol || 'vless-ws';
+        document.getElementById('edit-http').value = link.http_version || 'h2';
+        document.getElementById('edit-password-section').style.display = link.has_password ? 'block' : 'none';
+        openModal('modal-edit');
+    } catch(e) { toast((currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
 }
 
 async function saveEdit() {
-  const uuid = document.getElementById('edit-uuid').value;
-  const password = document.getElementById('edit-password').value.trim();
-  const label = document.getElementById('edit-label').value.trim() || 'کاربر';
-  const quota = parseFloat(document.getElementById('edit-quota').value) || 0;
-  const expiryDate = document.getElementById('edit-expiry-date').value;
-  const devices = parseInt(document.getElementById('edit-devices').value) || 0;
-  const active = document.getElementById('edit-status').value === 'true';
-  const fingerprint = document.getElementById('edit-fingerprint').value || 'chrome';
-  const protocol = document.getElementById('edit-protocol').value || 'vless-ws';
-  const http_version = document.getElementById('edit-http').value || 'h2';
-  
-  let expires_days = 0;
-  if (expiryDate) {
-    const exp = new Date(expiryDate);
-    const now = new Date();
-    expires_days = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
-    if (expires_days < 0) expires_days = 0;
-  }
-  
-  try {
-    const r = await authF('/api/links/' + uuid, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label, limit_value: quota, limit_unit: 'GB', expires_days, max_devices: devices, active, password, fingerprint, protocol, http_version })
-    });
-    if (!r.ok) {
-      if (r.status === 403) { toast('❌ ' + (currentLang === 'fa' ? 'رمز اشتباه' : 'Wrong password'), 'err'); return; }
-      throw new Error();
+    const uuid = document.getElementById('edit-uuid').value;
+    const password = document.getElementById('edit-password').value.trim();
+    const label = document.getElementById('edit-label').value.trim() || 'کاربر';
+    const quota = parseFloat(document.getElementById('edit-quota').value) || 0;
+    const expiryDate = document.getElementById('edit-expiry-date').value;
+    const devices = parseInt(document.getElementById('edit-devices').value) || 0;
+    const active = document.getElementById('edit-status').value === 'true';
+    const fingerprint = document.getElementById('edit-fingerprint').value || 'chrome';
+    const protocol = document.getElementById('edit-protocol').value || 'vless-ws';
+    const http_version = document.getElementById('edit-http').value || 'h2';
+    
+    let expires_days = 0;
+    if (expiryDate) {
+        const exp = new Date(expiryDate);
+        const now = new Date();
+        expires_days = Math.ceil((exp - now) / (1000 * 60 * 60 * 24));
+        if (expires_days < 0) expires_days = 0;
     }
-    closeModal('modal-edit');
-    toast('✅ ' + (currentLang === 'fa' ? 'ویرایش شد' : 'Saved'), 'ok');
-    loadUsers();
-  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+    
+    try {
+        const r = await authF('/api/links/' + uuid, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ label, limit_value: quota, limit_unit: 'GB', expires_days, max_devices: devices, active, password, fingerprint, protocol, http_version })
+        });
+        if (!r.ok) {
+            if (r.status === 403) { toast('❌ ' + (currentLang === 'fa' ? 'رمز اشتباه' : 'Wrong password'), 'err'); return; }
+            throw new Error();
+        }
+        closeModal('modal-edit');
+        toast('✅ ' + (currentLang === 'fa' ? 'ویرایش شد' : 'Saved'), 'ok');
+        loadUsers();
+    } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
 }
 
 function openDeleteModal(uuid) {
-  document.getElementById('delete-uuid').value = uuid;
-  document.getElementById('delete-password').value = '';
-  openModal('modal-delete');
+    document.getElementById('delete-uuid').value = uuid;
+    document.getElementById('delete-password').value = '';
+    openModal('modal-delete');
 }
 
 async function confirmDelete() {
-  const uuid = document.getElementById('delete-uuid').value;
-  const password = document.getElementById('delete-password').value.trim();
-  try {
-    const r = await authF('/api/links/' + uuid, {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ password })
-    });
-    if (!r.ok) {
-      if (r.status === 403) { toast('❌ ' + (currentLang === 'fa' ? 'رمز اشتباه' : 'Wrong password'), 'err'); return; }
-      throw new Error();
-    }
-    closeModal('modal-delete');
-    toast('✅ ' + (currentLang === 'fa' ? 'حذف شد' : 'Deleted'), 'ok');
-    loadUsers();
-    loadDashboard();
-  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+    const uuid = document.getElementById('delete-uuid').value;
+    const password = document.getElementById('delete-password').value.trim();
+    try {
+        const r = await authF('/api/links/' + uuid, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password })
+        });
+        if (!r.ok) {
+            if (r.status === 403) { toast('❌ ' + (currentLang === 'fa' ? 'رمز اشتباه' : 'Wrong password'), 'err'); return; }
+            throw new Error();
+        }
+        closeModal('modal-delete');
+        toast('✅ ' + (currentLang === 'fa' ? 'حذف شد' : 'Deleted'), 'ok');
+        loadUsers();
+        loadDashboard();
+    } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
 }
 
 async function resetUsage(uuid) {
-  if (!confirm(currentLang === 'fa' ? 'ریست مصرف؟' : 'Reset usage?')) return;
-  try {
-    const r = await authF('/api/links/' + uuid, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reset_usage: true })
-    });
-    if (!r.ok) throw new Error();
-    toast('✅ ' + (currentLang === 'fa' ? 'ریست شد' : 'Reset'), 'ok');
-    loadUsers();
-  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+    if (!confirm(currentLang === 'fa' ? 'ریست مصرف؟' : 'Reset usage?')) return;
+    try {
+        const r = await authF('/api/links/' + uuid, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reset_usage: true })
+        });
+        if (!r.ok) throw new Error();
+        toast('✅ ' + (currentLang === 'fa' ? 'ریست شد' : 'Reset'), 'ok');
+        loadUsers();
+    } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
 }
 
 // ===== بارگذاری اتصالات =====
 async function loadConnections() {
-  try {
-    const r = await authF('/api/connections');
-    const d = await r.json();
-    const grid = document.getElementById('conns-grid');
-    const count = d.count || 0;
-    document.getElementById('conn-count').textContent = count + (currentLang === 'fa' ? ' اتصال' : ' connections');
-    if (!count) {
-      grid.innerHTML = '<div class="empty"><i class="ti ti-plug-off"></i><p>' + (currentLang === 'fa' ? 'هیچ اتصالی وجود ندارد' : 'No connections') + '</p></div>';
-      return;
-    }
-    grid.innerHTML = d.connections.map(c => {
-      const secs = c.connected_at ? Math.max(0, Math.floor((Date.now() - new Date(c.connected_at).getTime()) / 1000)) : 0;
-      const dur = secs < 60 ? secs + 's' : secs < 3600 ? Math.floor(secs / 60) + 'm' : Math.floor(secs / 3600) + 'h';
-      return `<div class="conn-card"><div class="ip"><span class="conn-status-dot"></span> ${esc(c.ip)}</div><div class="label">${esc(c.label || 'نامشخص')}</div><div class="conn-info"><span>📥 ${esc(c.bytes_fmt || '0 B')}</span><span>⏱ ${dur}</span></div></div>`;
-    }).join('');
-  } catch(e) { console.error(e); }
+    try {
+        const r = await authF('/api/connections');
+        const d = await r.json();
+        const grid = document.getElementById('conns-grid');
+        const count = d.count || 0;
+        document.getElementById('conn-count').textContent = count + (currentLang === 'fa' ? ' اتصال' : ' connections');
+        if (!count) {
+            grid.innerHTML = '<div class="empty"><i class="ti ti-plug-off"></i><p>' + (currentLang === 'fa' ? 'هیچ اتصالی وجود ندارد' : 'No connections') + '</p></div>';
+            return;
+        }
+        grid.innerHTML = d.connections.map(c => {
+            const secs = c.connected_at ? Math.max(0, Math.floor((Date.now() - new Date(c.connected_at).getTime()) / 1000)) : 0;
+            const dur = secs < 60 ? secs + 's' : secs < 3600 ? Math.floor(secs / 60) + 'm' : Math.floor(secs / 3600) + 'h';
+            return `<div class="conn-card"><div class="ip"><span class="conn-status-dot"></span> ${esc(c.ip)}</div><div class="label">${esc(c.label || 'نامشخص')}</div><div class="conn-info"><span>📥 ${esc(c.bytes_fmt || '0 B')}</span><span>⏱ ${dur}</span></div></div>`;
+        }).join('');
+    } catch(e) { console.error(e); }
 }
 
 // ===== بارگذاری لاگ‌ها =====
 async function loadLogs() {
-  try {
-    const r = await authF('/api/activity');
-    const data = await r.json();
-    const logs = data.logs || [];
-    document.getElementById('logs-count').textContent = logs.length + (currentLang === 'fa' ? ' لاگ' : ' logs');
-    const container = document.getElementById('logs-container');
-    if (!logs.length) {
-      container.innerHTML = '<div class="empty"><i class="ti ti-notes"></i><p>' + (currentLang === 'fa' ? 'هیچ لاگی وجود ندارد' : 'No logs') + '</p></div>';
-      return;
-    }
-    container.innerHTML = logs.map(log => {
-      const time = log.time ? new Date(log.time).toLocaleString(currentLang === 'fa' ? 'fa-IR' : 'en-US') : '—';
-      const color = log.level === 'err' ? '#F87171' : log.level === 'warn' ? '#FCD34D' : '#C9A84C';
-      return `<div style="padding:3px 0;border-bottom:1px solid rgba(201,168,76,0.02);display:flex;gap:6px"><span style="color:${color};font-weight:700">[${(log.level || 'info').toUpperCase()}]</span><span style="color:var(--t3)">${time}</span><span>${esc(log.message)}</span></div>`;
-    }).join('');
-  } catch(e) { console.error(e); }
+    try {
+        const r = await authF('/api/activity');
+        const data = await r.json();
+        const logs = data.logs || [];
+        document.getElementById('logs-count').textContent = logs.length + (currentLang === 'fa' ? ' لاگ' : ' logs');
+        const container = document.getElementById('logs-container');
+        if (!logs.length) {
+            container.innerHTML = '<div class="empty"><i class="ti ti-notes"></i><p>' + (currentLang === 'fa' ? 'هیچ لاگی وجود ندارد' : 'No logs') + '</p></div>';
+            return;
+        }
+        container.innerHTML = logs.map(log => {
+            const time = log.time ? new Date(log.time).toLocaleString(currentLang === 'fa' ? 'fa-IR' : 'en-US') : '—';
+            const color = log.level === 'err' ? '#F87171' : log.level === 'warn' ? '#FCD34D' : '#C9A84C';
+            return `<div style="padding:3px 0;border-bottom:1px solid rgba(201,168,76,0.02);display:flex;gap:6px;flex-wrap:wrap;"><span style="color:${color};font-weight:700">[${(log.level || 'info').toUpperCase()}]</span><span style="color:var(--t3)">${time}</span><span>${esc(log.message)}</span></div>`;
+        }).join('');
+    } catch(e) { console.error(e); }
 }
 
 // ===== RGB Mode =====
 let rgbMode = false;
 async function loadRGBStatus() {
-  try {
-    const r = await authF('/api/settings');
-    const data = await r.json();
-    rgbMode = data.rgb_mode || false;
-    updateRGBUI();
-  } catch(e) {}
+    try {
+        const r = await authF('/api/settings');
+        const data = await r.json();
+        rgbMode = data.rgb_mode || false;
+        updateRGBUI();
+    } catch(e) {}
 }
 
 function updateRGBUI() {
-  const sw = document.getElementById('rgb-switch');
-  if (rgbMode) { document.body.classList.add('rgb-mode'); sw.classList.add('on'); }
-  else { document.body.classList.remove('rgb-mode'); sw.classList.remove('on'); }
+    const sw = document.getElementById('rgb-switch');
+    if (rgbMode) { document.body.classList.add('rgb-mode'); sw.classList.add('on'); }
+    else { document.body.classList.remove('rgb-mode'); sw.classList.remove('on'); }
 }
 
 async function toggleRGB() {
-  const newState = !rgbMode;
-  try {
-    const r = await authF('/api/settings/rgb', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ enabled: newState })
-    });
-    const data = await r.json();
-    rgbMode = data.rgb_mode;
-    updateRGBUI();
-    toast(rgbMode ? '🌈 RGB ' + (currentLang === 'fa' ? 'فعال شد' : 'enabled') : '🌙 RGB ' + (currentLang === 'fa' ? 'غیرفعال شد' : 'disabled'), 'ok');
-  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+    const newState = !rgbMode;
+    try {
+        const r = await authF('/api/settings/rgb', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ enabled: newState })
+        });
+        const data = await r.json();
+        rgbMode = data.rgb_mode;
+        updateRGBUI();
+        toast(rgbMode ? '🌈 RGB ' + (currentLang === 'fa' ? 'فعال شد' : 'enabled') : '🌙 RGB ' + (currentLang === 'fa' ? 'غیرفعال شد' : 'disabled'), 'ok');
+    } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
 }
 
 // ===== بکاپ =====
 async function createBackup() {
-  try {
-    const r = await authF('/api/backup');
-    const data = await r.json();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `persepolis_backup_${new Date().toISOString().slice(0,10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast('✅ ' + (currentLang === 'fa' ? 'بکاپ دانلود شد' : 'Backup downloaded'), 'ok');
-  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
+    try {
+        const r = await authF('/api/backup');
+        const data = await r.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `persepolis_backup_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast('✅ ' + (currentLang === 'fa' ? 'بکاپ دانلود شد' : 'Backup downloaded'), 'ok');
+    } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); }
 }
 
 async function restoreBackup(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  try {
-    const text = await file.text();
-    const data = JSON.parse(text);
-    const r = await authF('/api/backup/restore', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
-    });
-    if (!r.ok) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); return; }
-    toast('✅ ' + (currentLang === 'fa' ? 'بکاپ بازیابی شد' : 'Backup restored'), 'ok');
-    setTimeout(() => location.reload(), 1000);
-  } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا: ' : 'Error: ') + e.message, 'err'); }
-  event.target.value = '';
+    const file = event.target.files[0];
+    if (!file) return;
+    try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const r = await authF('/api/backup/restore', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+        });
+        if (!r.ok) { toast('❌ ' + (currentLang === 'fa' ? 'خطا' : 'Error'), 'err'); return; }
+        toast('✅ ' + (currentLang === 'fa' ? 'بکاپ بازیابی شد' : 'Backup restored'), 'ok');
+        setTimeout(() => location.reload(), 1000);
+    } catch(e) { toast('❌ ' + (currentLang === 'fa' ? 'خطا: ' : 'Error: ') + e.message, 'err'); }
+    event.target.value = '';
 }
 
 // ===== راه‌اندازی اولیه =====
 document.addEventListener('DOMContentLoaded', async () => {
-  try {
-    const r = await fetch('/api/me');
-    const d = await r.json();
-    if (!d.authenticated) location.href = '/login';
-  } catch(e) { location.href = '/login'; }
-  
-  loadTheme();
-  setLang(currentLang);
-  await loadRGBStatus();
-  initDatePickers();
-  
-  loadDashboard();
-  loadInbound();
-  loadUsers();
-  loadConnections();
-  loadLogs();
-  
-  setInterval(() => {
-    if (document.getElementById('pg-dashboard').classList.contains('on')) loadDashboard();
-    if (document.getElementById('pg-connections').classList.contains('on')) loadConnections();
-    if (document.getElementById('pg-users').classList.contains('on')) loadUsers();
-  }, 10000);
+    try {
+        const r = await fetch('/api/me');
+        const d = await r.json();
+        if (!d.authenticated) location.href = '/login';
+    } catch(e) { location.href = '/login'; }
+    
+    loadTheme();
+    setLang(currentLang);
+    await loadRGBStatus();
+    initDatePickers();
+    loadTickets();
+    
+    loadDashboard();
+    loadInbound();
+    loadUsers();
+    loadConnections();
+    loadLogs();
+    
+    // به‌روزرسانی خودکار
+    setInterval(() => {
+        if (document.getElementById('pg-dashboard').classList.contains('on')) loadDashboard();
+        if (document.getElementById('pg-connections').classList.contains('on')) loadConnections();
+        if (document.getElementById('pg-users').classList.contains('on')) loadUsers();
+    }, 10000);
 });
 </script>
 </body></html>"""
 
 
 # ============================================================
-# تابع ساب‌لینک با طراحی کارتی و هولوگرام
+# تابع ساب‌لینک (همون قبلی با تغییرات ظاهری)
 # ============================================================
 def get_sub_page_html(uuid: str, link: dict) -> str:
-    """صفحه ساب‌لینک با طراحی کارتی، هولوگرام و افکت‌های جدید"""
+    """صفحه ساب‌لینک با طراحی کارتی و هولوگرام"""
     used = link.get('used_bytes', 0)
     limit = link.get('limit_bytes', 0)
     active = link.get('active', True)
@@ -1511,7 +2009,6 @@ def get_sub_page_html(uuid: str, link: dict) -> str:
     
     is_allowed = active and not expired
     
-    # تم‌های جدید
     theme_names = {
         'persepolis_gold':'🏛️ طلایی',
         'persepolis_dark':'🌙 شب',
@@ -1545,7 +2042,7 @@ def get_sub_page_html(uuid: str, link: dict) -> str:
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>🏛️ {label} · تخت جمشید</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -1569,8 +2066,6 @@ def get_sub_page_html(uuid: str, link: dict) -> str:
 [data-theme="persepolis_light"]{{--bg:#F5ECD7;--card:rgba(255,248,240,0.85);--accent:#C9A84C;--accent2:#A8883A;--text:#1a1208;--text2:#6A5A3A;--text3:#8A7A5A}}
 [data-theme="persepolis_ancient"]{{--bg:#0a0805;--card:rgba(20,15,8,0.85);--accent:#8A7A4A;--accent2:#6A5A2A;--text:#E8DDC8;--text2:#A89870;--text3:#6A5A3A}}
 
-@keyframes twinkle{{0%,100%{{opacity:0.1}}50%{{opacity:0.5}}}}
-@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.25}}}}
 @keyframes cardIn{{from{{opacity:0;transform:translateY(40px) scale(0.95)}}to{{opacity:1;transform:translateY(0) scale(1)}}}}
 @keyframes holoShine{{0%{{background-position:0% 50%}}50%{{background-position:100% 50%}}100%{{background-position:0% 50%}}}}
 @keyframes floatParticle{{0%{{transform:translateY(0) scale(1);opacity:0}}10%{{opacity:0.6}}90%{{opacity:0.6}}100%{{transform:translateY(-100vh) scale(0);opacity:0}}}}
@@ -1579,27 +2074,28 @@ def get_sub_page_html(uuid: str, link: dict) -> str:
 
 body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--bg);color:var(--text);transition:var(--transition);position:relative;overflow-x:hidden}}
 .particles{{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}}
-.particle{{position:absolute;width:3px;height:3px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:50%;box-shadow:0 0 6px rgba(201,168,76,0.2);animation:floatParticle 20s linear infinite}}
-.glow-orb{{position:fixed;border-radius:50%;filter:blur(150px);z-index:0;pointer-events:none;animation:orbFloat 8s ease-in-out infinite}}
+.particle{{position:absolute;width:3px;height:3px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:50%;box-shadow:0 0 6px rgba(201,168,76,0.2);will-change:transform,opacity;animation:floatParticle 20s linear infinite}}
+.glow-orb{{position:fixed;border-radius:50%;filter:blur(150px);z-index:0;pointer-events:none;will-change:transform;animation:orbFloat 8s ease-in-out infinite}}
 .glow-orb1{{width:400px;height:400px;background:rgba(201,168,76,0.03);top:-100px;right:-50px}}
 .glow-orb2{{width:300px;height:300px;background:rgba(232,200,74,0.02);bottom:-50px;left:-30px;animation-delay:3s}}
 
-.card{{position:relative;z-index:10;background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--card-border);border-radius:var(--radius);padding:24px 20px 20px;max-width:480px;width:100%;box-shadow:var(--shadow);animation:cardIn 0.6s ease;transition:var(--transition);margin-top:60px}}
+.card{{position:relative;z-index:10;background:var(--card);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border:1px solid var(--card-border);border-radius:var(--radius);padding:24px 20px 20px;max-width:480px;width:100%;box-shadow:var(--shadow);animation:cardIn 0.6s ease;transition:var(--transition);margin-top:60px}}
 .card::before{{content:'';position:absolute;inset:0;border-radius:var(--radius);padding:1px;background:linear-gradient(135deg,transparent,rgba(201,168,76,0.08),transparent,transparent,rgba(232,200,74,0.04),transparent);background-size:300% 300%;animation:holoShine 6s ease-in-out infinite;pointer-events:none;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask-composite:exclude}}
 
 .card-header{{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--card-border)}}
 .brand{{display:flex;align-items:center;gap:8px}}
-.brand-icon{{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#C9A84C,#A8883A);display:flex;align-items:center;justify-content:center;font-size:16px;box-shadow:0 0 30px rgba(201,168,76,0.15)}}
+.brand-icon{{width:32px;height:32px;border-radius:8px;background:linear-gradient(135deg,#C9A84C,#A8883A);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;box-shadow:0 0 30px rgba(201,168,76,0.15)}}
 .brand-text{{font-size:11px;font-weight:700;background:linear-gradient(135deg,#E8C84A,#C9A84C);-webkit-background-clip:text;-webkit-text-fill-color:transparent}}
 .brand-sub{{font-size:6px;color:var(--text3);letter-spacing:1px}}
 
-.user-name-row{{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}}
+.user-name-row{{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;flex-wrap:wrap;gap:4px}}
 .user-name{{font-size:20px;font-weight:800;color:var(--text);display:flex;align-items:center;gap:6px;flex-wrap:wrap}}
 .user-name .proto-badge{{font-size:9px;font-weight:600;background:rgba(201,168,76,0.08);padding:2px 10px;border-radius:12px;color:var(--accent2)}}
 .status-badge{{display:inline-flex;align-items:center;gap:4px;padding:2px 12px;border-radius:12px;font-size:10px;font-weight:700}}
 .status-badge.active{{background:var(--green-bg);color:var(--green-text);border:1px solid rgba(16,185,129,0.1)}}
 .status-badge.inactive{{background:var(--red-bg);color:var(--red-text);border:1px solid rgba(239,68,68,0.1)}}
 .status-dot{{width:6px;height:6px;border-radius:50%;display:inline-block;animation:pulse 1.5s infinite}}
+@keyframes pulse{{0%,100%{{opacity:1}}50%{{opacity:.25}}}}
 .status-dot.green{{background:var(--green-text)}}
 .status-dot.red{{background:var(--red-text)}}
 
@@ -1631,12 +2127,12 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
 .apps-section{{margin:10px 0}}
 .apps-title{{font-size:9px;font-weight:700;color:var(--text3);margin-bottom:6px;display:flex;align-items:center;gap:4px}}
 .apps-grid{{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}}
-.app-btn{{background:rgba(201,168,76,0.02);border:1px solid var(--card-border);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;transition:var(--transition);text-decoration:none;color:var(--text)}}
+.app-btn{{background:rgba(201,168,76,0.02);border:1px solid var(--card-border);border-radius:10px;padding:8px 4px;text-align:center;cursor:pointer;transition:var(--transition);text-decoration:none;color:var(--text);touch-action:manipulation}}
 .app-btn:hover{{background:rgba(201,168,76,0.06);transform:translateY(-3px) scale(1.02);border-color:var(--accent);box-shadow:0 4px 20px rgba(201,168,76,0.05)}}
 .app-btn .app-icon{{font-size:22px;display:block;margin-bottom:2px}}
 .app-btn .app-name{{font-size:6px;color:var(--text2);font-weight:600;display:block}}
 
-.btn{{font-family:inherit;font-size:9px;font-weight:600;border-radius:6px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;border:none;transition:var(--transition);white-space:nowrap;justify-content:center}}
+.btn{{font-family:inherit;font-size:9px;font-weight:600;border-radius:6px;padding:5px 10px;cursor:pointer;display:inline-flex;align-items:center;gap:3px;border:none;transition:var(--transition);white-space:nowrap;justify-content:center;touch-action:manipulation}}
 .btn i{{font-size:10px}}
 .btn-success{{background:var(--green-bg);border:1px solid rgba(16,185,129,0.08);color:var(--green-text)}}
 .btn-success:hover{{background:rgba(16,185,129,0.12);transform:translateY(-2px)}}
@@ -1647,9 +2143,9 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
 .footer .brand-name{{color:var(--accent);font-weight:700}}
 
 .theme-dropdown{{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:100}}
-.theme-dropdown .toggle-btn{{background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--card-border);border-radius:14px;padding:10px 20px;color:var(--text);font-family:'Vazirmatn',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;transition:var(--transition);box-shadow:0 8px 40px rgba(0,0,0,0.3)}}
+.theme-dropdown .toggle-btn{{background:var(--card);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border:1px solid var(--card-border);border-radius:14px;padding:10px 20px;color:var(--text);font-family:'Vazirmatn',sans-serif;font-size:13px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:10px;transition:var(--transition);box-shadow:0 8px 40px rgba(0,0,0,0.3)}}
 .theme-dropdown .toggle-btn:hover{{border-color:var(--accent);transform:scale(1.02)}}
-.theme-dropdown .menu{{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--card);backdrop-filter:blur(30px);border:1px solid var(--card-border);border-radius:14px;padding:8px;min-width:200px;box-shadow:0 12px 50px rgba(0,0,0,0.4)}}
+.theme-dropdown .menu{{display:none;position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);background:var(--card);backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);border:1px solid var(--card-border);border-radius:14px;padding:8px;min-width:200px;box-shadow:0 12px 50px rgba(0,0,0,0.4)}}
 .theme-dropdown .menu.open{{display:block}}
 .theme-dropdown .menu-item{{display:flex;align-items:center;gap:10px;padding:8px 14px;border-radius:10px;cursor:pointer;transition:var(--transition);color:var(--text2);font-size:13px;font-weight:500}}
 .theme-dropdown .menu-item:hover{{background:rgba(201,168,76,0.06);color:var(--text)}}
@@ -1657,11 +2153,33 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
 .theme-dropdown .menu-item .check{{margin-right:auto;opacity:0;transition:opacity .2s;color:var(--accent)}}
 .theme-dropdown .menu-item.active .check{{opacity:1}}
 
-.toast{{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--card);backdrop-filter:blur(20px);border:1px solid var(--card-border);color:var(--text);border-radius:8px;padding:6px 14px;font-size:9px;opacity:0;transition:var(--transition);z-index:999;pointer-events:none;box-shadow:var(--shadow);display:flex;align-items:center;gap:4px}}
+.toast{{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(40px);background:var(--card);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid var(--card-border);color:var(--text);border-radius:8px;padding:6px 14px;font-size:9px;opacity:0;transition:var(--transition);z-index:999;pointer-events:none;box-shadow:var(--shadow);display:flex;align-items:center;gap:4px;max-width:90%}}
 .toast.show{{opacity:1;transform:translateX(-50%) translateY(0)}}
 .toast.ok{{border-color:rgba(16,185,129,0.15);color:var(--green-text)}}
 
-@media(max-width:400px){{.card{{padding:16px 12px;margin-top:70px}}.user-name{{font-size:17px}}.stats-card-grid{{gap:4px}}.stat-info-value{{font-size:13px}}.apps-grid{{grid-template-columns:repeat(4,1fr)}}.app-btn .app-icon{{font-size:16px}}}}
+@media(max-width:480px){{
+  .card{{padding:16px 12px;margin-top:70px}}
+  .user-name{{font-size:17px}}
+  .stats-card-grid{{gap:4px}}
+  .stat-info-value{{font-size:13px}}
+  .apps-grid{{grid-template-columns:repeat(4,1fr)}}
+  .app-btn .app-icon{{font-size:16px}}
+  .app-btn{{padding:4px 2px}}
+  .theme-dropdown .toggle-btn{{padding:8px 14px;font-size:11px}}
+  .theme-dropdown .menu-item{{font-size:11px;padding:6px 10px}}
+  .glow-orb1,.glow-orb2{{display:none}}
+  .particles .particle{{display:none}}
+  .particles .particle:nth-child(-n+8){{display:block}}
+}}
+@media(max-width:360px){{
+  .card{{padding:12px 8px;margin-top:60px}}
+  .user-name{{font-size:14px}}
+  .user-name .proto-badge{{font-size:7px;padding:1px 6px}}
+  .stat-info-value{{font-size:11px}}
+  .stat-info-card{{padding:6px 8px}}
+  .apps-grid{{gap:2px}}
+  .app-btn .app-icon{{font-size:13px}}
+}}
 </style>
 </head>
 <body>
@@ -1790,20 +2308,34 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
 <script>
 function createParticles() {{
     const container = document.getElementById('particles');
-    for (let i = 0; i < 20; i++) {{
+    const isMobile = window.innerWidth < 480;
+    const count = isMobile ? 8 : 20;
+    for (let i = 0; i < count; i++) {{
         const p = document.createElement('div');
         p.className = 'particle';
-        const s = 2 + Math.random() * 3;
+        const s = isMobile ? 2 : 2 + Math.random() * 3;
         p.style.width = s + 'px';
         p.style.height = s + 'px';
         p.style.left = Math.random() * 100 + '%';
         p.style.top = Math.random() * 100 + '%';
-        p.style.animationDuration = 15 + Math.random() * 25 + 's';
+        p.style.animationDuration = (isMobile ? 25 : 15) + Math.random() * (isMobile ? 20 : 25) + 's';
         p.style.animationDelay = Math.random() * 20 + 's';
         container.appendChild(p);
     }}
 }}
 createParticles();
+
+window.addEventListener('resize', () => {{
+    const isMobile = window.innerWidth < 480;
+    const particles = document.querySelectorAll('.particle');
+    particles.forEach((p, i) => {{
+        if (isMobile && i >= 8) {{
+            p.style.display = 'none';
+        }} else {{
+            p.style.display = 'block';
+        }}
+    }});
+}});
 
 const themeList = ['persepolis_gold','persepolis_dark','persepolis_royal','persepolis_fire','persepolis_star','persepolis_light','persepolis_ancient'];
 const themeNames = {{
