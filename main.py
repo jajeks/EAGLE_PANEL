@@ -27,7 +27,7 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
     handlers=[logging.StreamHandler()]
 )
-logger = logging.getLogger("Persepolis-Gateway")
+logger = logging.getLogger("Caspian Panel-Gateway")
 
 IRAN_TZ = ZoneInfo("Asia/Tehran")
 
@@ -39,10 +39,10 @@ CONFIG = {
 }
 
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "PERSEPOLIS"
+ADMIN_PASSWORD = "Caspian Panel 7"
 
 # ─── App ──────────────────────────────────────────────────────────────────────
-app = FastAPI(title="🏛️ Persepolis Gateway v14", docs_url=None, redoc_url=None)
+app = FastAPI(title="🏛️ Caspian Panel Gateway", docs_url=None, redoc_url=None)
 
 app.add_middleware(
     CORSMiddleware,
@@ -386,8 +386,8 @@ async def startup():
     http_client = httpx.AsyncClient(limits=limits, timeout=timeout, follow_redirects=True)
     await load_state()
     
-    log_activity("system", "🏛️ Persepolis Gateway v14 راه‌اندازی شد", "ok")
-    logger.info(f"🏛️ Persepolis Gateway v14 started on port {CONFIG['port']}")
+    log_activity("system", "🏛️ Caspian Panel 7 Gateway راه‌اندازی شد", "ok")
+    logger.info(f"🏛️ Caspian Panel 7 Gateway started on port {CONFIG['port']}")
 
 @app.on_event("shutdown")
 async def shutdown():
@@ -1607,7 +1607,7 @@ async def root():
     return HTMLResponse("""
     <!DOCTYPE html>
     <html>
-    <head><meta charset="UTF-8"><title>🏛️ Persepolis Gateway v14</title>
+    <head><meta charset="UTF-8"><title>🏛️ Caspian Panel 7 Gateway</title>
     <style>
     body{font-family:sans-serif;background:#0a0a1a;color:#F5ECD7;display:flex;align-items:center;justify-content:center;height:100vh;margin:0}
     .card{text-align:center;padding:40px;background:rgba(20,15,10,0.7);border-radius:20px;border:1px solid rgba(212,175,55,0.2)}
@@ -1619,7 +1619,7 @@ async def root():
     <body>
     <div class="card">
         <h1>🏛️</h1>
-        <h2>Persepolis Gateway v14</h2>
+        <h2>Caspian Panel 7 Gateway</h2>
         <p class="sub">پنل مدیریت فیلترشکن</p>
         <a href="/login">ورود به پنل →</a>
     </div>
