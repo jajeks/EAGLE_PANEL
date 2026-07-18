@@ -1,11 +1,11 @@
-# pages.py - پنل تخت جمشید با ساب‌لینک حرفه‌ای
+# pages.py - پنل کاسپین 7 با ساب‌لینک حرفه‌ای
 
 LOGIN_HTML = r"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🏛️ ورود · تخت جمشید</title>
+<title>🏛️ ورود · کاسپین پنل 7</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
@@ -82,7 +82,7 @@ body{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-item
 </div>
 <div class="container">
     <div class="login-section">
-        <div class="brand"><div class="brand-icon">🏛️</div><div><div class="brand-text">تخت جمشید</div><div class="brand-sub">مدیریت کاربران</div></div></div>
+        <div class="brand"><div class="brand-icon">🏛️</div><div><div class="brand-text">کاسپین پنل 7</div><div class="brand-sub">مدیریت کاربران</div></div></div>
         <div class="welcome" id="welcome-text">خوش آمدید</div>
         <div class="sub-text" id="sub-text">وارد پنل مدیریت شوید</div>
         <div class="error-box" id="error-box"><i class="ti ti-alert-circle"></i><span id="error-text"></span></div>
@@ -102,7 +102,7 @@ body{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-item
         <button class="connect-btn" onclick="quickConnect()"><i class="ti ti-plug"></i> <span id="connect-text">ورود با یک کلیک</span></button>
     </div>
     <div class="info-section">
-        <div class="info-title" id="info-title">🏛️ تخت جمشید</div>
+        <div class="info-title" id="info-title">🏛️ کاسپین پنل 7</div>
         <div class="info-sub" id="info-sub">سریع‌ترین و امن‌ترین اتصال</div>
         <div class="features">
             <div class="feature"><span class="icon">🔒</span><div class="name" id="f-secure">امن</div><div class="desc" id="f-secure-d">حریم خصوصی شما</div></div>
@@ -131,7 +131,7 @@ global:"جهانی",
 global_d:"سرورهای جهانی",
 anon:"ناشناس",
 anon_d:"خصوصی بمانید",
-info_title:"🏛️ تخت جمشید",
+info_title:"🏛️ کاسپین پنل 7",
 info_sub:"سریع‌ترین و امن‌ترین اتصال"
 },
 en:{
@@ -151,12 +151,12 @@ global:"Global",
 global_d:"Worldwide Servers",
 anon:"Anonymous",
 anon_d:"Stay Private",
-info_title:"🏛️ Persepolis Panel",
+info_title:"🏛️ Caspian Panel",
 info_sub:"Fastest & Most Secure Connection"
 }};
 let currentLang=localStorage.getItem('persepolis-lang')||'fa';
 const ADMIN_USERNAME="admin";
-const ADMIN_PASSWORD="PERSEPOLIS";
+const ADMIN_PASSWORD="Caspian Panel 7";
 
 function setLang(lang){currentLang=lang;localStorage.setItem('persepolis-lang',lang);document.querySelectorAll('.lang-toggle button').forEach(b=>b.classList.toggle('active',b.textContent.includes(lang==='fa'?'فارسی':'English')));updateTexts()}
 function updateTexts(){const t=translations[currentLang];document.getElementById('welcome-text').textContent=t.welcome;document.getElementById('sub-text').textContent=t.sub;document.getElementById('label-username').textContent=t.username;document.getElementById('label-password').textContent=t.password;document.getElementById('remember-text').textContent=t.remember;document.getElementById('login-text').textContent=t.login;document.getElementById('or-text').textContent=t.or;document.getElementById('connect-text').textContent=t.connect;document.getElementById('f-secure').textContent=t.secure;document.getElementById('f-secure-d').textContent=t.secure_d;document.getElementById('f-fast').textContent=t.fast;document.getElementById('f-fast-d').textContent=t.fast_d;document.getElementById('f-global').textContent=t.global;document.getElementById('f-global-d').textContent=t.global_d;document.getElementById('f-anon').textContent=t.anon;document.getElementById('f-anon-d').textContent=t.anon_d;document.getElementById('info-title').textContent=t.info_title;document.getElementById('info-sub').textContent=t.info_sub}
@@ -215,7 +215,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🏛️ تخت جمشید · خانه</title>
+<title>🏛️ کاسپین پنل 7 · خانه</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
@@ -594,13 +594,13 @@ body.light-theme .chart-section{background:rgba(255,255,255,0.8)}
 </div>
 
 <div class="mob-top">
-  <div class="ml"><div class="mob-logo">🏛️</div><span class="mob-title">تخت جمشید</span></div>
+  <div class="ml"><div class="mob-logo">🏛️</div><span class="mob-title">کاسپین پنل 7</span></div>
   <button class="menu-btn" id="open-sb"><i class="ti ti-menu-2"></i></button>
 </div>
 <div class="overlay" id="overlay"></div>
 
 <aside class="sidebar" id="sb">
-  <div class="logo"><div class="logo-icon">🏛️</div><div><div class="logo-name">تخت جمشید</div><div class="logo-sub">مدیریت کاربران</div></div></div>
+  <div class="logo"><div class="logo-icon">🏛️</div><div><div class="logo-name">کاسپین پنل 7</div><div class="logo-sub">مدیریت کاربران</div></div></div>
   <div class="nav-wrap">
     <div class="nav-it on" data-pg="dashboard"><i class="ti ti-layout-dashboard"></i> <span id="nav-home">خانه</span></div>
     <div class="nav-it" data-pg="users"><i class="ti ti-users"></i> <span id="nav-users">کاربران</span></div>
@@ -1727,7 +1727,7 @@ def get_sub_page_html(uuid: str, link: dict) -> str:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>🏛️ {label} · تخت جمشید</title>
+<title>🏛️ {label} · 7 کاسپین پنل</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.19.0/dist/tabler-icons.min.css">
@@ -1902,7 +1902,7 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
         <div class="brand">
             <div class="brand-icon">🏛️</div>
             <div>
-                <div class="brand-text">تخت جمشید</div>
+                <div class="brand-text">کاسپین پنل 7</div>
                 <div class="brand-sub">اشتراک ویژه</div>
             </div>
         </div>
@@ -2020,7 +2020,7 @@ body{{font-family:'Vazirmatn',sans-serif;min-height:100vh;display:flex;align-ite
     </div>
 
     <div class="footer">
-        <span class="brand-name">🏛️ تخت جمشید</span> · نسخه ۱۴ · {protocol_icon} {protocol_name}
+        <span class="brand-name">🏛️ کاسپین پنل 7</span> · نسخه ۱۴ · {protocol_icon} {protocol_name}
     </div>
 </div>
 
